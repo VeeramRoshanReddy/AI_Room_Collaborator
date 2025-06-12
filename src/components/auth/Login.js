@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { GoogleLogin } from '@react-oauth/google';
 import { motion } from 'framer-motion';
 import { FaGraduationCap } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 const LoginContainer = styled.div`
   min-height: 100vh;
@@ -74,26 +76,49 @@ const FeatureItem = styled.div`
 `;
 
 const Login = ({ onLogin, setUser }) => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if user is already logged in (you might want to implement this with a proper auth token)
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+      onLogin(true);
+      navigate('/dashboard');
+    }
+  }, [navigate, onLogin, setUser]);
+
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       // Here you would typically verify the token with your backend
-      // and get user information
+      // For now, we'll just store the user data locally
       const userData = {
-        // This is a placeholder - you'll get real data from your backend
-        name: 'User Name',
-        email: 'user@example.com',
-        picture: 'https://via.placeholder.com/150',
+        name: 'User Name', // This will be replaced with actual user data from Google
+        email: 'user@example.com', // This will be replaced with actual user data from Google
+        picture: 'https://via.placeholder.com/150', // This will be replaced with actual user data from Google
+        accessToken: credentialResponse.credential, // Store the access token
       };
+      
+      // Store user data in localStorage
+      localStorage.setItem('user', JSON.stringify(userData));
       
       setUser(userData);
       onLogin(true);
+      
+      // Show success message
+      toast.success('Successfully logged in!');
+      
+      // Redirect to dashboard
+      navigate('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
+      toast.error('Login failed. Please try again.');
     }
   };
 
   const handleGoogleError = () => {
     console.error('Google login failed');
+    toast.error('Google login failed. Please try again.');
   };
 
   return (
@@ -119,6 +144,8 @@ const Login = ({ onLogin, setUser }) => {
             text="continue_with"
             size="large"
             popup_type="full_screen"
+            flow="implicit"
+            context="signin"
           />
         </GoogleButtonContainer>
 
