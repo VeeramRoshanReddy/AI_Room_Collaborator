@@ -9,14 +9,17 @@ import 'react-toastify/dist/ReactToastify.css';
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
 import Login from './components/auth/Login';
+import Home from './components/personalwork/Home';
+import Rooms from './components/personalwork/Rooms';
+import PersonalWork from './components/personalwork/PersonalWork';
 
 // Theme configuration
 const theme = {
   colors: {
     primary: '#2563eb', // Modern blue
-    secondary: '#4f46e5', // Indigo
+    secondary: '#1d4ed8',
     accent: '#06b6d4', // Cyan
-    background: '#ffffff',
+    background: '#f3f6fd',
     surface: '#f8fafc',
     text: '#1e293b',
     textLight: '#64748b',
@@ -31,36 +34,35 @@ const theme = {
     large: '0 10px 20px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.10)',
   },
   transitions: {
-    default: '0.3s ease-in-out',
+    default: '0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   },
   borderRadius: {
-    small: '4px',
-    medium: '8px',
-    large: '12px',
+    small: '6px',
+    medium: '12px',
+    large: '18px',
   },
 };
 
 // Styled components
 const AppContainer = styled.div`
   min-height: 100vh;
-  background-color: ${props => props.theme.colors.background};
+  background: linear-gradient(135deg, #e0e7ef 0%, #f8fafc 100%), url('https://www.transparenttextures.com/patterns/cubes.png');
+  background-blend-mode: lighten;
   color: ${props => props.theme.colors.text};
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 `;
 
 const MainContent = styled.main`
   display: flex;
   min-height: calc(100vh - 64px);
-  margin-left: ${props => props.isSidebarOpen ? '240px' : '64px'};
+  margin-left: ${props => props.isSidebarOpen ? '220px' : '60px'};
   transition: margin-left ${props => props.theme.transitions.default};
-  padding: 24px;
-  background: ${props => props.theme.colors.background};
+  padding: 32px 32px 0 32px;
+  background: transparent;
 `;
 
 // Placeholder components (to be implemented)
 const Dashboard = () => <div>Dashboard Component</div>;
-const Rooms = () => <div>Rooms Component</div>;
-const PersonalWork = () => <div>Personal/Work Component</div>;
 const Settings = () => <div>Settings Component</div>;
 
 function App() {
@@ -101,7 +103,7 @@ function App() {
                 />
                 <MainContent isSidebarOpen={isSidebarOpen}>
                   <Routes>
-                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/dashboard" element={<Home />} />
                     <Route path="/rooms" element={<Rooms />} />
                     <Route path="/personal-work" element={<PersonalWork />} />
                     <Route path="/settings" element={<Settings />} />

@@ -6,19 +6,19 @@ import { FaBars, FaSignOutAlt, FaUserCircle } from 'react-icons/fa';
 
 const NavbarContainer = styled.nav`
   height: 64px;
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 32px;
-  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 1000;
-  border-radius: 0 0 24px 24px;
+  border-radius: 0 0 6px 6px;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
 `;
 
@@ -38,8 +38,8 @@ const ToggleButton = styled(motion.button)`
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
   transition: background 0.2s;
   &:hover {
     background: rgba(255,255,255,0.18);
@@ -75,9 +75,9 @@ const UserProfile = styled.div`
   gap: 12px;
   cursor: pointer;
   padding: 6px 16px;
-  border-radius: 18px;
+  border-radius: 12px;
   background: rgba(255,255,255,0.10);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
   transition: background 0.2s;
   &:hover {
     background: rgba(255,255,255,0.18);
@@ -108,8 +108,8 @@ const IconButton = styled(motion.button)`
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
   transition: background 0.2s;
   &:hover {
     background: rgba(255,255,255,0.18);

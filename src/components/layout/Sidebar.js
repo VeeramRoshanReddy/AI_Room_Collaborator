@@ -11,18 +11,18 @@ import {
 } from 'react-icons/fa';
 
 const SidebarContainer = styled(motion.div)`
-  background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
+  background: linear-gradient(180deg, #1d4ed8 0%, #2563eb 100%);
   height: calc(100vh - 64px);
   position: fixed;
   top: 64px;
   left: 0;
   width: ${props => props.isOpen ? '220px' : '60px'};
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
   z-index: 900;
   display: flex;
   flex-direction: column;
-  border-radius: 0 24px 24px 0;
+  border-radius: 0 6px 6px 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
 `;
 
@@ -30,7 +30,7 @@ const ToggleButton = styled(motion.button)`
   position: absolute;
   right: -14px;
   top: 24px;
-  background: #60a5fa;
+  background: #2563eb;
   color: white;
   border: none;
   width: 28px;
@@ -40,9 +40,9 @@ const ToggleButton = styled(motion.button)`
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
   &:hover {
-    background: #3b82f6;
+    background: #1d4ed8;
   }
 `;
 
@@ -61,7 +61,7 @@ const NavItem = styled(motion.div)`
   color: ${props => props.isActive ? '#fff' : 'rgba(255,255,255,0.85)'};
   cursor: pointer;
   position: relative;
-  border-radius: 16px;
+  border-radius: 12px;
   margin: 0 8px;
   font-weight: 500;
   font-size: 16px;
@@ -99,7 +99,7 @@ const UserInfo = styled.div`
   align-items: center;
   gap: 14px;
   padding: 12px 18px;
-  border-radius: 16px;
+  border-radius: 12px;
   background: rgba(255,255,255,0.10);
   margin: 0 12px;
   margin-bottom: 10px;
@@ -113,7 +113,7 @@ const UserAvatar = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #3b82f6;
+  color: #2563eb;
   font-weight: 700;
   font-size: 18px;
 `;
