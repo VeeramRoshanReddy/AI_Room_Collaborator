@@ -46,20 +46,26 @@ const theme = {
 // Styled components
 const AppContainer = styled.div`
   min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   background: linear-gradient(135deg, #e0e7ef 0%, #f8fafc 100%), url('https://www.transparenttextures.com/patterns/cubes.png');
   background-blend-mode: lighten;
   color: ${props => props.theme.colors.text};
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  overflow: hidden;
 `;
 
 const MainContent = styled.main`
   display: flex;
-  min-height: calc(100vh - 64px);
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  min-height: 0;
   margin-left: ${props => props.isSidebarOpen ? '220px' : '60px'};
   margin-top: 64px;
   transition: margin-left ${props => props.theme.transitions.default};
-  padding: 32px 32px 0 32px;
+  padding: 0;
   background: transparent;
+  overflow: hidden;
 `;
 
 // Placeholder components (to be implemented)

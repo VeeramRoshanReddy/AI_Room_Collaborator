@@ -3,8 +3,8 @@ import styled from 'styled-components';
 import { FaPlus, FaSignInAlt, FaUsers, FaClock, FaArrowLeft, FaCommentDots } from 'react-icons/fa';
 
 const NoScrollWrapper = styled.div`
-  height: 100vh;
-  width: 100vw;
+  height: 100%;
+  width: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -17,6 +17,8 @@ const CenteredContent = styled.div`
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  height: 100%;
+  min-height: 0;
 `;
 
 const TwoColumn = styled.div`

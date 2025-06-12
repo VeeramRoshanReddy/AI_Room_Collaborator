@@ -6,8 +6,10 @@ import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownlo
 const Container = styled.div`
   display: flex;
   gap: 32px;
-  height: calc(100vh - 64px);
+  height: 100%;
+  min-height: 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
+  overflow: hidden;
 `;
 
 const ChatSection = styled.div`
@@ -19,6 +21,7 @@ const ChatSection = styled.div`
   box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
   overflow: hidden;
   min-width: 0;
+  height: 100%;
 `;
 
 const RightSection = styled.div`
@@ -27,6 +30,7 @@ const RightSection = styled.div`
   flex-direction: column;
   gap: 32px;
   min-width: 0;
+  height: 100%;
 `;
 
 const AudioSection = styled.div`
@@ -34,11 +38,12 @@ const AudioSection = styled.div`
   background: #f8fafc;
   border-radius: 24px;
   box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
-  padding: 24px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-height: 0;
+  height: 30%;
 `;
 
 const QuizSection = styled.div`
@@ -46,11 +51,12 @@ const QuizSection = styled.div`
   background: #f8fafc;
   border-radius: 24px;
   box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
-  padding: 24px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-height: 0;
+  height: 70%;
 `;
 
 const UploadArea = styled.div`
