@@ -6,121 +6,116 @@ import {
   FaHome,
   FaUsers,
   FaBook,
-  FaCog,
   FaChevronLeft,
   FaChevronRight
 } from 'react-icons/fa';
 
 const SidebarContainer = styled(motion.div)`
-  background: ${props => props.theme.colors.surface};
+  background: linear-gradient(180deg, #3b82f6 0%, #60a5fa 100%);
   height: calc(100vh - 64px);
   position: fixed;
   top: 64px;
   left: 0;
-  width: ${props => props.isOpen ? '240px' : '64px'};
-  transition: width ${props => props.theme.transitions.default};
-  box-shadow: ${props => props.theme.shadows.medium};
+  width: ${props => props.isOpen ? '220px' : '60px'};
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
   z-index: 900;
   display: flex;
   flex-direction: column;
+  border-radius: 0 24px 24px 0;
+  font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
 `;
 
 const ToggleButton = styled(motion.button)`
   position: absolute;
-  right: -12px;
-  top: 20px;
-  background: ${props => props.theme.colors.primary};
+  right: -14px;
+  top: 24px;
+  background: #60a5fa;
   color: white;
   border: none;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: ${props => props.theme.shadows.small};
-  
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
   &:hover {
-    background: ${props => props.theme.colors.secondary};
+    background: #3b82f6;
   }
 `;
 
 const NavSection = styled.div`
-  padding: 24px 0;
+  padding: 32px 0 0 0;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 `;
 
 const NavItem = styled(motion.div)`
   display: flex;
   align-items: center;
-  padding: 12px ${props => props.isOpen ? '24px' : '20px'};
-  color: ${props => props.isActive ? props.theme.colors.primary : props.theme.colors.text};
+  padding: 14px ${props => props.isOpen ? '28px' : '18px'};
+  color: ${props => props.isActive ? '#fff' : 'rgba(255,255,255,0.85)'};
   cursor: pointer;
   position: relative;
-  transition: all ${props => props.theme.transitions.default};
-  
+  border-radius: 16px;
+  margin: 0 8px;
+  font-weight: 500;
+  font-size: 16px;
+  background: ${props => props.isActive ? 'rgba(255,255,255,0.10)' : 'transparent'};
+  transition: all 0.2s;
   &:hover {
-    background: rgba(37, 99, 235, 0.1);
-    color: ${props => props.theme.colors.primary};
-  }
-  
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: ${props => props.isActive ? props.theme.colors.primary : 'transparent'};
-    transition: background ${props => props.theme.transitions.default};
+    background: rgba(255,255,255,0.12);
+    color: #fff;
   }
 `;
 
 const NavIcon = styled.div`
-  font-size: 20px;
-  min-width: 24px;
+  font-size: 22px;
+  min-width: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
 `;
 
 const NavLabel = styled(motion.span)`
-  margin-left: 12px;
-  font-size: 14px;
-  font-weight: 500;
+  margin-left: 14px;
+  font-size: 15px;
+  font-weight: 600;
   white-space: nowrap;
   opacity: ${props => props.isOpen ? 1 : 0};
 `;
 
 const BottomSection = styled.div`
-  padding: 16px;
-  border-top: 1px solid ${props => props.theme.colors.border};
+  padding: 18px 0 18px 0;
+  border-top: 1px solid rgba(255,255,255,0.10);
 `;
 
 const UserInfo = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: ${props => props.theme.borderRadius.medium};
-  background: rgba(37, 99, 235, 0.05);
-  margin-bottom: 16px;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.10);
+  margin: 0 12px;
+  margin-bottom: 10px;
 `;
 
 const UserAvatar = styled.div`
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: ${props => props.theme.colors.primary};
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: 600;
+  color: #3b82f6;
+  font-weight: 700;
+  font-size: 18px;
 `;
 
 const UserDetails = styled.div`
@@ -129,35 +124,33 @@ const UserDetails = styled.div`
 `;
 
 const UserName = styled.div`
-  font-size: 14px;
-  font-weight: 600;
-  color: ${props => props.theme.colors.text};
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 `;
 
 const UserRole = styled.div`
-  font-size: 12px;
-  color: ${props => props.theme.colors.textLight};
+  font-size: 13px;
+  color: #e0e7ef;
 `;
 
 const navItems = [
-  { icon: <FaHome />, label: 'Dashboard', path: '/dashboard' },
+  { icon: <FaHome />, label: 'Home', path: '/dashboard' },
   { icon: <FaUsers />, label: 'Rooms', path: '/rooms' },
   { icon: <FaBook />, label: 'Personal Work', path: '/personal-work' },
-  { icon: <FaCog />, label: 'Settings', path: '/settings' },
 ];
 
 const Sidebar = ({ isOpen, onToggle }) => {
   const navigate = useNavigate();
   const location = useLocation();
-
   return (
     <SidebarContainer
       isOpen={isOpen}
       initial={false}
-      animate={{ width: isOpen ? 240 : 64 }}
+      animate={{ width: isOpen ? 220 : 60 }}
     >
       <ToggleButton
         onClick={onToggle}
@@ -165,7 +158,6 @@ const Sidebar = ({ isOpen, onToggle }) => {
       >
         {isOpen ? <FaChevronLeft /> : <FaChevronRight />}
       </ToggleButton>
-
       <NavSection>
         {navItems.map((item) => (
           <NavItem
@@ -192,10 +184,9 @@ const Sidebar = ({ isOpen, onToggle }) => {
           </NavItem>
         ))}
       </NavSection>
-
       <BottomSection>
         <UserInfo>
-          <UserAvatar>VR</UserAvatar>
+          <UserAvatar>RV</UserAvatar>
           <AnimatePresence>
             {isOpen && (
               <UserDetails
@@ -204,7 +195,7 @@ const Sidebar = ({ isOpen, onToggle }) => {
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <UserName>Veeram Roshan</UserName>
+                <UserName>Roshan Veeram</UserName>
                 <UserRole>Student</UserRole>
               </UserDetails>
             )}

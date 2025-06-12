@@ -1,0 +1,438 @@
+import React, { useState, useRef, useEffect } from 'react';
+import styled from 'styled-components';
+import { useDropzone } from 'react-dropzone';
+import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle } from 'react-icons/fa';
+
+const Container = styled.div`
+  display: flex;
+  gap: 32px;
+  height: calc(100vh - 64px);
+  font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
+`;
+
+const ChatSection = styled.div`
+  flex: 0 0 65%;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
+  overflow: hidden;
+  min-width: 0;
+`;
+
+const RightSection = styled.div`
+  flex: 0 0 35%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-width: 0;
+`;
+
+const AudioSection = styled.div`
+  flex: 1;
+  background: #f8fafc;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+`;
+
+const QuizSection = styled.div`
+  flex: 1;
+  background: #f8fafc;
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+`;
+
+const UploadArea = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  border: 2px dashed #60a5fa;
+  border-radius: 24px;
+  background: #e0e7ef;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  &:hover {
+    border-color: #3b82f6;
+    background: #f1f5fd;
+  }
+`;
+
+const ChatArea = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  overflow-y: auto;
+  background: #f8fafc;
+`;
+
+const ChatInput = styled.div`
+  padding: 24px;
+  border-top: 1px solid #e0e7ef;
+  display: flex;
+  gap: 16px;
+  background: #f8fafc;
+`;
+
+const Input = styled.input`
+  flex: 1;
+  padding: 14px 18px;
+  border: 1.5px solid #60a5fa;
+  border-radius: 16px;
+  font-size: 15px;
+  background: #fff;
+  &:focus {
+    outline: none;
+    border-color: #3b82f6;
+  }
+`;
+
+const Button = styled.button`
+  padding: 12px 24px;
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  transition: background 0.2s;
+  &:disabled {
+    background: #e0e7ef;
+    color: #b6c2d6;
+    cursor: not-allowed;
+  }
+`;
+
+const Message = styled.div`
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px;
+  align-items: flex-end;
+  flex-direction: ${props => props.isUser ? 'row-reverse' : 'row'};
+`;
+
+const MessageContent = styled.div`
+  max-width: 70%;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : '#e0e7ef'};
+  color: ${props => props.isUser ? 'white' : '#1e293b'};
+  font-size: 15px;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+`;
+
+const Avatar = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : '#e0e7ef'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${props => props.isUser ? 'white' : '#3b82f6'};
+  font-size: 20px;
+`;
+
+const DocumentStatus = styled.div`
+  padding: 16px 24px;
+  background: #e0e7ef;
+  border-bottom: 1px solid #e0e7ef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const StatusText = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #1e293b;
+  font-size: 15px;
+`;
+
+const ActionButtons = styled.div`
+  display: flex;
+  gap: 10px;
+`;
+
+const QuizQuestion = styled.div`
+  margin-bottom: 20px;
+  padding: 20px;
+  background: #e0e7ef;
+  border-radius: 16px;
+`;
+
+const QuestionText = styled.div`
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+`;
+
+const Options = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const Option = styled.button`
+  padding: 12px 16px;
+  border: 1.5px solid #60a5fa;
+  border-radius: 14px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.2s;
+  &.correct {
+    background: #d1fae5;
+    border-color: #22c55e;
+    color: #15803d;
+  }
+  &.incorrect {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #b91c1c;
+  }
+`;
+
+const Score = styled.div`
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #3b82f6;
+  margin: 20px 0 0 0;
+`;
+
+const PersonalWork = () => {
+  const [document, setDocument] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [currentQuiz, setCurrentQuiz] = useState(null);
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const chatAreaRef = useRef(null);
+
+  const { getRootProps, getInputProps } = useDropzone({
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+    },
+    maxFiles: 1,
+    onDrop: acceptedFiles => {
+      const file = acceptedFiles[0];
+      setDocument(file);
+      setMessages([{
+        id: 1,
+        text: `Here's a summary of "${file.name}":\n\nThis document covers key concepts and provides detailed explanations. Would you like to know more about any specific aspect?`,
+        isUser: false
+      }]);
+    }
+  });
+
+  useEffect(() => {
+    if (chatAreaRef.current) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSendMessage = () => {
+    if (!inputMessage.trim() || !document) return;
+    const newMessage = {
+      id: messages.length + 1,
+      text: inputMessage,
+      isUser: true
+    };
+    setMessages(prev => [...prev, newMessage]);
+    setInputMessage('');
+    setTimeout(() => {
+      const aiResponse = {
+        id: messages.length + 2,
+        text: "I'm analyzing your question about the document. Here is a detailed response...",
+        isUser: false
+      };
+      setMessages(prev => [...prev, aiResponse]);
+    }, 1000);
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
+  };
+
+  const handleRemoveDocument = () => {
+    setDocument(null);
+    setMessages([]);
+    setCurrentQuiz(null);
+    setQuizScore(0);
+    setQuizIndex(0);
+  };
+
+  const handleGenerateAudio = () => {
+    setIsGeneratingAudio(true);
+    setTimeout(() => {
+      setIsGeneratingAudio(false);
+      alert('Audio overview generated! (Simulated)');
+    }, 2000);
+  };
+
+  const handleGenerateQuiz = () => {
+    setIsGeneratingQuiz(true);
+    setTimeout(() => {
+      setCurrentQuiz({
+        question: "What is the main topic discussed in the document?",
+        options: [
+          "Machine Learning",
+          "Artificial Intelligence",
+          "Deep Learning",
+          "Neural Networks"
+        ],
+        correctAnswer: 1
+      });
+      setIsGeneratingQuiz(false);
+      setQuizIndex(1);
+      setQuizScore(0);
+    }, 1000);
+  };
+
+  const handleAnswerQuiz = (selectedIndex) => {
+    if (!currentQuiz) return;
+    const isCorrect = selectedIndex === currentQuiz.correctAnswer;
+    setQuizScore(prev => prev + (isCorrect ? 1 : 0));
+    // Show feedback for 1.5s, then next question or finish
+    setTimeout(() => {
+      if (quizIndex < 10) {
+        setCurrentQuiz({
+          question: `Sample Question ${quizIndex + 1}?`,
+          options: [
+            "Option 1",
+            "Option 2",
+            "Option 3",
+            "Option 4"
+          ],
+          correctAnswer: Math.floor(Math.random() * 4)
+        });
+        setQuizIndex(prev => prev + 1);
+      } else {
+        setCurrentQuiz(null);
+        alert(`Quiz completed! Your score: ${quizScore + (isCorrect ? 1 : 0)}/10`);
+      }
+    }, 1500);
+  };
+
+  return (
+    <Container>
+      <ChatSection>
+        {document ? (
+          <>
+            <DocumentStatus>
+              <StatusText>
+                <FaFileUpload />
+                {document.name}
+              </StatusText>
+              <ActionButtons>
+                <Button onClick={handleClearChat} title="Clear Chat"><FaBroom /></Button>
+                <Button onClick={handleRemoveDocument} title="Remove Document"><FaTrash /></Button>
+              </ActionButtons>
+            </DocumentStatus>
+            <ChatArea ref={chatAreaRef}>
+              {messages.map(message => (
+                <Message key={message.id} isUser={message.isUser}>
+                  <Avatar isUser={message.isUser}>
+                    {message.isUser ? <FaUserCircle /> : <FaRobot />}
+                  </Avatar>
+                  <MessageContent isUser={message.isUser}>{message.text}</MessageContent>
+                </Message>
+              ))}
+            </ChatArea>
+            <ChatInput>
+              <Input
+                value={inputMessage}
+                onChange={e => setInputMessage(e.target.value)}
+                placeholder="Ask a question about the document..."
+                disabled={!document}
+                onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+              />
+              <Button onClick={handleSendMessage} disabled={!document || !inputMessage.trim()}>Send</Button>
+            </ChatInput>
+          </>
+        ) : (
+          <UploadArea {...getRootProps()}>
+            <input {...getInputProps()} />
+            <FaFileUpload size={48} color="#3b82f6" />
+            <h3 style={{margin: '16px 0 8px 0', color: '#3b82f6'}}>Upload a PDF or DOC file to start</h3>
+            <p style={{color: '#64748b'}}>Drag and drop a file here, or click to select</p>
+          </UploadArea>
+        )}
+      </ChatSection>
+      <RightSection>
+        <AudioSection>
+          <h3 style={{marginBottom: 8, color: '#3b82f6'}}>Audio Overview</h3>
+          <p style={{marginBottom: 16, color: '#64748b'}}>Generate a detailed audio explanation of the document</p>
+          <Button
+            onClick={handleGenerateAudio}
+            disabled={!document || isGeneratingAudio}
+          >
+            {isGeneratingAudio ? 'Generating...' : (<><FaPlay /> Generate Audio Overview</>)}
+          </Button>
+          {document && (
+            <Button
+              onClick={() => alert('Audio download started (simulated)')}
+              style={{ marginTop: '12px' }}
+            >
+              <FaDownload /> Download Audio
+            </Button>
+          )}
+        </AudioSection>
+        <QuizSection>
+          <h3 style={{marginBottom: 8, color: '#3b82f6'}}>Quiz Generator</h3>
+          <p style={{marginBottom: 16, color: '#64748b'}}>Test your understanding with AI-generated questions</p>
+          <Button
+            onClick={handleGenerateQuiz}
+            disabled={!document || isGeneratingQuiz}
+          >
+            {isGeneratingQuiz ? 'Generating...' : (<><FaQuestionCircle /> Generate Quiz</>)}
+          </Button>
+          {currentQuiz && (
+            <QuizQuestion>
+              <QuestionText>{currentQuiz.question}</QuestionText>
+              <Options>
+                {currentQuiz.options.map((option, index) => (
+                  <Option
+                    key={index}
+                    className={index === currentQuiz.correctAnswer ? 'correct' : ''}
+                    onClick={() => handleAnswerQuiz(index)}
+                  >
+                    {option}
+                  </Option>
+                ))}
+              </Options>
+              <Score>Score: {quizScore}/10</Score>
+            </QuizQuestion>
+          )}
+        </QuizSection>
+      </RightSection>
+    </Container>
+  );
+};
+
+export default PersonalWork; 
