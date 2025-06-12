@@ -2,18 +2,52 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FaPlus, FaSignInAlt, FaUsers, FaClock, FaArrowLeft, FaCommentDots } from 'react-icons/fa';
 
-// Layout wrappers
-const FullHeightFlex = styled.div`
+const NoScrollWrapper = styled.div`
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
   display: flex;
-  height: calc(100vh - 64px - 64px); /* minus navbar and main padding */
-  min-height: 0;
+  flex-direction: column;
+`;
+
+const CenteredContent = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+`;
+
+const TwoColumn = styled.div`
+  display: flex;
+  height: 100%;
   width: 100%;
+  min-height: 0;
+  min-width: 0;
+`;
+
+const MainArea = styled.div`
+  flex: 0 0 80%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: #f8fafc;
+  border-radius: 14px 0 0 14px;
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+  margin-right: 0;
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
+  position: relative;
 `;
 
 const MemberList = styled.div`
   flex: 0 0 20%;
   background: #f1f5fd;
-  border-radius: 18px 0 0 18px;
+  border-radius: 0 14px 14px 0;
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.06);
   padding: 24px 12px;
   display: flex;
@@ -21,7 +55,8 @@ const MemberList = styled.div`
   align-items: flex-start;
   min-width: 120px;
   max-width: 220px;
-  overflow-y: auto;
+  height: 100%;
+  margin: 0;
 `;
 
 const MemberTitle = styled.div`
@@ -39,14 +74,6 @@ const MemberName = styled.div`
   gap: 8px;
 `;
 
-const MainArea = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-`;
-
 const SectionTitle = styled.h2`
   font-size: 2rem;
   font-weight: 700;
@@ -60,11 +87,12 @@ const RoomList = styled.div`
   gap: 32px;
   flex-wrap: wrap;
   margin-bottom: 32px;
+  justify-content: center;
 `;
 
 const RoomBox = styled.div`
   background: #fff;
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
   padding: 28px 24px;
   min-width: 220px;
@@ -78,13 +106,6 @@ const RoomBox = styled.div`
   }
 `;
 
-const RoomName = styled.div`
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 6px;
-`;
-
 const RoomMeta = styled.div`
   font-size: 0.95rem;
   color: #64748b;
@@ -94,6 +115,7 @@ const RoomMeta = styled.div`
 const RoomActions = styled.div`
   display: flex;
   gap: 10px;
+  justify-content: center;
 `;
 
 const ActionButton = styled.button`
@@ -120,11 +142,12 @@ const TopicList = styled.div`
   gap: 24px;
   flex-wrap: wrap;
   margin-bottom: 32px;
+  justify-content: center;
 `;
 
 const TopicBox = styled.div`
   background: #fff;
-  border-radius: 14px;
+  border-radius: 10px;
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
   padding: 22px 20px;
   min-width: 200px;
@@ -156,12 +179,13 @@ const ChatArea = styled.div`
   display: flex;
   flex-direction: column;
   background: #f8fafc;
-  border-radius: 14px;
+  border-radius: 10px;
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
   padding: 20px;
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
+  position: relative;
 `;
 
 const ChatMessages = styled.div`
@@ -180,7 +204,7 @@ const Input = styled.input`
   flex: 1;
   padding: 12px 16px;
   border: 1.5px solid #60a5fa;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 15px;
   background: #fff;
 `;
@@ -196,7 +220,7 @@ const Message = styled.div`
 const MessageContent = styled.div`
   max-width: 70%;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : '#e0e7ef'};
   color: ${props => props.isUser ? 'white' : '#1e293b'};
   font-size: 15px;
@@ -220,12 +244,15 @@ const BackButton = styled.button`
   background: none;
   border: none;
   color: #2563eb;
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 18px;
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
   cursor: pointer;
 `;
 
@@ -241,7 +268,7 @@ const FormOverlay = styled.div`
 
 const FormBox = styled.div`
   background: #fff;
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.18);
   padding: 32px 28px;
   min-width: 320px;
@@ -261,7 +288,7 @@ const FormInput = styled.input`
   width: 100%;
   padding: 10px 14px;
   border: 1.5px solid #60a5fa;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 15px;
   margin-bottom: 16px;
 `;
@@ -271,7 +298,7 @@ const FormButton = styled.button`
   background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
@@ -374,91 +401,97 @@ const Rooms = () => {
   // Main render
   if (view === 'chat') {
     return (
-      <FullHeightFlex>
-        <MemberList>
-          <MemberTitle>Members</MemberTitle>
-          {memberList.map(name => <MemberName key={name}><FaUsers /> {name}</MemberName>)}
-        </MemberList>
-        <MainArea>
-          <BackButton onClick={handleBackToTopics}><FaArrowLeft /> Back to Topics</BackButton>
-          <SectionTitle>{selectedTopic.title}</SectionTitle>
-          <ChatArea>
-            <ChatMessages>
-              {chatMessages.map(msg => (
-                <Message key={msg.id} isUser={msg.isUser}>
-                  <Avatar isUser={msg.isUser}>{msg.isUser ? 'U' : <FaCommentDots />}</Avatar>
-                  <MessageContent isUser={msg.isUser}>{msg.text}</MessageContent>
-                </Message>
-              ))}
-            </ChatMessages>
-            <ChatInput>
-              <Input
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                placeholder="Type a message..."
-                onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-              />
-              <ActionButton onClick={handleSendChat}>Send</ActionButton>
-            </ChatInput>
-          </ChatArea>
-        </MainArea>
-      </FullHeightFlex>
+      <NoScrollWrapper>
+        <TwoColumn>
+          <MainArea>
+            <BackButton onClick={handleBackToTopics}><FaArrowLeft /></BackButton>
+            <SectionTitle style={{textAlign:'center',marginTop:32}}>{selectedTopic.title}</SectionTitle>
+            <ChatArea style={{margin:'32px auto 0 auto',width:'90%',height:'80%'}}>
+              <ChatMessages>
+                {chatMessages.map(msg => (
+                  <Message key={msg.id} isUser={msg.isUser}>
+                    <Avatar isUser={msg.isUser}>{msg.isUser ? 'U' : <FaCommentDots />}</Avatar>
+                    <MessageContent isUser={msg.isUser}>{msg.text}</MessageContent>
+                  </Message>
+                ))}
+              </ChatMessages>
+              <ChatInput>
+                <Input
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                />
+                <ActionButton onClick={handleSendChat}>Send</ActionButton>
+              </ChatInput>
+            </ChatArea>
+          </MainArea>
+          <MemberList>
+            <MemberTitle>Members</MemberTitle>
+            {memberList.map(name => <MemberName key={name}><FaUsers /> {name}</MemberName>)}
+          </MemberList>
+        </TwoColumn>
+      </NoScrollWrapper>
     );
   }
   if (view === 'topics') {
     return (
-      <FullHeightFlex>
-        <MemberList>
-          <MemberTitle>Members</MemberTitle>
-          {memberList.map(name => <MemberName key={name}><FaUsers /> {name}</MemberName>)}
-        </MemberList>
-        <MainArea>
-          <BackButton onClick={handleBackToRooms}><FaArrowLeft /> Back to Rooms</BackButton>
-          <SectionTitle>Topics in {selectedRoom.name}</SectionTitle>
-          <TopicList>
-            {selectedRoom.topics.map(topic => (
-              <TopicBox key={topic.title} onClick={() => handleTopicClick(topic)}>
-                <TopicTitle>{topic.title}</TopicTitle>
-                <TopicMeta>{topic.description}</TopicMeta>
-                <TopicMeta>Created by {topic.createdBy} on {topic.date}</TopicMeta>
-              </TopicBox>
-            ))}
-          </TopicList>
-        </MainArea>
-      </FullHeightFlex>
+      <NoScrollWrapper>
+        <TwoColumn>
+          <MainArea>
+            <BackButton onClick={handleBackToRooms}><FaArrowLeft /></BackButton>
+            <SectionTitle style={{textAlign:'center',marginTop:32}}>Topics in {selectedRoom.name}</SectionTitle>
+            <TopicList style={{margin:'32px auto 0 auto',width:'90%'}}>
+              {selectedRoom.topics.map(topic => (
+                <TopicBox key={topic.title} onClick={() => handleTopicClick(topic)}>
+                  <TopicTitle>{topic.title}</TopicTitle>
+                  <TopicMeta>{topic.description}</TopicMeta>
+                  <TopicMeta>Created by {topic.createdBy} on {topic.date}</TopicMeta>
+                </TopicBox>
+              ))}
+            </TopicList>
+          </MainArea>
+          <MemberList>
+            <MemberTitle>Members</MemberTitle>
+            {memberList.map(name => <MemberName key={name}><FaUsers /> {name}</MemberName>)}
+          </MemberList>
+        </TwoColumn>
+      </NoScrollWrapper>
     );
   }
   // Default: rooms list
   return (
-    <div style={{height: '100%', minHeight: 0, width: '100%'}}>
-      <SectionTitle>Joined Rooms</SectionTitle>
-      <RoomList>
-        {rooms.map(room => (
-          <RoomBox key={room.id}>
-            <RoomName><FaUsers style={{marginRight: 8}} />{room.name}</RoomName>
-            <RoomMeta>ID: {room.id}</RoomMeta>
-            <RoomMeta>Members: {room.members.length}</RoomMeta>
-            <RoomActions>
-              <ActionButton onClick={() => handleEnterRoom(room)}><FaSignInAlt /> Enter Room</ActionButton>
-            </RoomActions>
-          </RoomBox>
-        ))}
-      </RoomList>
-      <SectionTitle>Pending Rooms</SectionTitle>
-      <RoomList>
-        {pending.map(room => (
-          <RoomBox key={room.id}>
-            <RoomName><FaClock style={{marginRight: 8}} />{room.name}</RoomName>
-            <RoomMeta>ID: {room.id}</RoomMeta>
-            <RoomMeta>Status: Pending Approval</RoomMeta>
-          </RoomBox>
-        ))}
-      </RoomList>
-      <SectionTitle>Actions</SectionTitle>
-      <RoomActions>
-        <ActionButton onClick={() => setShowCreate(true)}><FaPlus /> Create New Room</ActionButton>
-        <ActionButton onClick={() => setShowJoin(true)}><FaSignInAlt /> Join a Room</ActionButton>
-      </RoomActions>
+    <NoScrollWrapper>
+      <CenteredContent>
+        <SectionTitle>Joined Rooms</SectionTitle>
+        <RoomList>
+          {rooms.map(room => (
+            <RoomBox key={room.id}>
+              <div style={{fontWeight:700,marginBottom:6}}><FaUsers style={{marginRight: 8}} />{room.name}</div>
+              <RoomMeta>ID: {room.id}</RoomMeta>
+              <RoomMeta>Members: {room.members.length}</RoomMeta>
+              <RoomActions>
+                <ActionButton onClick={() => handleEnterRoom(room)}><FaSignInAlt /> Enter Room</ActionButton>
+              </RoomActions>
+            </RoomBox>
+          ))}
+        </RoomList>
+        <SectionTitle>Pending Rooms</SectionTitle>
+        <RoomList>
+          {pending.map(room => (
+            <RoomBox key={room.id}>
+              <div style={{fontWeight:700,marginBottom:6}}><FaClock style={{marginRight: 8}} />{room.name}</div>
+              <RoomMeta>ID: {room.id}</RoomMeta>
+              <RoomMeta>Status: Pending Approval</RoomMeta>
+            </RoomBox>
+          ))}
+        </RoomList>
+        <SectionTitle>Actions</SectionTitle>
+        <RoomActions>
+          <ActionButton onClick={() => setShowCreate(true)}><FaPlus /> Create New Room</ActionButton>
+          <ActionButton onClick={() => setShowJoin(true)}><FaSignInAlt /> Join a Room</ActionButton>
+        </RoomActions>
+      </CenteredContent>
       {showCreate && (
         <FormOverlay>
           <FormBox>
@@ -494,7 +527,7 @@ const Rooms = () => {
           </FormBox>
         </FormOverlay>
       )}
-    </div>
+    </NoScrollWrapper>
   );
 };
 
