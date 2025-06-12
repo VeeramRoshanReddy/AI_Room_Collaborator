@@ -56,6 +56,7 @@ const MainContent = styled.main`
   display: flex;
   min-height: calc(100vh - 64px);
   margin-left: ${props => props.isSidebarOpen ? '220px' : '60px'};
+  margin-top: 64px;
   transition: margin-left ${props => props.theme.transitions.default};
   padding: 32px 32px 0 32px;
   background: transparent;

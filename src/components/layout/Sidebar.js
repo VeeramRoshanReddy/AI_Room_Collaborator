@@ -11,7 +11,7 @@ import {
 } from 'react-icons/fa';
 
 const SidebarContainer = styled(motion.div)`
-  background: linear-gradient(180deg, #1d4ed8 0%, #2563eb 100%);
+  background: linear-gradient(180deg, rgba(29,78,216,0.9) 0%, rgba(37,99,235,0.9) 100%, #fff 10%);
   height: calc(100vh - 64px);
   position: fixed;
   top: 64px;
@@ -22,7 +22,7 @@ const SidebarContainer = styled(motion.div)`
   z-index: 900;
   display: flex;
   flex-direction: column;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 0 24px 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
 `;
 

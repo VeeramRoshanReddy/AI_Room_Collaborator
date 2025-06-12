@@ -6,7 +6,7 @@ import { FaBars, FaSignOutAlt, FaUserCircle } from 'react-icons/fa';
 
 const NavbarContainer = styled.nav`
   height: 64px;
-  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
+  background: linear-gradient(90deg, rgba(29,78,216,0.9) 0%, rgba(37,99,235,0.9) 100%, #fff 10%);
   color: white;
   display: flex;
   align-items: center;
@@ -18,7 +18,7 @@ const NavbarContainer = styled.nav`
   left: 0;
   right: 0;
   z-index: 1000;
-  border-radius: 0 0 6px 6px;
+  border-radius: 0 0 24px 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
 `;
 

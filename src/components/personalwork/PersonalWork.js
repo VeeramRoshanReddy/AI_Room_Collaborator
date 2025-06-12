@@ -30,7 +30,7 @@ const RightSection = styled.div`
 `;
 
 const AudioSection = styled.div`
-  flex: 1;
+  flex: 0 0 30%;
   background: #f8fafc;
   border-radius: 24px;
   box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
@@ -38,10 +38,11 @@ const AudioSection = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-height: 0;
 `;
 
 const QuizSection = styled.div`
-  flex: 1;
+  flex: 0 0 70%;
   background: #f8fafc;
   border-radius: 24px;
   box-shadow: 0 4px 24px rgba(59, 130, 246, 0.08);
@@ -49,6 +50,7 @@ const QuizSection = styled.div`
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-height: 0;
 `;
 
 const UploadArea = styled.div`
@@ -63,6 +65,9 @@ const UploadArea = styled.div`
   background: #e0e7ef;
   cursor: pointer;
   transition: all 0.2s ease;
+  width: 90%;
+  margin: 0 auto;
+  max-width: 700px;
   &:hover {
     border-color: #3b82f6;
     background: #f1f5fd;
@@ -230,6 +235,8 @@ const PersonalWork = () => {
   const [currentQuiz, setCurrentQuiz] = useState(null);
   const [quizScore, setQuizScore] = useState(0);
   const [quizIndex, setQuizIndex] = useState(0);
+  const [quizAnswered, setQuizAnswered] = useState(false);
+  const [selectedOption, setSelectedOption] = useState(null);
   const chatAreaRef = useRef(null);
 
   const { getRootProps, getInputProps } = useDropzone({
@@ -315,10 +322,11 @@ const PersonalWork = () => {
   };
 
   const handleAnswerQuiz = (selectedIndex) => {
-    if (!currentQuiz) return;
+    if (!currentQuiz || quizAnswered) return;
+    setSelectedOption(selectedIndex);
+    setQuizAnswered(true);
     const isCorrect = selectedIndex === currentQuiz.correctAnswer;
-    setQuizScore(prev => prev + (isCorrect ? 1 : 0));
-    // Show feedback for 1.5s, then next question or finish
+    if (isCorrect) setQuizScore(prev => prev + 1);
     setTimeout(() => {
       if (quizIndex < 10) {
         setCurrentQuiz({
@@ -332,9 +340,13 @@ const PersonalWork = () => {
           correctAnswer: Math.floor(Math.random() * 4)
         });
         setQuizIndex(prev => prev + 1);
+        setQuizAnswered(false);
+        setSelectedOption(null);
       } else {
         setCurrentQuiz(null);
         alert(`Quiz completed! Your score: ${quizScore + (isCorrect ? 1 : 0)}/10`);
+        setQuizAnswered(false);
+        setSelectedOption(null);
       }
     }, 1500);
   };
@@ -416,15 +428,23 @@ const PersonalWork = () => {
             <QuizQuestion>
               <QuestionText>{currentQuiz.question}</QuestionText>
               <Options>
-                {currentQuiz.options.map((option, index) => (
-                  <Option
-                    key={index}
-                    className={index === currentQuiz.correctAnswer ? 'correct' : ''}
-                    onClick={() => handleAnswerQuiz(index)}
-                  >
-                    {option}
-                  </Option>
-                ))}
+                {currentQuiz.options.map((option, index) => {
+                  let className = '';
+                  if (quizAnswered) {
+                    if (index === currentQuiz.correctAnswer) className = 'correct';
+                    if (selectedOption === index && index !== currentQuiz.correctAnswer) className = 'incorrect';
+                  }
+                  return (
+                    <Option
+                      key={index}
+                      className={className}
+                      onClick={() => handleAnswerQuiz(index)}
+                      disabled={quizAnswered}
+                    >
+                      {option}
+                    </Option>
+                  );
+                })}
               </Options>
               <Score>Score: {quizScore}/10</Score>
             </QuizQuestion>
