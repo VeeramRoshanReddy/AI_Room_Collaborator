@@ -48,7 +48,7 @@ const AppContainer = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #f8faff 0%, #fefefe 100%), url('https://www.transparenttextures.com/patterns/cubes.png');
+  background: linear-gradient(135deg, #f0f2f5 0%, #e6e9ed 100%), url('https://www.transparenttextures.com/patterns/cubes.png'); /* Grey background */
   background-blend-mode: lighten;
   color: ${props => props.theme.colors.text};
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -73,7 +73,7 @@ const Dashboard = () => <div>Dashboard Component</div>;
 const Settings = () => <div>Settings Component</div>;
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem('user');
