@@ -47,19 +47,31 @@ const ToggleButton = styled(motion.button)`
 `;
 
 const Logo = styled.div`
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: 1px;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
+
+  img {
+    height: 40px;
+    width: auto;
+  }
+
   span {
-    font-size: 13px;
-    font-weight: 400;
-    opacity: 0.8;
-    letter-spacing: 0.5px;
-    margin-top: 2px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    
+    small {
+      font-size: 13px;
+      font-weight: 400;
+      opacity: 0.8;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
   }
 `;
 
@@ -136,14 +148,17 @@ const Navbar = ({ user, onSidebarToggle, onLogout }) => {
           <FaBars />
         </ToggleButton>
         <Logo onClick={() => navigate('/dashboard')}>
-          AI Learning Platform
-          <span>Collaborative Learning with AI</span>
+          <img src="/logo.png" alt="AI Room Collaborator Logo" />
+          <span>
+            AI Learning Platform
+            <small>Collaborative Learning with AI</small>
+          </span>
         </Logo>
       </LeftSection>
       <RightSection>
         <UserProfile>
           {user?.picture ? (
-            <UserImage src={user.picture} alt={user.name} />
+            <UserImage src={user.picture} alt={user.name || 'User'} />
           ) : (
             <FaUserCircle size={32} />
           )}

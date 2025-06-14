@@ -458,15 +458,17 @@ const MemberActionItem = styled.div`
 `;
 
 const ChatHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 16px;
+  padding: 18px 24px;
+  background: rgba(255,255,255,0.7);
   border-bottom: 1px solid #e0e7ef;
-  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+  z-index: 10;
 `;
 
-const ChatTitle = styled.h2`
+const ChatTitle = styled.h3`
   font-size: 1.8rem;
   font-weight: 700;
   color: #1d4ed8;
@@ -770,7 +772,7 @@ const Rooms = () => {
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
             <BackButton onClick={handleBackToTopics}><FaArrowLeft /></BackButton>
-            <ChatHeader style={{marginTop: '80px'}}>
+            <ChatHeader>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
               <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>
                 {isAdmin(selectedRoom) && (

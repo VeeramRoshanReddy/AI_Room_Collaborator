@@ -63,9 +63,9 @@ const MainContent = styled.main`
   margin-left: ${props => props.isSidebarOpen ? '220px' : '60px'};
   margin-top: 64px;
   transition: margin-left ${props => props.theme.transitions.default};
-  padding: 0;
+  padding: 24px;
   background: transparent;
-  overflow: hidden;
+  overflow-y: auto;
 `;
 
 // Placeholder components (to be implemented)

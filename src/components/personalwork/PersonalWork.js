@@ -9,7 +9,7 @@ const GlassContainer = styled.div`
   height: 100%;
   min-height: 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
-  overflow: hidden;
+  overflow-y: auto;
   background: rgba(255,255,255,0.15);
   backdrop-filter: blur(8px) saturate(1.2);
 `;
@@ -526,17 +526,17 @@ const PersonalWork = () => {
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [quizStarted, setQuizStarted] = useState(false);
-  const [audioGenerated, setAudioGenerated] = useState(false);
+  const [quizStarted, setQuizStarted] = useState(false); // New state to track if quiz has been started
+  const [audioGenerated, setAudioGenerated] = useState(false); // New state for audio generation
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioVolume, setAudioVolume] = useState(1);
   const [audioPlaybackSpeed, setAudioPlaybackSpeed] = useState(1);
-  const audioRef = useRef(null);
+  const audioRef = useRef(null); // Ref for the audio element
   const chatAreaRef = useRef(null);
-  const [isAudioDownloading, setIsAudioDownloading] = useState(false);
-  const [personalWorkView, setPersonalWorkView] = useState('notes');
+  const [isAudioDownloading, setIsAudioDownloading] = useState(false); // New state for download status
+  const [personalWorkView, setPersonalWorkView] = useState('notes'); // 'notes' or 'main'
   const [notes, setNotes] = useState([
     { id: 1, title: 'Meeting Notes', description: 'Summary of project meeting', date: '2024-07-20' },
     { id: 2, title: 'Research Ideas', description: 'Brainstorming for new AI models', date: '2024-07-19' },
@@ -544,7 +544,7 @@ const PersonalWork = () => {
   const [showCreateNoteForm, setShowCreateNoteForm] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteDescription, setNewNoteDescription] = useState('');
-  const [showNoteMenu, setShowNoteMenu] = useState(null);
+  const [showNoteMenu, setShowNoteMenu] = useState(null); // New state to control note menu visibility
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: {
@@ -612,22 +612,22 @@ const PersonalWork = () => {
     setCurrentQuiz(null);
     setQuizScore(0);
     setQuizIndex(0);
-    setQuizStarted(false);
-    setQuizCompleted(false);
-    setAudioGenerated(false);
-    setIsPlayingAudio(false);
-    setAudioCurrentTime(0);
-    setIsAudioDownloading(false);
+    setQuizStarted(false); // Reset quiz state on document removal
+    setQuizCompleted(false); // Reset quiz completed state
+    setAudioGenerated(false); // Reset audio state
+    setIsPlayingAudio(false); // Reset audio playback
+    setAudioCurrentTime(0); // Reset audio current time
+    setIsAudioDownloading(false); // Reset audio download status
   };
 
   const handleGenerateAudio = () => {
     setIsGeneratingAudio(true);
-    setAudioGenerated(false);
-    setIsAudioDownloading(false);
+    setAudioGenerated(false); // Audio is not yet generated
+    setIsAudioDownloading(false); // Reset download status when generating new audio
     setTimeout(() => {
       setIsGeneratingAudio(false);
       setAudioGenerated(true);
-      setAudioDuration(180);
+      setAudioDuration(180); // Simulate 3 minutes audio
     }, 2000);
   };
 
@@ -668,21 +668,6 @@ const PersonalWork = () => {
     const secs = Math.floor(seconds % 60);
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.addEventListener('timeupdate', () => {
-        setAudioCurrentTime(audioRef.current.currentTime);
-      });
-      audioRef.current.addEventListener('loadedmetadata', () => {
-        setAudioDuration(audioRef.current.duration);
-      });
-      audioRef.current.addEventListener('ended', () => {
-        setIsPlayingAudio(false);
-        setAudioCurrentTime(0);
-      });
-    }
-  }, []);
 
   const handleGenerateQuiz = () => {
     setIsGeneratingQuiz(true);
