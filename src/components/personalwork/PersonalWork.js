@@ -757,6 +757,7 @@ const PersonalWork = () => {
 
   return (
     <GlassContainer>
+      <h1>TEST PERSONAL WORK COMPONENT</h1>
       {personalWorkView === 'notes' ? (
         <NoteContainer>
           <h3 style={{marginBottom: 8, color: '#3b82f6'}}>Your Notes</h3>

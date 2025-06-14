@@ -48,7 +48,7 @@ const AppContainer = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #e0e7ef 0%, #f8fafc 100%), url('https://www.transparenttextures.com/patterns/cubes.png');
+  background: linear-gradient(135deg, #f8faff 0%, #fefefe 100%), url('https://www.transparenttextures.com/patterns/cubes.png');
   background-blend-mode: lighten;
   color: ${props => props.theme.colors.text};
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -59,12 +59,12 @@ const MainContent = styled.main`
   display: flex;
   flex-direction: column;
   height: calc(100vh - 64px);
-  min-height: calc(100vh - 64px); /* Explicit min-height for debugging */
+  min-height: 0; /* Reverted to original */
   margin-left: ${props => props.isSidebarOpen ? '220px' : '60px'};
   margin-top: 64px;
   transition: margin-left ${props => props.theme.transitions.default};
   padding: 24px;
-  background: lightblue; /* Temporary background for debugging */
+  background: transparent; /* Reverted to original */
   overflow-y: auto;
 `;
 
