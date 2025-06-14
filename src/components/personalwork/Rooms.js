@@ -783,7 +783,7 @@ const Rooms = () => {
       <NoScrollWrapper>
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
-            <BackButton onClick={handleBackToTopics}><FaArrowLeft /> Back to Topics</BackButton>
+            <BackButton onClick={handleBackToTopics}><FaArrowLeft /></BackButton>
             <ChatHeader>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
               <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>
@@ -861,7 +861,7 @@ const Rooms = () => {
       <NoScrollWrapper>
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
-            <BackButton onClick={handleBackToRooms}><FaArrowLeft /> Back to Rooms</BackButton>
+            <BackButton onClick={handleBackToRooms}><FaArrowLeft /></BackButton>
             <SectionTitle style={{textAlign:'center',marginTop:80}}>Topics in {selectedRoom.name}</SectionTitle>
             <div style={{position: 'absolute', top: 16, right: 16, display: 'flex', gap: '10px'}}>
               <ActionButton onClick={() => setShowCreateTopicForm(true)}><FaPlus /> Create New Topic</ActionButton>

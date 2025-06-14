@@ -12,6 +12,9 @@ const GlassContainer = styled.div`
   overflow-y: auto;
   background: rgba(255,255,255,0.15);
   backdrop-filter: blur(8px) saturate(1.2);
+  /* Temporary debugging styles */
+  border: 2px solid red; /* To ensure it's visible */
+  box-sizing: border-box; /* Include padding/border in element's total width and height */
 `;
 
 const ChatSection = styled.div`
