@@ -30,24 +30,24 @@ const TwoColumn = styled.div`
 `;
 
 const MainArea = styled.div`
-  flex: 0 0 80%;
+  flex: ${props => props.showParticipants ? '0 0 80%' : '0 0 100%'};
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   height: 100%;
   background: #f8fafc;
-  border-radius: 14px 0 0 14px;
+  border-radius: ${props => props.showParticipants ? '14px 0 0 14px' : '14px'};
   margin-top: 0;
   margin-bottom: 0;
   margin-left: 0;
   margin-right: 0;
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
   position: relative;
+  transition: flex 0.3s ease-in-out, border-radius 0.3s ease-in-out;
 `;
 
 const ParticipantsSidebar = styled.div`
-  flex: 0 0 20%;
   background: rgba(241,245,253,0.98);
   border-radius: 0 14px 14px 0;
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.06);
@@ -55,13 +55,16 @@ const ParticipantsSidebar = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  min-width: 120px;
-  max-width: 260px;
+  min-width: ${props => props.showParticipants ? '120px' : '0px'};
+  max-width: ${props => props.showParticipants ? '260px' : '0px'};
   height: 100%;
   margin: 0;
   position: relative;
-  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), flex 0.3s ease-in-out, min-width 0.3s ease-in-out, max-width 0.3s ease-in-out;
   z-index: 10;
+  flex: ${props => props.showParticipants ? '0 0 20%' : '0 0 0%'};
+  transform: translateX(${props => props.showParticipants ? '0' : '100%'});
+  overflow: hidden;
 `;
 
 const SidebarToggle = styled.button`
@@ -461,12 +464,16 @@ const ChatHeader = styled.div`
   padding-bottom: 16px;
   border-bottom: 1px solid #e0e7ef;
   margin-bottom: 16px;
+  position: relative;
 `;
 
 const ChatTitle = styled.h2`
   font-size: 1.8rem;
   font-weight: 700;
   color: #1d4ed8;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 `;
 
 const DeleteChatButton = styled.button`
@@ -763,16 +770,18 @@ const Rooms = () => {
     return (
       <NoScrollWrapper>
         <TwoColumn>
-          <MainArea>
+          <MainArea showParticipants={showParticipants}>
             <BackButton onClick={handleBackToTopics}><FaArrowLeft /></BackButton>
             <ChatHeader>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
-              {isAdmin(selectedRoom) && (
-                <DeleteChatButton onClick={handleDeleteChat}><FaTrash /> Delete Conversation</DeleteChatButton>
-              )}
-              <SidebarToggle onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? "Hide Participants" : "Show Participants"} style={{position: 'relative', top: 'auto', right: 'auto'}}>
-                {showParticipants ? <FaChevronRight /> : <FaChevronLeft />}
-              </SidebarToggle>
+              <div style={{display: 'flex', gap: '10px', position: 'absolute', right: 0}}>
+                {isAdmin(selectedRoom) && (
+                  <DeleteChatButton onClick={handleDeleteChat}><FaTrash /> Delete Conversation</DeleteChatButton>
+                )}
+                <SidebarToggle onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? "Hide Participants" : "Show Participants"} style={{position: 'relative', top: 'auto', right: 'auto'}}>
+                  {showParticipants ? <FaChevronRight /> : <FaChevronLeft />}
+                </SidebarToggle>
+              </div>
             </ChatHeader>
             <ChatArea style={{margin:'0 auto',width:'100%',flex:'1'}}>
               <ChatMessages>
@@ -798,71 +807,33 @@ const Rooms = () => {
               </ChatInput>
             </ChatArea>
           </MainArea>
-          {showParticipants && (
-            <ParticipantsSidebar style={{flex: '0 0 20%', minWidth: '120px', maxWidth: '260px'}}>
-              <div style={{width:'100%',padding:'24px 18px 0 18px',overflowY:'auto'}}>
-                <MemberSectionTitle>Admins</MemberSectionTitle>
-                {getSortedAdmins(selectedRoom).map(admin => (
-                  <MemberRow key={admin.email}>
-                    <Avatar src={admin.avatar} alt={admin.name} />
-                    <MemberName>{admin.name}</MemberName>
-                    <FaCrown style={{color:'#f59e0b',marginLeft:4}} title="Admin" />
-                  </MemberRow>
-                ))}
-                <SectionDivider />
-                <MemberSectionTitle>Members</MemberSectionTitle>
-                {getSortedMembers(selectedRoom).map(member => (
-                  <MemberRow key={member.email} onClick={isAdmin(selectedRoom) ? (e) => setMemberAction({ show: true, user: member, anchor: e.currentTarget }) : undefined}>
-                    <Avatar src={member.avatar} alt={member.name} />
-                    <MemberName>{member.name}</MemberName>
-                  </MemberRow>
-                ))}
-              </div>
-              {memberAction.show && memberAction.user && (
-                <MemberActionMenu style={{top: memberAction.anchor.getBoundingClientRect().top-60}}>
-                  <MemberActionItem onClick={() => handleMakeAdmin(memberAction.user)}><FaUserShield /> Make Admin</MemberActionItem>
-                  <MemberActionItem onClick={() => handleRemoveUser(memberAction.user)} style={{color:'#ef4444'}}><FaTimes /> Remove User</MemberActionItem>
-                  <DropdownMenuItem onClick={() => setMemberAction({ show: false, user: null, anchor: null })}><FaTimes /> Cancel</DropdownMenuItem>
-                </MemberActionMenu>
-              )}
-            </ParticipantsSidebar>
-          )}
-          {!showParticipants && (
-            <MainArea style={{flex: '0 0 100%', borderRadius: '14px'}}>
-              <ChatHeader>
-                <ChatTitle>{selectedTopic.title}</ChatTitle>
-                {isAdmin(selectedRoom) && (
-                  <DeleteChatButton onClick={handleDeleteChat}><FaTrash /> Delete Conversation</DeleteChatButton>
-                )}
-                <SidebarToggle onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? "Hide Participants" : "Show Participants"} style={{position: 'relative', top: 'auto', right: 'auto'}}>
-                  {showParticipants ? <FaChevronRight /> : <FaChevronLeft />}
-                </SidebarToggle>
-              </ChatHeader>
-              <ChatArea style={{margin:'0 auto',width:'100%',flex:'1'}}>
-                <ChatMessages>
-                  {roomChatMessages[selectedTopic.title]?.map((msg, idx) => (
-                    <Message key={msg.id} isUser={msg.isUser}>
-                      <MessageHeader isUser={msg.isUser}>
-                        <Avatar src={msg.avatar} alt={msg.sender} />
-                        <SenderName>{msg.sender}</SenderName>
-                        <MessageTime>{msg.time}</MessageTime>
-                      </MessageHeader>
-                      <MessageContent isUser={msg.isUser}>{msg.text}</MessageContent>
-                    </Message>
-                  ))}
-                </ChatMessages>
-                <ChatInput>
-                  <Input
-                    value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    placeholder="Type a message..."
-                    onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-                  />
-                  <ActionButton onClick={handleSendChat}>Send</ActionButton>
-                </ChatInput>
-              </ChatArea>
-            </MainArea>
-          )}
+          <ParticipantsSidebar showParticipants={showParticipants}>
+            <div style={{width:'100%',padding:'24px 18px 0 18px',overflowY:'auto'}}>
+              <MemberSectionTitle>Admins</MemberSectionTitle>
+              {getSortedAdmins(selectedRoom).map(admin => (
+                <MemberRow key={admin.email}>
+                  <Avatar src={admin.avatar} alt={admin.name} />
+                  <MemberName>{admin.name}</MemberName>
+                  <FaCrown style={{color:'#f59e0b',marginLeft:4}} title="Admin" />
+                </MemberRow>
+              ))}
+              <SectionDivider />
+              <MemberSectionTitle>Members</MemberSectionTitle>
+              {getSortedMembers(selectedRoom).map(member => (
+                <MemberRow key={member.email} onClick={isAdmin(selectedRoom) ? (e) => setMemberAction({ show: true, user: member, anchor: e.currentTarget }) : undefined}>
+                  <Avatar src={member.avatar} alt={member.name} />
+                  <MemberName>{member.name}</MemberName>
+                </MemberRow>
+              ))}
+            </div>
+            {memberAction.show && memberAction.user && (
+              <MemberActionMenu style={{top: memberAction.anchor.getBoundingClientRect().top-60}}>
+                <MemberActionItem onClick={() => handleMakeAdmin(memberAction.user)}><FaUserShield /> Make Admin</MemberActionItem>
+                <MemberActionItem onClick={() => handleRemoveUser(memberAction.user)} style={{color:'#ef4444'}}><FaTimes /> Remove User</MemberActionItem>
+                <DropdownMenuItem onClick={() => setMemberAction({ show: false, user: null, anchor: null })}><FaTimes /> Cancel</DropdownMenuItem>
+              </MemberActionMenu>
+            )}
+          </ParticipantsSidebar>
         </TwoColumn>
       </NoScrollWrapper>
     );
@@ -871,11 +842,14 @@ const Rooms = () => {
     return (
       <NoScrollWrapper>
         <TwoColumn>
-          <MainArea>
+          <MainArea showParticipants={showParticipants}>
             <BackButton onClick={handleBackToRooms}><FaArrowLeft /></BackButton>
             <SectionTitle style={{textAlign:'center',marginTop:32}}>Topics in {selectedRoom.name}</SectionTitle>
             <div style={{position: 'absolute', top: 16, right: 16, display: 'flex', gap: '10px'}}>
               <ActionButton onClick={() => setShowCreateTopicForm(true)}><FaPlus /> Create New Topic</ActionButton>
+              <SidebarToggle onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? "Hide Participants" : "Show Participants"} style={{position: 'relative', top: 'auto', right: 'auto'}}>
+                {showParticipants ? <FaChevronRight /> : <FaChevronLeft />}
+              </SidebarToggle>
             </div>
             <TopicList style={{margin:'32px auto 0 auto',width:'90%'}}>
               {selectedRoom.topics.map(topic => (
@@ -918,39 +892,33 @@ const Rooms = () => {
               </FormOverlay>
             )}
           </MainArea>
-          {showParticipants && (
-            <ParticipantsSidebar>
-              <SidebarToggle onClick={() => setShowParticipants(false)} title="Hide Participants"><FaChevronRight /></SidebarToggle>
-              <div style={{width:'100%',padding:'24px 18px 0 18px',overflowY:'auto'}}>
-                <MemberSectionTitle>Admins</MemberSectionTitle>
-                {getSortedAdmins(selectedRoom).map(admin => (
-                  <MemberRow key={admin.email}>
-                    <Avatar src={admin.avatar} alt={admin.name} />
-                    <MemberName>{admin.name}</MemberName>
-                    <FaCrown style={{color:'#f59e0b',marginLeft:4}} title="Admin" />
-                  </MemberRow>
-                ))}
-                <SectionDivider />
-                <MemberSectionTitle>Members</MemberSectionTitle>
-                {getSortedMembers(selectedRoom).map(member => (
-                  <MemberRow key={member.email} onClick={isAdmin(selectedRoom) ? (e) => setMemberAction({ show: true, user: member, anchor: e.currentTarget }) : undefined}>
-                    <Avatar src={member.avatar} alt={member.name} />
-                    <MemberName>{member.name}</MemberName>
-                  </MemberRow>
-                ))}
-              </div>
-              {memberAction.show && memberAction.user && (
-                <MemberActionMenu style={{top: memberAction.anchor.getBoundingClientRect().top-60}}>
-                  <MemberActionItem onClick={() => handleMakeAdmin(memberAction.user)}><FaUserShield /> Make Admin</MemberActionItem>
-                  <MemberActionItem onClick={() => handleRemoveUser(memberAction.user)} style={{color:'#ef4444'}}><FaTimes /> Remove User</MemberActionItem>
-                  <MemberActionItem onClick={() => setMemberAction({ show: false, user: null, anchor: null })}><FaTimes /> Cancel</MemberActionItem>
-                </MemberActionMenu>
-              )}
-            </ParticipantsSidebar>
-          )}
-          {!showParticipants && (
-            <SidebarToggle onClick={() => setShowParticipants(true)} title="Show Participants" style={{right:0,top:18}}><FaChevronLeft /></SidebarToggle>
-          )}
+          <ParticipantsSidebar showParticipants={showParticipants}>
+            <div style={{width:'100%',padding:'24px 18px 0 18px',overflowY:'auto'}}>
+              <MemberSectionTitle>Admins</MemberSectionTitle>
+              {getSortedAdmins(selectedRoom).map(admin => (
+                <MemberRow key={admin.email}>
+                  <Avatar src={admin.avatar} alt={admin.name} />
+                  <MemberName>{admin.name}</MemberName>
+                  <FaCrown style={{color:'#f59e0b',marginLeft:4}} title="Admin" />
+                </MemberRow>
+              ))}
+              <SectionDivider />
+              <MemberSectionTitle>Members</MemberSectionTitle>
+              {getSortedMembers(selectedRoom).map(member => (
+                <MemberRow key={member.email} onClick={isAdmin(selectedRoom) ? (e) => setMemberAction({ show: true, user: member, anchor: e.currentTarget }) : undefined}>
+                  <Avatar src={member.avatar} alt={member.name} />
+                  <MemberName>{member.name}</MemberName>
+                </MemberRow>
+              ))}
+            </div>
+            {memberAction.show && memberAction.user && (
+              <MemberActionMenu style={{top: memberAction.anchor.getBoundingClientRect().top-60}}>
+                <MemberActionItem onClick={() => handleMakeAdmin(memberAction.user)}><FaUserShield /> Make Admin</MemberActionItem>
+                <MemberActionItem onClick={() => handleRemoveUser(memberAction.user)} style={{color:'#ef4444'}}><FaTimes /> Remove User</MemberActionItem>
+                <DropdownMenuItem onClick={() => setMemberAction({ show: false, user: null, anchor: null })}><FaTimes /> Cancel</DropdownMenuItem>
+              </MemberActionMenu>
+            )}
+          </ParticipantsSidebar>
         </TwoColumn>
       </NoScrollWrapper>
     );
