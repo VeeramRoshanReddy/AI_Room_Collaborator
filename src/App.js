@@ -48,7 +48,9 @@ const AppContainer = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #f0f2f5 0%, #e6e9ed 100%), url('https://www.transparenttextures.com/patterns/cubes.png'); /* Grey background */
+  background: red; /* Aggressive temporary background for debugging */
+  /* Original background commented out */
+  /* background: linear-gradient(135deg, #f0f2f5 0%, #e6e9ed 100%), url('https://www.transparenttextures.com/patterns/cubes.png'); */
   background-blend-mode: lighten;
   color: ${props => props.theme.colors.text};
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
