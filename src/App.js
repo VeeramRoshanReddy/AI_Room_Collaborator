@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import styled, { ThemeProvider } from 'styled-components';
@@ -48,9 +48,7 @@ const AppContainer = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: red; /* Aggressive temporary background for debugging */
-  /* Original background commented out */
-  /* background: linear-gradient(135deg, #f0f2f5 0%, #e6e9ed 100%), url('https://www.transparenttextures.com/patterns/cubes.png'); */
+  background: linear-gradient(135deg, #f0f2f5 0%, #e6e9ed 100%), url('https://www.transparenttextures.com/patterns/cubes.png'); /* Grey background */
   background-blend-mode: lighten;
   color: ${props => props.theme.colors.text};
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -75,12 +73,17 @@ const Dashboard = () => <div>Dashboard Component</div>;
 const Settings = () => <div>Settings Component</div>;
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem('user');
     return storedUser ? JSON.parse(storedUser) : null;
   });
+  const [isAuthenticated, setIsAuthenticated] = useState(!!user); // Derive isAuthenticated from user
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Update isAuthenticated when user changes
+  useEffect(() => {
+    setIsAuthenticated(!!user);
+  }, [user]);
 
   const handleLogout = () => {
     // Clear Google session (for Google One Tap/automatic sign-in)
@@ -91,8 +94,7 @@ function App() {
     // Clear local storage
     localStorage.removeItem('user');
     
-    setIsAuthenticated(false);
-    setUser(null);
+    setUser(null); // Set user to null to trigger isAuthenticated update
   };
 
   // Google OAuth Client ID for production
@@ -129,15 +131,11 @@ function App() {
                 />
                 <MainContent isSidebarOpen={isSidebarOpen}>
                   <Routes>
-                    {/* Temporarily render PersonalWork directly for debugging */}
-                    <Route path="/personal-work" element={<PersonalWork />} />
-                    {/* Original routes commented out temporarily */}
-                    {/*
                     <Route path="/dashboard" element={<Home />} />
                     <Route path="/rooms" element={<Rooms />} />
+                    <Route path="/personal-work" element={<PersonalWork />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                    */}
                   </Routes>
                 </MainContent>
               </>
