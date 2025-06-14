@@ -75,9 +75,20 @@ const Settings = () => <div>Settings Component</div>;
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const storedUser = localStorage.getItem('user');
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
 
   const handleLogout = () => {
+    // Clear Google session (for Google One Tap/automatic sign-in)
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      window.google.accounts.id.disableAutoSelect();
+    }
+    
+    // Clear local storage
+    localStorage.removeItem('user');
+    
     setIsAuthenticated(false);
     setUser(null);
   };

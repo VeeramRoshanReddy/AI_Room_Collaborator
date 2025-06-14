@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { FaGraduationCap } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { jwtDecode } from "jwt-decode";
 
 const LoginContainer = styled.div`
   min-height: 100vh;
@@ -78,37 +79,23 @@ const FeatureItem = styled.div`
 const Login = ({ onLogin, setUser }) => {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Check if user is already logged in (you might want to implement this with a proper auth token)
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      onLogin(true);
-      navigate('/dashboard');
-    }
-  }, [navigate, onLogin, setUser]);
-
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      // Here you would typically verify the token with your backend
-      // For now, we'll just store the user data locally
+      const decoded = jwtDecode(credentialResponse.credential);
+
       const userData = {
-        name: 'User Name', // This will be replaced with actual user data from Google
-        email: 'user@example.com', // This will be replaced with actual user data from Google
-        picture: 'https://via.placeholder.com/150', // This will be replaced with actual user data from Google
-        accessToken: credentialResponse.credential, // Store the access token
+        name: decoded.name, 
+        email: decoded.email, 
+        picture: decoded.picture, 
       };
       
-      // Store user data in localStorage
       localStorage.setItem('user', JSON.stringify(userData));
       
       setUser(userData);
       onLogin(true);
       
-      // Show success message
       toast.success('Successfully logged in!');
       
-      // Redirect to dashboard
       navigate('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);

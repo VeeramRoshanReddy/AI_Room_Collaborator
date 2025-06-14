@@ -464,16 +464,14 @@ const ChatHeader = styled.div`
   padding-bottom: 16px;
   border-bottom: 1px solid #e0e7ef;
   margin-bottom: 16px;
-  position: relative;
 `;
 
 const ChatTitle = styled.h2`
   font-size: 1.8rem;
   font-weight: 700;
   color: #1d4ed8;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  flex-grow: 1;
+  text-align: center;
 `;
 
 const DeleteChatButton = styled.button`
@@ -772,9 +770,9 @@ const Rooms = () => {
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
             <BackButton onClick={handleBackToTopics}><FaArrowLeft /></BackButton>
-            <ChatHeader>
+            <ChatHeader style={{marginTop: '80px'}}>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
-              <div style={{display: 'flex', gap: '10px', position: 'absolute', right: 0}}>
+              <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>
                 {isAdmin(selectedRoom) && (
                   <DeleteChatButton onClick={handleDeleteChat}><FaTrash /> Delete Conversation</DeleteChatButton>
                 )}
@@ -844,7 +842,7 @@ const Rooms = () => {
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
             <BackButton onClick={handleBackToRooms}><FaArrowLeft /></BackButton>
-            <SectionTitle style={{textAlign:'center',marginTop:32}}>Topics in {selectedRoom.name}</SectionTitle>
+            <SectionTitle style={{textAlign:'center',marginTop:80}}>Topics in {selectedRoom.name}</SectionTitle>
             <div style={{position: 'absolute', top: 16, right: 16, display: 'flex', gap: '10px'}}>
               <ActionButton onClick={() => setShowCreateTopicForm(true)}><FaPlus /> Create New Topic</ActionButton>
               <SidebarToggle onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? "Hide Participants" : "Show Participants"} style={{position: 'relative', top: 'auto', right: 'auto'}}>
