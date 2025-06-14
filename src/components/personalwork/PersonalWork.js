@@ -536,7 +536,7 @@ const PersonalWork = () => {
   const audioRef = useRef(null); // Ref for the audio element
   const chatAreaRef = useRef(null);
   const [isAudioDownloading, setIsAudioDownloading] = useState(false); // New state for download status
-  const [personalWorkView, setPersonalWorkView] = useState('notes'); // 'notes' or 'main'
+  const [personalWorkView, setPersonalWorkView] = useState('main'); // Temporarily changed to 'main' for debugging
   const [notes, setNotes] = useState([
     { id: 1, title: 'Meeting Notes', description: 'Summary of project meeting', date: '2024-07-20' },
     { id: 2, title: 'Research Ideas', description: 'Brainstorming for new AI models', date: '2024-07-19' },

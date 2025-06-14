@@ -277,8 +277,9 @@ const ChatArea = styled.div`
 const ChatMessages = styled.div`
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 16px;
-  padding-right: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
 `;
 
 const ChatInput = styled.div`
@@ -297,9 +298,9 @@ const Input = styled.input`
 
 const Message = styled.div`
   display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-  align-items: flex-end;
+  margin-bottom: 15px;
+  align-items: flex-start;
+  gap: 12px;
   flex-direction: ${props => props.isUser ? 'row-reverse' : 'row'};
 `;
 
@@ -333,13 +334,24 @@ const MessageContent = styled.div`
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
 `;
 
-const Avatar = styled.img`
-  width: 32px;
-  height: 32px;
+const Avatar = styled.div`
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  object-fit: cover;
-  background: #e0e7ef;
-  margin-right: 6px;
+  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : 'rgba(224,231,239,0.8)'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${props => props.isUser ? 'white' : '#3b82f6'};
+  font-size: 20px;
+  overflow: hidden; /* Ensure image is contained */
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
 `;
 
 const BackButton = styled.button`
@@ -602,7 +614,7 @@ const Rooms = () => {
     if (!roomChatMessages[topic.title]) {
       setRoomChatMessages(prev => ({
         ...prev,
-        [topic.title]: [{ id: 1, text: `Welcome to the topic: ${topic.title}!`, isUser: false, sender: 'AI', avatar: '/ai-bot.png', time: new Date().toLocaleTimeString() }]
+        [topic.title]: [{ id: 1, text: `Welcome to the topic: ${topic.title}!`, isUser: false, sender: 'AI', avatar: '/ai_logo.png', time: new Date().toLocaleTimeString() }]
       }));
     }
     setChatInput(''); // Clear input on topic change
@@ -641,7 +653,7 @@ const Rooms = () => {
 
     if (chatInput.toLowerCase().includes('@chatbot')) {
       setTimeout(() => {
-        const aiResponse = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 2, text: "AI: I'm here to help your group!", isUser: false, sender: 'AI', avatar: '/ai-bot.png', time: new Date().toLocaleTimeString() };
+        const aiResponse = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 2, text: "AI: I'm here to help your group!", isUser: false, sender: 'AI', avatar: '/ai_logo.png', time: new Date().toLocaleTimeString() };
         setRoomChatMessages(prev => ({
           ...prev,
           [selectedTopic.title]: [...(prev[selectedTopic.title] || []), aiResponse]
@@ -771,7 +783,7 @@ const Rooms = () => {
       <NoScrollWrapper>
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
-            <BackButton onClick={handleBackToTopics}><FaArrowLeft /></BackButton>
+            <BackButton onClick={handleBackToTopics}><FaArrowLeft /> Back to Topics</BackButton>
             <ChatHeader>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
               <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>
@@ -788,7 +800,13 @@ const Rooms = () => {
                 {roomChatMessages[selectedTopic.title]?.map((msg, idx) => (
                   <Message key={msg.id} isUser={msg.isUser}>
                     <MessageHeader isUser={msg.isUser}>
-                      <Avatar src={msg.avatar} alt={msg.sender} />
+                      <Avatar isUser={msg.isUser}>
+                        {msg.isUser ? (
+                          <FaUser />
+                        ) : (
+                          <img src="/ai_logo.png" alt="AI Chatbot Logo" />
+                        )}
+                      </Avatar>
                       <SenderName>{msg.sender}</SenderName>
                       <MessageTime>{msg.time}</MessageTime>
                     </MessageHeader>
@@ -843,7 +861,7 @@ const Rooms = () => {
       <NoScrollWrapper>
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
-            <BackButton onClick={handleBackToRooms}><FaArrowLeft /></BackButton>
+            <BackButton onClick={handleBackToRooms}><FaArrowLeft /> Back to Rooms</BackButton>
             <SectionTitle style={{textAlign:'center',marginTop:80}}>Topics in {selectedRoom.name}</SectionTitle>
             <div style={{position: 'absolute', top: 16, right: 16, display: 'flex', gap: '10px'}}>
               <ActionButton onClick={() => setShowCreateTopicForm(true)}><FaPlus /> Create New Topic</ActionButton>
