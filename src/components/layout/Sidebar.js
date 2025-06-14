@@ -22,7 +22,7 @@ const SidebarContainer = styled(motion.div)`
   z-index: 900;
   display: flex;
   flex-direction: column;
-  border-radius: 0 0 24px 0;
+  border-radius: 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
 `;
 

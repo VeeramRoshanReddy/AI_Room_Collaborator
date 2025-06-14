@@ -77,6 +77,11 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUser(null);
+  };
+
   // Google OAuth Client ID for production
   const GOOGLE_CLIENT_ID = '290635245122-a60ie2u5b8ga1lklu79tktgecs3s7l6c.apps.googleusercontent.com';
 
@@ -103,6 +108,7 @@ function App() {
                 <Navbar 
                   user={user}
                   onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                  onLogout={handleLogout}
                 />
                 <Sidebar 
                   isOpen={isSidebarOpen}

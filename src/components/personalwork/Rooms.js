@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FaPlus, FaSignInAlt, FaUsers, FaClock, FaArrowLeft, FaCommentDots } from 'react-icons/fa';
+import { FaPlus, FaSignInAlt, FaUsers, FaClock, FaArrowLeft, FaCommentDots, FaUserShield, FaUser, FaCrown, FaTimes, FaChevronRight, FaChevronLeft } from 'react-icons/fa';
 
 const NoScrollWrapper = styled.div`
   height: 100%;
@@ -44,6 +44,42 @@ const MainArea = styled.div`
   margin-right: 0;
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
   position: relative;
+`;
+
+const ParticipantsSidebar = styled.div`
+  flex: 0 0 20%;
+  background: rgba(241,245,253,0.98);
+  border-radius: 0 14px 14px 0;
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.06);
+  padding: 0 0 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 120px;
+  max-width: 260px;
+  height: 100%;
+  margin: 0;
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  z-index: 10;
+`;
+
+const SidebarToggle = styled.button`
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
+  cursor: pointer;
+  z-index: 20;
 `;
 
 const MemberList = styled.div`
@@ -103,6 +139,7 @@ const RoomBox = styled.div`
   align-items: flex-start;
   margin-bottom: 12px;
   transition: box-shadow 0.2s;
+  position: relative;
   &:hover {
     box-shadow: 0 8px 32px rgba(37, 99, 235, 0.18);
   }
@@ -158,6 +195,7 @@ const TopicBox = styled.div`
   align-items: flex-start;
   margin-bottom: 12px;
   transition: box-shadow 0.2s;
+  position: relative;
   &:hover {
     box-shadow: 0 8px 32px rgba(37, 99, 235, 0.18);
   }
@@ -174,6 +212,12 @@ const TopicMeta = styled.div`
   font-size: 0.95rem;
   color: #64748b;
   margin-bottom: 10px;
+`;
+
+const TopicActions = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
 `;
 
 const ChatArea = styled.div`
@@ -230,16 +274,13 @@ const MessageContent = styled.div`
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
 `;
 
-const Avatar = styled.div`
+const Avatar = styled.img`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : '#e0e7ef'};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${props => props.isUser ? 'white' : '#3b82f6'};
-  font-size: 18px;
+  object-fit: cover;
+  background: #e0e7ef;
+  margin-right: 6px;
 `;
 
 const BackButton = styled.button`
@@ -307,16 +348,91 @@ const FormButton = styled.button`
   margin-top: 8px;
 `;
 
+const SectionDivider = styled.div`
+  width: 100%;
+  height: 1px;
+  background: #e0e7ef;
+  margin: 12px 0 8px 0;
+`;
+
+const MemberSectionTitle = styled.div`
+  font-size: 1rem;
+  font-weight: 700;
+  color: #2563eb;
+  margin: 12px 0 6px 0;
+`;
+
+const MemberRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  width: 100%;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+  &:hover {
+    background: #e0e7ef;
+  }
+`;
+
+const MemberActionMenu = styled.div`
+  position: absolute;
+  right: 16px;
+  top: 40px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.18);
+  padding: 8px 0;
+  min-width: 140px;
+  z-index: 100;
+`;
+
+const MemberActionItem = styled.div`
+  padding: 10px 18px;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover {
+    background: #f1f5fd;
+  }
+`;
+
 // Dummy data
 const dummyRooms = [
-  { name: 'AI Study Group', id: '1234567890123456', members: ['Alice', 'Bob', 'Charlie', 'David', 'Eve'], topics: [
-    { title: 'Intro to AI', description: 'Basics of Artificial Intelligence', createdBy: 'Alice', date: '2024-06-12' },
-    { title: 'ML Algorithms', description: 'Discussion on ML algorithms', createdBy: 'Bob', date: '2024-06-11' },
-  ] },
-  { name: 'Math Wizards', id: '2345678901234567', members: ['Frank', 'Grace', 'Heidi', 'Ivan'], topics: [
-    { title: 'Calculus', description: 'Limits, derivatives, and integrals', createdBy: 'Frank', date: '2024-06-10' },
-    { title: 'Algebra', description: 'Linear equations and more', createdBy: 'Grace', date: '2024-06-09' },
-  ] },
+  {
+    name: 'AI Study Group',
+    id: '1234567890123456',
+    admins: [
+      { name: 'Alice', email: 'alice@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/1.jpg' }
+    ],
+    members: [
+      { name: 'Bob', email: 'bob@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/2.jpg' },
+      { name: 'Charlie', email: 'charlie@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/3.jpg' },
+      { name: 'David', email: 'david@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/4.jpg' },
+      { name: 'Eve', email: 'eve@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/5.jpg' }
+    ],
+    topics: [
+      { title: 'Intro to AI', description: 'Basics of Artificial Intelligence', createdBy: 'Alice', date: '2024-06-12' },
+      { title: 'ML Algorithms', description: 'Discussion on ML algorithms', createdBy: 'Bob', date: '2024-06-11' },
+    ]
+  },
+  {
+    name: 'Math Wizards',
+    id: '2345678901234567',
+    admins: [
+      { name: 'Frank', email: 'frank@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/6.jpg' }
+    ],
+    members: [
+      { name: 'Grace', email: 'grace@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/7.jpg' },
+      { name: 'Heidi', email: 'heidi@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/8.jpg' },
+      { name: 'Ivan', email: 'ivan@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/9.jpg' }
+    ],
+    topics: [
+      { title: 'Calculus', description: 'Limits, derivatives, and integrals', createdBy: 'Frank', date: '2024-06-10' },
+      { title: 'Algebra', description: 'Linear equations and more', createdBy: 'Grace', date: '2024-06-09' },
+    ]
+  },
 ];
 const dummyPending = [
   { name: 'Physics Enthusiasts', id: '3456789012345678', requested: true }
@@ -345,9 +461,22 @@ const Rooms = () => {
     { id: 1, text: 'Welcome to the topic group chat!', isUser: false }
   ]);
   const [chatInput, setChatInput] = useState('');
+  const [showParticipants, setShowParticipants] = useState(true);
+  const [memberAction, setMemberAction] = useState({ show: false, user: null, anchor: null });
+  const [newTopicTitle, setNewTopicTitle] = useState('');
+  const [newTopicDesc, setNewTopicDesc] = useState('');
+  // Simulate current user
+  const currentUser = { name: 'Alice', email: 'alice@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/1.jpg' };
 
   // Alphabetical member list
   const memberList = selectedRoom ? [...selectedRoom.members].sort() : [];
+
+  // Helper: check if current user is admin in a room
+  const isAdmin = (room) => room.admins.some(a => a.email === currentUser.email);
+
+  // Helper: get sorted admins and members
+  const getSortedAdmins = (room) => [...room.admins].sort((a, b) => a.name.localeCompare(b.name));
+  const getSortedMembers = (room) => [...room.members].sort((a, b) => a.name.localeCompare(b.name));
 
   // Handlers
   const handleEnterRoom = (room) => {
@@ -399,6 +528,92 @@ const Rooms = () => {
       setChatMessages(prev => [...prev, { id: prev.length + 2, text: "AI: I'm here to help your group!", isUser: false }]);
     }, 1000);
   };
+  // Leave room
+  const handleLeaveRoom = (roomId) => {
+    setRooms(rooms.filter(r => r.id !== roomId));
+  };
+  // Delete room (admin only)
+  const handleDeleteRoom = (roomId) => {
+    setRooms(rooms.filter(r => r.id !== roomId));
+  };
+  // Create topic
+  const handleCreateTopic = () => {
+    if (!newTopicTitle.trim()) return;
+    setRooms(rooms.map(r => {
+      if (r.id === selectedRoom.id) {
+        return {
+          ...r,
+          topics: [
+            ...r.topics,
+            { title: newTopicTitle, description: newTopicDesc, createdBy: currentUser.name, date: new Date().toISOString().slice(0,10) }
+          ]
+        };
+      }
+      return r;
+    }));
+    setSelectedRoom({
+      ...selectedRoom,
+      topics: [
+        ...selectedRoom.topics,
+        { title: newTopicTitle, description: newTopicDesc, createdBy: currentUser.name, date: new Date().toISOString().slice(0,10) }
+      ]
+    });
+    setNewTopicTitle('');
+    setNewTopicDesc('');
+  };
+  // Delete topic
+  const handleDeleteTopic = (topic) => {
+    setRooms(rooms.map(r => {
+      if (r.id === selectedRoom.id) {
+        return {
+          ...r,
+          topics: r.topics.filter(t => t.title !== topic.title)
+        };
+      }
+      return r;
+    }));
+    setSelectedRoom({
+      ...selectedRoom,
+      topics: selectedRoom.topics.filter(t => t.title !== topic.title)
+    });
+  };
+  // Member actions
+  const handleRemoveUser = (user) => {
+    setRooms(rooms.map(r => {
+      if (r.id === selectedRoom.id) {
+        return {
+          ...r,
+          members: r.members.filter(m => m.email !== user.email),
+          admins: r.admins.filter(a => a.email !== user.email)
+        };
+      }
+      return r;
+    }));
+    setSelectedRoom({
+      ...selectedRoom,
+      members: selectedRoom.members.filter(m => m.email !== user.email),
+      admins: selectedRoom.admins.filter(a => a.email !== user.email)
+    });
+    setMemberAction({ show: false, user: null, anchor: null });
+  };
+  const handleMakeAdmin = (user) => {
+    setRooms(rooms.map(r => {
+      if (r.id === selectedRoom.id) {
+        return {
+          ...r,
+          admins: [...r.admins, user],
+          members: r.members.filter(m => m.email !== user.email)
+        };
+      }
+      return r;
+    }));
+    setSelectedRoom({
+      ...selectedRoom,
+      admins: [...selectedRoom.admins, user],
+      members: selectedRoom.members.filter(m => m.email !== user.email)
+    });
+    setMemberAction({ show: false, user: null, anchor: null });
+  };
 
   // Main render
   if (view === 'chat') {
@@ -410,9 +625,9 @@ const Rooms = () => {
             <SectionTitle style={{textAlign:'center',marginTop:32}}>{selectedTopic.title}</SectionTitle>
             <ChatArea style={{margin:'32px auto 0 auto',width:'90%',height:'80%'}}>
               <ChatMessages>
-                {chatMessages.map(msg => (
+                {chatMessages.map((msg, idx) => (
                   <Message key={msg.id} isUser={msg.isUser}>
-                    <Avatar isUser={msg.isUser}>{msg.isUser ? 'U' : <FaCommentDots />}</Avatar>
+                    <Avatar src={msg.isUser ? currentUser.avatar : '/ai-bot.png'} alt={msg.isUser ? currentUser.name : 'AI'} />
                     <MessageContent isUser={msg.isUser}>{msg.text}</MessageContent>
                   </Message>
                 ))}
@@ -428,10 +643,39 @@ const Rooms = () => {
               </ChatInput>
             </ChatArea>
           </MainArea>
-          <MemberList>
-            <MemberTitle>Members</MemberTitle>
-            {memberList.map(name => <MemberName key={name}><FaUsers /> {name}</MemberName>)}
-          </MemberList>
+          {showParticipants && (
+            <ParticipantsSidebar>
+              <SidebarToggle onClick={() => setShowParticipants(false)} title="Hide Participants"><FaChevronRight /></SidebarToggle>
+              <div style={{width:'100%',padding:'24px 18px 0 18px',overflowY:'auto'}}>
+                <MemberSectionTitle>Admins</MemberSectionTitle>
+                {getSortedAdmins(selectedRoom).map(admin => (
+                  <MemberRow key={admin.email}>
+                    <Avatar src={admin.avatar} alt={admin.name} />
+                    <MemberName>{admin.name}</MemberName>
+                    <FaCrown style={{color:'#f59e0b',marginLeft:4}} title="Admin" />
+                  </MemberRow>
+                ))}
+                <SectionDivider />
+                <MemberSectionTitle>Members</MemberSectionTitle>
+                {getSortedMembers(selectedRoom).map(member => (
+                  <MemberRow key={member.email} onClick={isAdmin(selectedRoom) ? (e) => setMemberAction({ show: true, user: member, anchor: e.currentTarget }) : undefined}>
+                    <Avatar src={member.avatar} alt={member.name} />
+                    <MemberName>{member.name}</MemberName>
+                  </MemberRow>
+                ))}
+              </div>
+              {memberAction.show && memberAction.user && (
+                <MemberActionMenu style={{top: memberAction.anchor.getBoundingClientRect().top-60}}>
+                  <MemberActionItem onClick={() => handleMakeAdmin(memberAction.user)}><FaUserShield /> Make Admin</MemberActionItem>
+                  <MemberActionItem onClick={() => handleRemoveUser(memberAction.user)} style={{color:'#ef4444'}}><FaTimes /> Remove User</MemberActionItem>
+                  <MemberActionItem onClick={() => setMemberAction({ show: false, user: null, anchor: null })}><FaChevronLeft /> Cancel</MemberActionItem>
+                </MemberActionMenu>
+              )}
+            </ParticipantsSidebar>
+          )}
+          {!showParticipants && (
+            <SidebarToggle onClick={() => setShowParticipants(true)} title="Show Participants" style={{right:0,top:18}}><FaChevronLeft /></SidebarToggle>
+          )}
         </TwoColumn>
       </NoScrollWrapper>
     );
@@ -445,18 +689,67 @@ const Rooms = () => {
             <SectionTitle style={{textAlign:'center',marginTop:32}}>Topics in {selectedRoom.name}</SectionTitle>
             <TopicList style={{margin:'32px auto 0 auto',width:'90%'}}>
               {selectedRoom.topics.map(topic => (
-                <TopicBox key={topic.title} onClick={() => handleTopicClick(topic)}>
+                <TopicBox key={topic.title}>
                   <TopicTitle>{topic.title}</TopicTitle>
                   <TopicMeta>{topic.description}</TopicMeta>
                   <TopicMeta>Created by {topic.createdBy} on {topic.date}</TopicMeta>
+                  <TopicActions>
+                    {(isAdmin(selectedRoom) || topic.createdBy === currentUser.name) && (
+                      <ActionButton style={{background:'#ef4444',color:'#fff',padding:'6px 12px',fontSize:'13px'}} onClick={() => handleDeleteTopic(topic)}><FaTimes /> Delete</ActionButton>
+                    )}
+                  </TopicActions>
                 </TopicBox>
               ))}
             </TopicList>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',marginTop:16}}>
+              <FormInput
+                placeholder="New Topic Title"
+                value={newTopicTitle}
+                onChange={e => setNewTopicTitle(e.target.value)}
+                style={{marginBottom:8,maxWidth:320}}
+              />
+              <FormInput
+                placeholder="Description"
+                value={newTopicDesc}
+                onChange={e => setNewTopicDesc(e.target.value)}
+                style={{marginBottom:8,maxWidth:320}}
+              />
+              <FormButton onClick={handleCreateTopic} style={{maxWidth:180}}>Create Topic</FormButton>
+            </div>
           </MainArea>
-          <MemberList>
-            <MemberTitle>Members</MemberTitle>
-            {memberList.map(name => <MemberName key={name}><FaUsers /> {name}</MemberName>)}
-          </MemberList>
+          {showParticipants && (
+            <ParticipantsSidebar>
+              <SidebarToggle onClick={() => setShowParticipants(false)} title="Hide Participants"><FaChevronRight /></SidebarToggle>
+              <div style={{width:'100%',padding:'24px 18px 0 18px',overflowY:'auto'}}>
+                <MemberSectionTitle>Admins</MemberSectionTitle>
+                {getSortedAdmins(selectedRoom).map(admin => (
+                  <MemberRow key={admin.email}>
+                    <Avatar src={admin.avatar} alt={admin.name} />
+                    <MemberName>{admin.name}</MemberName>
+                    <FaCrown style={{color:'#f59e0b',marginLeft:4}} title="Admin" />
+                  </MemberRow>
+                ))}
+                <SectionDivider />
+                <MemberSectionTitle>Members</MemberSectionTitle>
+                {getSortedMembers(selectedRoom).map(member => (
+                  <MemberRow key={member.email} onClick={isAdmin(selectedRoom) ? (e) => setMemberAction({ show: true, user: member, anchor: e.currentTarget }) : undefined}>
+                    <Avatar src={member.avatar} alt={member.name} />
+                    <MemberName>{member.name}</MemberName>
+                  </MemberRow>
+                ))}
+              </div>
+              {memberAction.show && memberAction.user && (
+                <MemberActionMenu style={{top: memberAction.anchor.getBoundingClientRect().top-60}}>
+                  <MemberActionItem onClick={() => handleMakeAdmin(memberAction.user)}><FaUserShield /> Make Admin</MemberActionItem>
+                  <MemberActionItem onClick={() => handleRemoveUser(memberAction.user)} style={{color:'#ef4444'}}><FaTimes /> Remove User</MemberActionItem>
+                  <MemberActionItem onClick={() => setMemberAction({ show: false, user: null, anchor: null })}><FaChevronLeft /> Cancel</MemberActionItem>
+                </MemberActionMenu>
+              )}
+            </ParticipantsSidebar>
+          )}
+          {!showParticipants && (
+            <SidebarToggle onClick={() => setShowParticipants(true)} title="Show Participants" style={{right:0,top:18}}><FaChevronLeft /></SidebarToggle>
+          )}
         </TwoColumn>
       </NoScrollWrapper>
     );
@@ -471,9 +764,15 @@ const Rooms = () => {
             <RoomBox key={room.id}>
               <div style={{fontWeight:700,marginBottom:6}}><FaUsers style={{marginRight: 8}} />{room.name}</div>
               <RoomMeta>ID: {room.id}</RoomMeta>
-              <RoomMeta>Members: {room.members.length}</RoomMeta>
+              <RoomMeta>Admins: {room.admins.map(a => a.name).join(', ')}</RoomMeta>
+              <RoomMeta>Members: {room.members.length + room.admins.length}</RoomMeta>
               <RoomActions>
                 <ActionButton onClick={() => handleEnterRoom(room)}><FaSignInAlt /> Enter Room</ActionButton>
+                {isAdmin(room) ? (
+                  <ActionButton style={{background:'#ef4444',color:'#fff'}} onClick={() => handleDeleteRoom(room.id)}><FaTimes /> Delete Room</ActionButton>
+                ) : (
+                  <ActionButton style={{background:'#f59e0b',color:'#fff'}} onClick={() => handleLeaveRoom(room.id)}><FaTimes /> Leave Room</ActionButton>
+                )}
               </RoomActions>
             </RoomBox>
           ))}

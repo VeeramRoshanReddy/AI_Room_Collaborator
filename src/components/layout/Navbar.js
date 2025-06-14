@@ -18,7 +18,7 @@ const NavbarContainer = styled.nav`
   left: 0;
   right: 0;
   z-index: 1000;
-  border-radius: 0 0 24px 0;
+  border-radius: 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
 `;
 
@@ -116,9 +116,10 @@ const IconButton = styled(motion.button)`
   }
 `;
 
-const Navbar = ({ user, onSidebarToggle }) => {
+const Navbar = ({ user, onSidebarToggle, onLogout }) => {
   const navigate = useNavigate();
   const handleLogout = () => {
+    if (onLogout) onLogout();
     navigate('/login');
   };
   return (
