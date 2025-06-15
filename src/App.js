@@ -134,15 +134,19 @@ function App() {
                   onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
                 />
                 <MainContent isSidebarOpen={isSidebarOpen}>
-                  <ThemeProvider theme={theme}>
-                    <Routes>
-                      <Route path="/dashboard" element={<Home />} />
-                      <Route path="/rooms" element={<Rooms />} />
-                      <Route path="/personalwork" element={<PersonalWork />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                    </Routes>
-                  </ThemeProvider>
+                  <Routes>
+                    <Route path="/dashboard" element={<Home />} />
+                    <Route path="/rooms" element={<Rooms />} />
+                    <Route path="/personalwork" element={
+                      <ThemeProvider theme={theme}>
+                        <div style={{width: '100%', height: '100%'}}>
+                          <PersonalWork />
+                        </div>
+                      </ThemeProvider>
+                    } />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                  </Routes>
                 </MainContent>
               </>
             ) : (
