@@ -789,8 +789,6 @@ This document covers key concepts and provides detailed explanations. Would you 
   useEffect(() => {
     if (audioRef.current && audioGenerated) {
       const audio = audioRef.current;
-      console.log('useEffect ran: audioRef.current is', audioRef.current);
-      console.log('useEffect ran: audio (captured) is', audio);
       
       const handleTimeUpdate = () => setAudioCurrentTime(audio.currentTime);
       const handleLoadedMetadata = () => setAudioDuration(audio.duration);
@@ -798,23 +796,19 @@ This document covers key concepts and provides detailed explanations. Would you 
         setIsPlayingAudio(false);
         setAudioCurrentTime(0);
       };
-
+  
       audio.addEventListener('timeupdate', handleTimeUpdate);
       audio.addEventListener('loadedmetadata', handleLoadedMetadata);
       audio.addEventListener('ended', handleEnded);
-
+  
       return () => {
-        console.log('Cleanup function running');
-        console.log('Cleanup: audioRef.current is', audioRef.current);
-        console.log('Cleanup: audio (captured) is', audio);
-        if (audio) {
-          audio.removeEventListener('timeupdate', handleTimeUpdate);
-          audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-          audio.removeEventListener('ended', handleEnded);
-        }
+        // Use the captured audio reference for cleanup
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.removeEventListener('ended', handleEnded);
       };
     }
-  }, [audioRef.current, audioGenerated]);
+  }, [audioGenerated]); // Remove audioRef.current from dependencies
 
   useEffect(() => {
     const handleClickOutside = (event) => {
