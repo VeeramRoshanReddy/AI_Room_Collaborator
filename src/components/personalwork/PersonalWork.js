@@ -802,7 +802,7 @@ This document covers key concepts and provides detailed explanations. Would you 
       audio.addEventListener('ended', handleEnded);
 
       return () => {
-        if (audioRef.current) {
+        if (audio) {
           audio.removeEventListener('timeupdate', handleTimeUpdate);
           audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
           audio.removeEventListener('ended', handleEnded);
