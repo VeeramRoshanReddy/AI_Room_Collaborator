@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { useDropzone } from 'react-dropzone';
-import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft } from 'react-icons/fa';
+import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft, FaPause } from 'react-icons/fa';
 
 const GlassContainer = styled.div`
   display: flex;
@@ -802,12 +802,14 @@ This document covers key concepts and provides detailed explanations. Would you 
       audio.addEventListener('ended', handleEnded);
 
       return () => {
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.removeEventListener('ended', handleEnded);
+        if (audioRef.current) {
+          audio.removeEventListener('timeupdate', handleTimeUpdate);
+          audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+          audio.removeEventListener('ended', handleEnded);
+        }
       };
     }
-  }, [audioGenerated]);
+  }, [audioRef.current, audioGenerated]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -876,6 +878,7 @@ This document covers key concepts and provides detailed explanations. Would you 
   };
 
   const handleTogglePlayPause = () => {
+    if (!audioRef.current) return;
     if (audioRef.current.paused) {
       audioRef.current.play();
       setIsPlayingAudio(true);
@@ -886,23 +889,27 @@ This document covers key concepts and provides detailed explanations. Would you 
   };
 
   const handleSeek = (e) => {
+    if (!audioRef.current) return;
     const seekTime = (e.nativeEvent.offsetX / e.target.offsetWidth) * audioDuration;
     audioRef.current.currentTime = seekTime;
     setAudioCurrentTime(seekTime);
   };
 
   const handleVolumeChange = (e) => {
+    if (!audioRef.current) return;
     const newVolume = parseFloat(e.target.value);
     audioRef.current.volume = newVolume;
     setAudioVolume(newVolume);
   };
 
   const handlePlaybackSpeedChange = (speed) => {
+    if (!audioRef.current) return;
     audioRef.current.playbackRate = speed;
     setAudioPlaybackSpeed(speed);
   };
 
   const handleSkip = (seconds) => {
+    if (!audioRef.current) return;
     audioRef.current.currentTime += seconds;
     setAudioCurrentTime(audioRef.current.currentTime);
   };
@@ -1186,14 +1193,18 @@ This document covers key concepts and provides detailed explanations. Would you 
                   )}
                   {audioGenerated && (
                     <AudioPlayerContainer>
-                      <audio ref={audioRef} src="/path/to/your/simulated-audio.mp3" preload="metadata" />
+                      <audio
+                        ref={audioRef}
+                        src="/path/to/your/simulated-audio.mp3"
+                        preload="metadata"
+                      />
                       <AudioProgressBar onClick={handleSeek}>
                         <AudioProgress progress={(audioCurrentTime / audioDuration) * 100} />
                       </AudioProgressBar>
                       <AudioControls>
                         <SkipButton onClick={() => handleSkip(-10)}>&#171; 10s</SkipButton>
                         <PlaybackButton onClick={handleTogglePlayPause}>
-                          {isPlayingAudio ? <FaPlay /> : <FaPlay />}
+                          {isPlayingAudio ? <FaPause /> : <FaPlay />}
                         </PlaybackButton>
                         <SkipButton onClick={() => handleSkip(10)}>10s &#187;</SkipButton>
                         <TimeDisplay>{formatTime(audioCurrentTime)} / {formatTime(audioDuration)}</TimeDisplay>

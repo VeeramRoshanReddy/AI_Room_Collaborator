@@ -59,12 +59,12 @@ const MainContent = styled.main`
   display: flex;
   flex-direction: column;
   height: calc(100vh - 64px);
-  min-height: 0; /* Reverted to original */
+  min-height: calc(100vh - 64px); /* Ensure it always has this minimum height */
   margin-left: ${props => props.isSidebarOpen ? '220px' : '60px'};
   margin-top: 64px;
   transition: margin-left ${props => props.theme.transitions.default};
   padding: 24px;
-  background: transparent; /* Reverted to original */
+  background: ${props => props.theme.colors.background}; /* Set a consistent background */
   overflow-y: auto;
 `;
 
@@ -78,16 +78,7 @@ function App() {
     return storedUser ? JSON.parse(storedUser) : null;
   });
   const [isAuthenticated, setIsAuthenticated] = useState(!!user); // Derive isAuthenticated immediately
-  const [loadingAuth, setLoadingAuth] = useState(false); // No longer need loading state if isAuthenticated is immediate
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  // No longer need this useEffect to set isAuthenticated and loadingAuth if done synchronously
-  /*
-  useEffect(() => {
-    setIsAuthenticated(!!user);
-    setLoadingAuth(false);
-  }, [user]);
-  */
 
   const handleLogout = () => {
     // Clear Google session (for Google One Tap/automatic sign-in)
