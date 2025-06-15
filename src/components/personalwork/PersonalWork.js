@@ -536,7 +536,7 @@ const PersonalWork = () => {
   const audioRef = useRef(null); // Ref for the audio element
   const chatAreaRef = useRef(null);
   const [isAudioDownloading, setIsAudioDownloading] = useState(false); // New state for download status
-  const [personalWorkView, setPersonalWorkView] = useState('main'); // Temporarily changed to 'main' for debugging
+  const [personalWorkView, setPersonalWorkView] = useState('notes'); // Reverted to 'notes'
   const [notes, setNotes] = useState([
     { id: 1, title: 'Meeting Notes', description: 'Summary of project meeting', date: '2024-07-20' },
     { id: 2, title: 'Research Ideas', description: 'Brainstorming for new AI models', date: '2024-07-19' },
@@ -569,6 +569,29 @@ const PersonalWork = () => {
       chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (audioRef.current && audioGenerated) {
+      const audio = audioRef.current;
+      
+      const handleTimeUpdate = () => setAudioCurrentTime(audio.currentTime);
+      const handleLoadedMetadata = () => setAudioDuration(audio.duration);
+      const handleEnded = () => {
+        setIsPlayingAudio(false);
+        setAudioCurrentTime(0);
+      };
+
+      audio.addEventListener('timeupdate', handleTimeUpdate);
+      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.addEventListener('ended', handleEnded);
+
+      return () => {
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.removeEventListener('ended', handleEnded);
+      };
+    }
+  }, [audioGenerated]); // Added audioGenerated to dependency array
 
   useEffect(() => {
     // Close note menu when clicking outside
