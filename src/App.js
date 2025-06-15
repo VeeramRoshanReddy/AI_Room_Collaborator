@@ -16,9 +16,9 @@ import PersonalWork from './components/personalwork/PersonalWork';
 // Theme configuration
 const theme = {
   colors: {
-    primary: '#2563eb', // Modern blue
+    primary: '#2563eb',
     secondary: '#1d4ed8',
-    accent: '#06b6d4', // Cyan
+    accent: '#06b6d4',
     background: '#f3f6fd',
     surface: '#f8fafc',
     text: '#1e293b',
@@ -48,8 +48,7 @@ const AppContainer = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #f0f2f5 0%, #e6e9ed 100%), url('https://www.transparenttextures.com/patterns/cubes.png'); /* Grey background */
-  background-blend-mode: lighten;
+  background: linear-gradient(135deg, #f0f2f5 0%, #e6e9ed 100%);
   color: ${props => props.theme.colors.text};
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   overflow: hidden;
@@ -59,40 +58,95 @@ const MainContent = styled.main`
   display: flex;
   flex-direction: column;
   height: calc(100vh - 64px);
-  min-height: calc(100vh - 64px); /* Ensure it always has this minimum height */
   margin-left: ${props => props.isSidebarOpen ? '220px' : '60px'};
   margin-top: 64px;
   transition: margin-left ${props => props.theme.transitions.default};
   padding: 24px;
-  background: ${props => props.theme.colors.background}; /* Set a consistent background */
+  background: ${props => props.theme.colors.background};
   overflow-y: auto;
+  
+  @media (max-width: 768px) {
+    margin-left: 0;
+    padding: 16px;
+  }
 `;
 
-// Placeholder components (to be implemented)
-const Dashboard = () => <div>Dashboard Component</div>;
-const Settings = () => <div>Settings Component</div>;
+// Placeholder components
+const Dashboard = () => (
+  <div style={{ padding: '20px' }}>
+    <h1>Dashboard</h1>
+    <p>Welcome to your dashboard!</p>
+  </div>
+);
+
+const Settings = () => (
+  <div style={{ padding: '20px' }}>
+    <h1>Settings</h1>
+    <p>Manage your settings here.</p>
+  </div>
+);
 
 function App() {
-  const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
-  const [isAuthenticated, setIsAuthenticated] = useState(!!user); // Derive isAuthenticated immediately
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleLogout = () => {
-    // Clear Google session (for Google One Tap/automatic sign-in)
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-      window.google.accounts.id.disableAutoSelect();
+  // Initialize authentication state - REMOVED localStorage usage
+  useEffect(() => {
+    // Simulate checking authentication state
+    // In a real app, you might check with your backend or a token
+    setIsLoading(false);
+  }, []);
+
+  // Handle successful login - REMOVED localStorage usage
+  const handleLogin = (userData) => {
+    try {
+      setUser(userData);
+      setIsAuthenticated(true);
+      // Store user data in memory only
+    } catch (error) {
+      console.error('Error saving user data:', error);
     }
-    
-    // Clear local storage
-    localStorage.removeItem('user');
-    
-    setUser(null); // Set user to null to trigger isAuthenticated update
   };
 
-  // Google OAuth Client ID for production
+  // Handle logout - REMOVED localStorage usage
+  const handleLogout = () => {
+    try {
+      // Clear Google session
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.disableAutoSelect();
+      }
+      
+      // Reset state
+      setUser(null);
+      setIsAuthenticated(false);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Force reset even if there's an error
+      setUser(null);
+      setIsAuthenticated(false);
+    }
+  };
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <ThemeProvider theme={theme}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          background: theme.colors.background
+        }}>
+          <div>Loading...</div>
+        </div>
+      </ThemeProvider>
+    );
+  }
+
+  // Google OAuth Client ID
   const GOOGLE_CLIENT_ID = '290635245122-a60ie2u5b8ga1lklu79tktgecs3s7l6c.apps.googleusercontent.com';
 
   return (
@@ -128,14 +182,9 @@ function App() {
                   <Routes>
                     <Route path="/dashboard" element={<Home />} />
                     <Route path="/rooms" element={<Rooms />} />
-                    <Route path="/personalwork" element={
-                      <ThemeProvider theme={theme}>
-                        <div style={{width: '100%', height: '100%'}}>
-                          <PersonalWork />
-                        </div>
-                      </ThemeProvider>
-                    } />
+                    <Route path="/personalwork" element={<PersonalWork />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
                 </MainContent>
@@ -146,11 +195,12 @@ function App() {
                   path="/login" 
                   element={
                     <Login 
-                      onLogin={setIsAuthenticated} 
-                      setUser={setUser} 
+                      onLogin={handleLogin}
+                      setUser={setUser}
                     />
                   } 
                 />
+                <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="*" element={<Navigate to="/login" replace />} />
               </Routes>
             )}

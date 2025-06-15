@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { useDropzone } from 'react-dropzone';
-import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft, FaPause } from 'react-icons/fa';
+import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft, FaPause, FaVolumeUp } from 'react-icons/fa';
 
 const GlassContainer = styled.div`
   display: flex;
@@ -728,7 +728,7 @@ const BackButton = styled.button`
 
 const PersonalWork = () => {
   const [selectedNote, setSelectedNote] = useState(null);
-  const [document, setDocument] = useState(null);
+  const [uploadedDocument, setUploadedDocument] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -757,6 +757,8 @@ const PersonalWork = () => {
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteDescription, setNewNoteDescription] = useState('');
   const [showNoteMenu, setShowNoteMenu] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: {
@@ -767,7 +769,7 @@ const PersonalWork = () => {
     maxFiles: 1,
     onDrop: acceptedFiles => {
       const file = acceptedFiles[0];
-      setDocument(file);
+      setUploadedDocument(file);
       setMessages([
         {
           id: 1,
@@ -786,7 +788,6 @@ This document covers key concepts and provides detailed explanations. Would you 
     }
   }, [messages]);
 
-// REPLACE FROM LINE 789 TO LINE 812 WITH THIS CODE:
 useEffect(() => {
   if (audioRef.current && audioGenerated) {
     const audio = audioRef.current;
@@ -803,35 +804,30 @@ useEffect(() => {
     audio.addEventListener('ended', handleEnded);
 
     return () => {
-      // Use the captured audio reference for cleanup.
-      // The 'audio' variable here is the one that was available when the effect ran.
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
     };
   }
-}, [audioGenerated]); // IMPORTANT: ONLY 'audioGenerated' IS IN THE DEPENDENCY ARRAY HERE
-// END OF REPLACEMENT
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showNoteMenu && !event.target.closest('#note-menu-' + showNoteMenu) && !event.target.closest('#note-three-dots-' + showNoteMenu)) {
-        setShowNoteMenu(null);
-      }
-    };
-
-    if (typeof document !== 'undefined') {
-      document.addEventListener('mousedown', handleClickOutside);
+}, [audioGenerated]);
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (showNoteMenu && !event.target.closest('#note-menu-' + showNoteMenu) && !event.target.closest('#note-three-dots-' + showNoteMenu)) {
+      setShowNoteMenu(null);
     }
-    
-    return () => {
-      if (typeof document !== 'undefined') {
-        document.removeEventListener('mousedown', handleClickOutside);
-      }
-    };
-  }, [showNoteMenu]);
+  };
+
+  if (showNoteMenu) {
+    document.addEventListener('mousedown', handleClickOutside);
+  }
+  
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [showNoteMenu]);
 
   const handleSendMessage = () => {
-    if (!inputMessage.trim() || !document) return;
+    if (!inputMessage.trim() || !uploadedDocument) return;
     const newMessage = {
       id: messages.length + 1,
       text: inputMessage,
@@ -854,7 +850,7 @@ useEffect(() => {
   };
 
   const handleRemoveDocument = () => {
-    setDocument(null);
+    setUploadedDocument(null);
     setMessages([]);
     setCurrentQuiz(null);
     setQuizScore(0);
@@ -1010,7 +1006,7 @@ useEffect(() => {
 
   const handleResetAll = () => {
     setMessages([]);
-    setDocument(null);
+    setUploadedDocument(null);
     setCurrentQuiz(null);
     setQuizScore(0);
     setQuizIndex(0);
@@ -1030,7 +1026,7 @@ useEffect(() => {
 
   const handleBackToNotes = () => {
     setSelectedNote(null);
-    setDocument(null);
+    setUploadedDocument(null);
     setMessages([]);
     setCurrentQuiz(null);
     setQuizScore(0);
@@ -1064,6 +1060,7 @@ useEffect(() => {
                   <NoteDate>Created on: {note.date}</NoteDate>
                   <NoteActions>
                     <ThreeDotsButton
+                      id={`note-three-dots-${note.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowNoteMenu(note.id);
@@ -1072,7 +1069,7 @@ useEffect(() => {
                       <FaEllipsisV />
                     </ThreeDotsButton>
                     {showNoteMenu === note.id && (
-                      <DropdownMenu>
+                      <DropdownMenu id={`note-menu-${note.id}`}>
                         <DropdownMenuItem 
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1118,12 +1115,12 @@ useEffect(() => {
           <GlassContainer>
             <SectionsContainer>
               <ChatSection>
-                {document ? (
+                {uploadedDocument ? (
                   <>
                     <DocumentStatus>
                       <StatusText>
                         <FaFileUpload />
-                        {document.name}
+                        {uploadedDocument.name}
                       </StatusText>
                       <ActionButtons>
                         <Button onClick={handleClearChat} title="Clear Chat">
@@ -1184,7 +1181,7 @@ useEffect(() => {
                   {!audioGenerated && !isGeneratingAudio && (
                     <Button
                       onClick={handleGenerateAudio}
-                      disabled={!document}
+                      disabled={!uploadedDocument}
                     >
                       <FaPlay /> Generate Audio Overview
                     </Button>
@@ -1210,7 +1207,7 @@ useEffect(() => {
                         <SkipButton onClick={() => handleSkip(10)}>10s &#187;</SkipButton>
                         <TimeDisplay>{formatTime(audioCurrentTime)} / {formatTime(audioDuration)}</TimeDisplay>
                         <VolumeControl>
-                          <FaPlay size={16} color="#4b5563" />
+                          <FaVolumeUp size={16} color="#4b5563" />
                           <VolumeSlider
                             type="range"
                             min="0"
@@ -1258,7 +1255,7 @@ useEffect(() => {
                   {!quizStarted && !isGeneratingQuiz && (
                     <Button
                       onClick={handleGenerateQuiz}
-                      disabled={!document}
+                      disabled={!uploadedDocument}
                     >
                       <FaQuestionCircle /> Generate Quiz
                     </Button>
