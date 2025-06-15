@@ -577,9 +577,16 @@ const PersonalWork = () => {
         setShowNoteMenu(null);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+
+    // Add conditional check for document before adding event listener
+    if (typeof document !== 'undefined') {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('mousedown', handleClickOutside);
+      }
     };
   }, [showNoteMenu]);
 
