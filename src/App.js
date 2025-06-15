@@ -77,13 +77,17 @@ function App() {
     const storedUser = localStorage.getItem('user');
     return storedUser ? JSON.parse(storedUser) : null;
   });
-  const [isAuthenticated, setIsAuthenticated] = useState(!!user); // Derive isAuthenticated from user
+  const [isAuthenticated, setIsAuthenticated] = useState(!!user); // Derive isAuthenticated immediately
+  const [loadingAuth, setLoadingAuth] = useState(false); // No longer need loading state if isAuthenticated is immediate
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Update isAuthenticated when user changes
+  // No longer need this useEffect to set isAuthenticated and loadingAuth if done synchronously
+  /*
   useEffect(() => {
     setIsAuthenticated(!!user);
+    setLoadingAuth(false);
   }, [user]);
+  */
 
   const handleLogout = () => {
     // Clear Google session (for Google One Tap/automatic sign-in)
