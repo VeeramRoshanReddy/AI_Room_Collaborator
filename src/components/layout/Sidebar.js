@@ -140,7 +140,7 @@ const UserRole = styled.div`
 const navItems = [
   { icon: <FaHome />, label: 'Home', path: '/dashboard' },
   { icon: <FaUsers />, label: 'Rooms', path: '/rooms' },
-  { icon: <FaBook />, label: 'Personal Work', path: '/personal-work' },
+  { icon: <FaBook />, label: 'Personal Work', path: '/personalwork' },
 ];
 
 const Sidebar = ({ isOpen, onToggle }) => {

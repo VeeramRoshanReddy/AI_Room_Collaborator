@@ -133,7 +133,7 @@ function App() {
                   <Routes>
                     <Route path="/dashboard" element={<Home />} />
                     <Route path="/rooms" element={<Rooms />} />
-                    <Route path="/personal-work" element={<PersonalWork />} />
+                    <Route path="/personalwork" element={<PersonalWork />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="*" element={<Navigate to="/dashboard" replace />} />
                   </Routes>
