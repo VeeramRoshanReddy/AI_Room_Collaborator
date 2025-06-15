@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { useDropzone } from 'react-dropzone';
-import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV } from 'react-icons/fa';
+import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft } from 'react-icons/fa';
 
 const GlassContainer = styled.div`
   display: flex;
@@ -654,7 +654,80 @@ const FormButton = styled(Button)`
   align-self: flex-end;
 `;
 
+const PersonalWorkContainer = styled.div`
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  overflow: hidden;
+`;
+
+const NotesView = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  gap: 24px;
+  overflow-y: auto;
+  background: #f8fafc;
+`;
+
+const NotesGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+  padding: 24px;
+  overflow-y: auto;
+`;
+
+const NoteCard = styled.div`
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(37, 99, 235, 0.15);
+  }
+`;
+
+const DocumentView = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  gap: 24px;
+  background: #f8fafc;
+  overflow: hidden;
+`;
+
+const BackButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #1d4ed8;
+  }
+`;
+
 const PersonalWork = () => {
+  const [selectedNote, setSelectedNote] = useState(null);
   const [document, setDocument] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -676,7 +749,6 @@ const PersonalWork = () => {
   const audioRef = useRef(null);
   const chatAreaRef = useRef(null);
   const [isAudioDownloading, setIsAudioDownloading] = useState(false);
-  const [personalWorkView, setPersonalWorkView] = useState('notes');
   const [notes, setNotes] = useState([
     { id: 1, title: 'Meeting Notes', description: 'Summary of project meeting', date: '2024-07-20' },
     { id: 2, title: 'Research Ideas', description: 'Brainstorming for new AI models', date: '2024-07-19' },
@@ -944,44 +1016,70 @@ This document covers key concepts and provides detailed explanations. Would you 
     setIsAudioDownloading(false);
   };
 
+  const handleNoteClick = (note) => {
+    setSelectedNote(note);
+  };
+
+  const handleBackToNotes = () => {
+    setSelectedNote(null);
+    setDocument(null);
+    setMessages([]);
+    setCurrentQuiz(null);
+    setQuizScore(0);
+    setQuizIndex(0);
+    setQuizStarted(false);
+    setQuizCompleted(false);
+    setAudioGenerated(false);
+    setIsPlayingAudio(false);
+    setAudioCurrentTime(0);
+  };
+
   return (
-    <GlassContainer>
-      {personalWorkView === 'notes' ? (
-        <NoteContainer>
+    <PersonalWorkContainer>
+      {!selectedNote ? (
+        <NotesView>
           <SectionTitle>
-            <h2>Your Notes</h2>
+            <h2>Personal Notes</h2>
+            <Button onClick={() => setShowCreateNoteForm(true)}>
+              <FaPlus /> Create New Note
+            </Button>
           </SectionTitle>
-          {notes.length === 0 ? (
-            <p style={{textAlign: 'center', color: '#64748b'}}>No notes yet. Create your first note!</p>
-          ) : (
-            <NoteList>
-              {notes.map(note => (
-                <NoteItem key={note.id}>
+          
+          <NotesGrid>
+            {notes.length === 0 ? (
+              <p style={{textAlign: 'center', color: '#64748b'}}>No notes yet. Create your first note!</p>
+            ) : (
+              notes.map(note => (
+                <NoteCard key={note.id} onClick={() => handleNoteClick(note)}>
                   <NoteTitle>{note.title}</NoteTitle>
                   <NoteDescription>{note.description}</NoteDescription>
                   <NoteDate>Created on: {note.date}</NoteDate>
                   <NoteActions>
                     <ThreeDotsButton
-                      id={`note-three-dots-${note.id}`}
-                      onClick={() => setShowNoteMenu(note.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowNoteMenu(note.id);
+                      }}
                     >
                       <FaEllipsisV />
                     </ThreeDotsButton>
                     {showNoteMenu === note.id && (
-                      <DropdownMenu id={`note-menu-${note.id}`}>
-                        <DropdownMenuItem onClick={() => handleDeleteNote(note.id)}>
+                      <DropdownMenu>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteNote(note.id);
+                          }}
+                        >
                           <FaTrash /> Delete Note
                         </DropdownMenuItem>
                       </DropdownMenu>
                     )}
                   </NoteActions>
-                </NoteItem>
-              ))}
-            </NoteList>
-          )}
-          <AddNoteButton onClick={() => setShowCreateNoteForm(true)}>
-            <FaPlus /> Create New Note
-          </AddNoteButton>
+                </NoteCard>
+              ))
+            )}
+          </NotesGrid>
 
           {showCreateNoteForm && (
             <FormOverlay onClick={() => setShowCreateNoteForm(false)}>
@@ -1002,213 +1100,207 @@ This document covers key concepts and provides detailed explanations. Would you 
               </FormBox>
             </FormOverlay>
           )}
-
-          <Button 
-            onClick={() => setPersonalWorkView('main')} 
-            style={{marginTop: 'auto', alignSelf: 'center'}}
-          >
-            Enter Personal Work
-          </Button>
-        </NoteContainer>
+        </NotesView>
       ) : (
-        <SectionsContainer>
-          <ChatSection>
-            {document ? (
-              <>
-                <DocumentStatus>
-                  <StatusText>
-                    <FaFileUpload />
-                    {document.name}
-                  </StatusText>
-                  <ActionButtons>
-                    <Button onClick={handleClearChat} title="Clear Chat">
-                      <FaBroom />
-                    </Button>
-                    <Button onClick={handleRemoveDocument} title="Remove Document">
-                      <FaTrash />
-                    </Button>
-                  </ActionButtons>
-                </DocumentStatus>
-                <ChatArea ref={chatAreaRef}>
-                  {messages.map(message => (
-                    <Message key={message.id} isUser={message.isUser}>
-                      <Avatar isUser={message.isUser}>
-                        {message.isUser ? <FaUserCircle /> : <FaRobot />}
-                      </Avatar>
-                      <MessageContent isUser={message.isUser}>
-                        {message.text}
-                      </MessageContent>
-                    </Message>
-                  ))}
-                </ChatArea>
-                <ChatInputArea>
-                  <Input
-                    value={inputMessage}
-                    onChange={e => setInputMessage(e.target.value)}
-                    placeholder="Ask a question about the document..."
-                    onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                  />
-                  <Button 
-                    onClick={handleSendMessage}
-                    disabled={!inputMessage.trim()}
-                  >
-                    Send
-                  </Button>
-                </ChatInputArea>
-              </>
-            ) : (
-              <UploadArea {...getRootProps()}>
-                <input {...getInputProps()} />
-                <FaFileUpload size={48} color="#3b82f6" />
-                <h3 style={{margin: '16px 0 8px 0', color: '#3b82f6'}}>
-                  Upload a PDF or DOC file to start
-                </h3>
-                <p style={{color: '#64748b'}}>
-                  Drag and drop a file here, or click to select
-                </p>
-              </UploadArea>
-            )}
-          </ChatSection>
-
-          <RightSection>
-            <AudioSection>
-              <SectionTitle>
-                <h2>Audio Overview</h2>
-              </SectionTitle>
-              <p style={{marginBottom: 16, color: '#64748b'}}>Generate a detailed audio explanation of the document</p>
-              {!audioGenerated && !isGeneratingAudio && (
-                <Button
-                  onClick={handleGenerateAudio}
-                  disabled={!document}
-                >
-                  <FaPlay /> Generate Audio Overview
-                </Button>
-              )}
-              {isGeneratingAudio && (
-                <p style={{color: '#64748b', textAlign: 'center', marginTop: '10px'}}>Generating audio, wait...</p>
-              )}
-              {audioGenerated && (
-                <AudioPlayerContainer>
-                  <audio ref={audioRef} src="/path/to/your/simulated-audio.mp3" preload="metadata" />
-                  <AudioProgressBar onClick={handleSeek}>
-                    <AudioProgress progress={(audioCurrentTime / audioDuration) * 100} />
-                  </AudioProgressBar>
-                  <AudioControls>
-                    <SkipButton onClick={() => handleSkip(-10)}>&#171; 10s</SkipButton>
-                    <PlaybackButton onClick={handleTogglePlayPause}>
-                      {isPlayingAudio ? <FaPlay /> : <FaPlay />}
-                    </PlaybackButton>
-                    <SkipButton onClick={() => handleSkip(10)}>10s &#187;</SkipButton>
-                    <TimeDisplay>{formatTime(audioCurrentTime)} / {formatTime(audioDuration)}</TimeDisplay>
-                    <VolumeControl>
-                      <FaPlay size={16} color="#4b5563" />
-                      <VolumeSlider
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={audioVolume}
-                        onChange={handleVolumeChange}
-                      />
-                    </VolumeControl>
-                    <PlaybackSpeedControl>
-                      {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
-                        <SpeedButton
-                          key={speed}
-                          active={audioPlaybackSpeed === speed}
-                          onClick={() => handlePlaybackSpeedChange(speed)}
-                        >
-                          {speed.toFixed(1)}x
-                        </SpeedButton>
+        <DocumentView>
+          <BackButton onClick={handleBackToNotes}>
+            <FaChevronLeft /> Back to Notes
+          </BackButton>
+          
+          <GlassContainer>
+            <SectionsContainer>
+              <ChatSection>
+                {document ? (
+                  <>
+                    <DocumentStatus>
+                      <StatusText>
+                        <FaFileUpload />
+                        {document.name}
+                      </StatusText>
+                      <ActionButtons>
+                        <Button onClick={handleClearChat} title="Clear Chat">
+                          <FaBroom />
+                        </Button>
+                        <Button onClick={handleRemoveDocument} title="Remove Document">
+                          <FaTrash />
+                        </Button>
+                      </ActionButtons>
+                    </DocumentStatus>
+                    <ChatArea ref={chatAreaRef}>
+                      {messages.map(message => (
+                        <Message key={message.id} isUser={message.isUser}>
+                          <Avatar isUser={message.isUser}>
+                            {message.isUser ? <FaUserCircle /> : <FaRobot />}
+                          </Avatar>
+                          <MessageContent isUser={message.isUser}>
+                            {message.text}
+                          </MessageContent>
+                        </Message>
                       ))}
-                    </PlaybackSpeedControl>
-                  </AudioControls>
-                  <Button
-                    onClick={() => {
-                      setIsAudioDownloading(true);
-                      setTimeout(() => {
-                        alert('Audio download started (simulated)');
-                        setIsAudioDownloading(false);
-                      }, 1000);
-                    }}
-                    style={{ marginTop: '12px' }}
-                  >
-                    <FaDownload /> {isAudioDownloading ? 'Downloading...' : 'Download Audio'}
-                  </Button>
-                </AudioPlayerContainer>
-              )}
-            </AudioSection>
-            <QuizSection>
-              <SectionTitle>
-                <h2>Quiz Generator</h2>
-              </SectionTitle>
-              <p style={{marginBottom: 16, color: '#64748b'}}>
-                Test your understanding with AI-generated questions
-              </p>
-              
-              {!quizStarted && !isGeneratingQuiz && (
-                <Button
-                  onClick={handleGenerateQuiz}
-                  disabled={!document}
-                >
-                  <FaQuestionCircle /> Generate Quiz
-                </Button>
-              )}
+                    </ChatArea>
+                    <ChatInputArea>
+                      <Input
+                        value={inputMessage}
+                        onChange={e => setInputMessage(e.target.value)}
+                        placeholder="Ask a question about the document..."
+                        onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                      />
+                      <Button 
+                        onClick={handleSendMessage}
+                        disabled={!inputMessage.trim()}
+                      >
+                        Send
+                      </Button>
+                    </ChatInputArea>
+                  </>
+                ) : (
+                  <UploadArea {...getRootProps()}>
+                    <input {...getInputProps()} />
+                    <FaFileUpload size={48} color="#3b82f6" />
+                    <h3 style={{margin: '16px 0 8px 0', color: '#3b82f6'}}>
+                      Upload a PDF or DOC file to start
+                    </h3>
+                    <p style={{color: '#64748b'}}>
+                      Drag and drop a file here, or click to select
+                    </p>
+                  </UploadArea>
+                )}
+              </ChatSection>
 
-              {isGeneratingQuiz && (
-                <p style={{color: '#64748b', textAlign: 'center'}}>
-                  Generating quiz...
-                </p>
-              )}
+              <RightSection>
+                <AudioSection>
+                  <SectionTitle>
+                    <h2>Audio Overview</h2>
+                  </SectionTitle>
+                  <p style={{marginBottom: 16, color: '#64748b'}}>Generate a detailed audio explanation of the document</p>
+                  {!audioGenerated && !isGeneratingAudio && (
+                    <Button
+                      onClick={handleGenerateAudio}
+                      disabled={!document}
+                    >
+                      <FaPlay /> Generate Audio Overview
+                    </Button>
+                  )}
+                  {isGeneratingAudio && (
+                    <p style={{color: '#64748b', textAlign: 'center', marginTop: '10px'}}>Generating audio, wait...</p>
+                  )}
+                  {audioGenerated && (
+                    <AudioPlayerContainer>
+                      <audio ref={audioRef} src="/path/to/your/simulated-audio.mp3" preload="metadata" />
+                      <AudioProgressBar onClick={handleSeek}>
+                        <AudioProgress progress={(audioCurrentTime / audioDuration) * 100} />
+                      </AudioProgressBar>
+                      <AudioControls>
+                        <SkipButton onClick={() => handleSkip(-10)}>&#171; 10s</SkipButton>
+                        <PlaybackButton onClick={handleTogglePlayPause}>
+                          {isPlayingAudio ? <FaPlay /> : <FaPlay />}
+                        </PlaybackButton>
+                        <SkipButton onClick={() => handleSkip(10)}>10s &#187;</SkipButton>
+                        <TimeDisplay>{formatTime(audioCurrentTime)} / {formatTime(audioDuration)}</TimeDisplay>
+                        <VolumeControl>
+                          <FaPlay size={16} color="#4b5563" />
+                          <VolumeSlider
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={audioVolume}
+                            onChange={handleVolumeChange}
+                          />
+                        </VolumeControl>
+                        <PlaybackSpeedControl>
+                          {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
+                            <SpeedButton
+                              key={speed}
+                              active={audioPlaybackSpeed === speed}
+                              onClick={() => handlePlaybackSpeedChange(speed)}
+                            >
+                              {speed.toFixed(1)}x
+                            </SpeedButton>
+                          ))}
+                        </PlaybackSpeedControl>
+                      </AudioControls>
+                      <Button
+                        onClick={() => {
+                          setIsAudioDownloading(true);
+                          setTimeout(() => {
+                            alert('Audio download started (simulated)');
+                            setIsAudioDownloading(false);
+                          }, 1000);
+                        }}
+                        style={{ marginTop: '12px' }}
+                      >
+                        <FaDownload /> {isAudioDownloading ? 'Downloading...' : 'Download Audio'}
+                      </Button>
+                    </AudioPlayerContainer>
+                  )}
+                </AudioSection>
+                <QuizSection>
+                  <SectionTitle>
+                    <h2>Quiz Generator</h2>
+                  </SectionTitle>
+                  <p style={{marginBottom: 16, color: '#64748b'}}>
+                    Test your understanding with AI-generated questions
+                  </p>
+                  
+                  {!quizStarted && !isGeneratingQuiz && (
+                    <Button
+                      onClick={handleGenerateQuiz}
+                      disabled={!document}
+                    >
+                      <FaQuestionCircle /> Generate Quiz
+                    </Button>
+                  )}
 
-              {currentQuiz && !quizCompleted && (
-                <QuizQuestion>
-                  <QuestionText>{currentQuiz.question}</QuestionText>
-                  <OptionsContainer>
-                    {currentQuiz.options.map((option, index) => {
-                      let className = '';
-                      if (quizAnswered) {
-                        if (index === currentQuiz.correctAnswer) className = 'correct';
-                        if (selectedOption === index && index !== currentQuiz.correctAnswer) className = 'incorrect';
-                      }
-                      return (
-                        <OptionButton
-                          key={index}
-                          className={className}
-                          onClick={() => handleAnswerQuiz(index)}
-                          disabled={quizAnswered}
-                        >
-                          {option}
-                        </OptionButton>
-                      );
-                    })}
-                  </OptionsContainer>
-                  <Score>Score: {quizScore}/10</Score>
-                </QuizQuestion>
-              )}
+                  {isGeneratingQuiz && (
+                    <p style={{color: '#64748b', textAlign: 'center'}}>
+                      Generating quiz...
+                    </p>
+                  )}
 
-              {quizCompleted && (
-                <QuizResult>
-                  <h4>Quiz Completed!</h4>
-                  <p>Great job! You've completed the quiz.</p>
-                  <Score>Final Score: {quizScore}/10</Score>
-                  <Button onClick={handleStartNewQuiz} style={{marginTop: '20px'}}>
-                    Start New Quiz
-                  </Button>
-                </QuizResult>
-              )}
-            </QuizSection>
+                  {currentQuiz && !quizCompleted && (
+                    <QuizQuestion>
+                      <QuestionText>{currentQuiz.question}</QuestionText>
+                      <OptionsContainer>
+                        {currentQuiz.options.map((option, index) => {
+                          let className = '';
+                          if (quizAnswered) {
+                            if (index === currentQuiz.correctAnswer) className = 'correct';
+                            if (selectedOption === index && index !== currentQuiz.correctAnswer) className = 'incorrect';
+                          }
+                          return (
+                            <OptionButton
+                              key={index}
+                              className={className}
+                              onClick={() => handleAnswerQuiz(index)}
+                              disabled={quizAnswered}
+                            >
+                              {option}
+                            </OptionButton>
+                          );
+                        })}
+                      </OptionsContainer>
+                      <Score>Score: {quizScore}/10</Score>
+                    </QuizQuestion>
+                  )}
 
-            <Button 
-              onClick={() => setPersonalWorkView('notes')}
-              style={{marginTop: 'auto', alignSelf: 'center'}}
-            >
-              Back to Notes
-            </Button>
-          </RightSection>
-        </SectionsContainer>
+                  {quizCompleted && (
+                    <QuizResult>
+                      <h4>Quiz Completed!</h4>
+                      <p>Great job! You've completed the quiz.</p>
+                      <Score>Final Score: {quizScore}/10</Score>
+                      <Button onClick={handleStartNewQuiz} style={{marginTop: '20px'}}>
+                        Start New Quiz
+                      </Button>
+                    </QuizResult>
+                  )}
+                </QuizSection>
+              </RightSection>
+            </SectionsContainer>
+          </GlassContainer>
+        </DocumentView>
       )}
-    </GlassContainer>
+    </PersonalWorkContainer>
   );
 };
 
