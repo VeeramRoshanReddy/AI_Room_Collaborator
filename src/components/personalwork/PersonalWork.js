@@ -789,6 +789,8 @@ This document covers key concepts and provides detailed explanations. Would you 
   useEffect(() => {
     if (audioRef.current && audioGenerated) {
       const audio = audioRef.current;
+      console.log('useEffect ran: audioRef.current is', audioRef.current);
+      console.log('useEffect ran: audio (captured) is', audio);
       
       const handleTimeUpdate = () => setAudioCurrentTime(audio.currentTime);
       const handleLoadedMetadata = () => setAudioDuration(audio.duration);
@@ -802,6 +804,9 @@ This document covers key concepts and provides detailed explanations. Would you 
       audio.addEventListener('ended', handleEnded);
 
       return () => {
+        console.log('Cleanup function running');
+        console.log('Cleanup: audioRef.current is', audioRef.current);
+        console.log('Cleanup: audio (captured) is', audio);
         if (audio) {
           audio.removeEventListener('timeupdate', handleTimeUpdate);
           audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
