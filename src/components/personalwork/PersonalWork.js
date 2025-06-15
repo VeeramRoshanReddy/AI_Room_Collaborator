@@ -93,7 +93,7 @@ const ChatArea = styled.div`
   background: transparent;
 `;
 
-const ChatInput = styled.div`
+const ChatInputArea = styled.div`
   padding: 24px;
   border-top: 1.5px solid #e0e7ef;
   display: flex;
@@ -217,13 +217,13 @@ const QuestionText = styled.div`
   margin-bottom: 16px;
 `;
 
-const Options = styled.div`
+const OptionsContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
 `;
 
-const Option = styled.button`
+const OptionButton = styled.button`
   padding: 12px 16px;
   border: 1.5px solid #60a5fa;
   border-radius: 14px;
@@ -462,21 +462,6 @@ const FormInput = styled.input`
   }
 `;
 
-const FormButton = styled.button`
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 24px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-  &:hover {
-    background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
-  }
-`;
-
 const ThreeDotsIcon = styled.div`
   position: absolute;
   top: 16px;
@@ -514,6 +499,161 @@ const DropdownMenuItem = styled.div`
   }
 `;
 
+const MainArea = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+  min-height: 0;
+  padding: 24px;
+  overflow-y: auto;
+`;
+
+const SectionsContainer = styled.div`
+  display: flex;
+  gap: 24px;
+  height: 100%;
+  min-height: 0;
+`;
+
+const NotesSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+  min-height: 0;
+  padding: 24px;
+  background: rgba(255,255,255,0.7);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.12);
+`;
+
+const SectionTitle = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+  }
+`;
+
+const NoteCreationForm = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.08);
+
+  input, textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1.5px solid #e0e7ef;
+    border-radius: 12px;
+    font-size: 15px;
+    background: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+  }
+
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+`;
+
+const NoteList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+`;
+
+const NoteActions = styled.div`
+  position: relative;
+`;
+
+const NoteMenu = styled.div`
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  z-index: 100;
+`;
+
+const MenuItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #fee2e2;
+  }
+`;
+
+const ThreeDotsButton = styled.button`
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.2s, background-color 0.2s;
+
+  &:hover {
+    color: #1e293b;
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+`;
+
+const QuizResult = styled.div`
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.08);
+
+  h4 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 12px;
+  }
+
+  p {
+    font-size: 16px;
+    color: #64748b;
+    margin-bottom: 20px;
+  }
+`;
+
+const FormButton = styled(Button)`
+  margin-top: 16px;
+  align-self: flex-end;
+`;
+
 const PersonalWork = () => {
   const [document, setDocument] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -526,17 +666,17 @@ const PersonalWork = () => {
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [quizStarted, setQuizStarted] = useState(false); // New state to track if quiz has been started
-  const [audioGenerated, setAudioGenerated] = useState(false); // New state for audio generation
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [audioGenerated, setAudioGenerated] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioVolume, setAudioVolume] = useState(1);
   const [audioPlaybackSpeed, setAudioPlaybackSpeed] = useState(1);
-  const audioRef = useRef(null); // Ref for the audio element
+  const audioRef = useRef(null);
   const chatAreaRef = useRef(null);
-  const [isAudioDownloading, setIsAudioDownloading] = useState(false); // New state for download status
-  const [personalWorkView, setPersonalWorkView] = useState('notes'); // Reverted to 'notes'
+  const [isAudioDownloading, setIsAudioDownloading] = useState(false);
+  const [personalWorkView, setPersonalWorkView] = useState('notes');
   const [notes, setNotes] = useState([
     { id: 1, title: 'Meeting Notes', description: 'Summary of project meeting', date: '2024-07-20' },
     { id: 2, title: 'Research Ideas', description: 'Brainstorming for new AI models', date: '2024-07-19' },
@@ -544,7 +684,7 @@ const PersonalWork = () => {
   const [showCreateNoteForm, setShowCreateNoteForm] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteDescription, setNewNoteDescription] = useState('');
-  const [showNoteMenu, setShowNoteMenu] = useState(null); // New state to control note menu visibility
+  const [showNoteMenu, setShowNoteMenu] = useState(null);
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: {
@@ -556,11 +696,15 @@ const PersonalWork = () => {
     onDrop: acceptedFiles => {
       const file = acceptedFiles[0];
       setDocument(file);
-      setMessages([{
-        id: 1,
-        text: `Here's a summary of "${file.name}":\n\nThis document covers key concepts and provides detailed explanations. Would you like to know more about any specific aspect?`,
-        isUser: false
-      }]);
+      setMessages([
+        {
+          id: 1,
+          text: `Here's a summary of "${file.name}":
+
+This document covers key concepts and provides detailed explanations. Would you like to know more about any specific aspect?`,
+          isUser: false
+        }
+      ]);
     }
   });
 
@@ -591,17 +735,15 @@ const PersonalWork = () => {
         audio.removeEventListener('ended', handleEnded);
       };
     }
-  }, [audioGenerated]); // Added audioGenerated to dependency array
+  }, [audioGenerated]);
 
   useEffect(() => {
-    // Close note menu when clicking outside
     const handleClickOutside = (event) => {
       if (showNoteMenu && !event.target.closest('#note-menu-' + showNoteMenu) && !event.target.closest('#note-three-dots-' + showNoteMenu)) {
         setShowNoteMenu(null);
       }
     };
 
-    // Add conditional check for document before adding event listener
     if (typeof document !== 'undefined') {
       document.addEventListener('mousedown', handleClickOutside);
     }
@@ -642,22 +784,22 @@ const PersonalWork = () => {
     setCurrentQuiz(null);
     setQuizScore(0);
     setQuizIndex(0);
-    setQuizStarted(false); // Reset quiz state on document removal
-    setQuizCompleted(false); // Reset quiz completed state
-    setAudioGenerated(false); // Reset audio state
-    setIsPlayingAudio(false); // Reset audio playback
-    setAudioCurrentTime(0); // Reset audio current time
-    setIsAudioDownloading(false); // Reset audio download status
+    setQuizStarted(false);
+    setQuizCompleted(false);
+    setAudioGenerated(false);
+    setIsPlayingAudio(false);
+    setAudioCurrentTime(0);
+    setIsAudioDownloading(false);
   };
 
   const handleGenerateAudio = () => {
     setIsGeneratingAudio(true);
-    setAudioGenerated(false); // Audio is not yet generated
-    setIsAudioDownloading(false); // Reset download status when generating new audio
+    setAudioGenerated(false);
+    setIsAudioDownloading(false);
     setTimeout(() => {
       setIsGeneratingAudio(false);
       setAudioGenerated(true);
-      setAudioDuration(180); // Simulate 3 minutes audio
+      setAudioDuration(180);
     }, 2000);
   };
 
@@ -783,32 +925,63 @@ const PersonalWork = () => {
 
   const handleDeleteNote = (id) => {
     setNotes(prev => prev.filter(note => note.id !== id));
+    setShowNoteMenu(null);
+  };
+
+  const handleResetAll = () => {
+    setMessages([]);
+    setDocument(null);
+    setCurrentQuiz(null);
+    setQuizScore(0);
+    setQuizIndex(0);
+    setQuizStarted(false);
+    setQuizCompleted(false);
+    setQuizAnswered(false);
+    setSelectedOption(null);
+    setAudioGenerated(false);
+    setIsPlayingAudio(false);
+    setAudioCurrentTime(0);
+    setIsAudioDownloading(false);
   };
 
   return (
     <GlassContainer>
       {personalWorkView === 'notes' ? (
         <NoteContainer>
-          <h3 style={{marginBottom: 8, color: '#3b82f6'}}>Your Notes</h3>
+          <SectionTitle>
+            <h2>Your Notes</h2>
+          </SectionTitle>
           {notes.length === 0 ? (
             <p style={{textAlign: 'center', color: '#64748b'}}>No notes yet. Create your first note!</p>
           ) : (
-            notes.map(note => (
-              <NoteItem key={note.id}>
-                <ThreeDotsIcon id={`note-three-dots-${note.id}`} onClick={(e) => { e.stopPropagation(); setShowNoteMenu(note.id); }} />
-                {showNoteMenu === note.id && (
-                  <DropdownMenu id={`note-menu-${note.id}`}>
-                    <DropdownMenuItem className="delete" onClick={() => { handleDeleteNote(note.id); setShowNoteMenu(null); }}><FaTrash /> Delete Note</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowNoteMenu(null)}><FaTimes /> Cancel</DropdownMenuItem>
-                  </DropdownMenu>
-                )}
-                <NoteTitle>{note.title}</NoteTitle>
-                <NoteDescription>{note.description}</NoteDescription>
-                <NoteDate>Created on: {note.date}</NoteDate>
-              </NoteItem>
-            ))
+            <NoteList>
+              {notes.map(note => (
+                <NoteItem key={note.id}>
+                  <NoteTitle>{note.title}</NoteTitle>
+                  <NoteDescription>{note.description}</NoteDescription>
+                  <NoteDate>Created on: {note.date}</NoteDate>
+                  <NoteActions>
+                    <ThreeDotsButton
+                      id={`note-three-dots-${note.id}`}
+                      onClick={() => setShowNoteMenu(note.id)}
+                    >
+                      <FaEllipsisV />
+                    </ThreeDotsButton>
+                    {showNoteMenu === note.id && (
+                      <DropdownMenu id={`note-menu-${note.id}`}>
+                        <DropdownMenuItem onClick={() => handleDeleteNote(note.id)}>
+                          <FaTrash /> Delete Note
+                        </DropdownMenuItem>
+                      </DropdownMenu>
+                    )}
+                  </NoteActions>
+                </NoteItem>
+              ))}
+            </NoteList>
           )}
-          <AddNoteButton onClick={() => setShowCreateNoteForm(true)}><FaPlus /> Create New Note</AddNoteButton>
+          <AddNoteButton onClick={() => setShowCreateNoteForm(true)}>
+            <FaPlus /> Create New Note
+          </AddNoteButton>
 
           {showCreateNoteForm && (
             <FormOverlay onClick={() => setShowCreateNoteForm(false)}>
@@ -820,6 +993,7 @@ const PersonalWork = () => {
                   onChange={e => setNewNoteTitle(e.target.value)}
                 />
                 <FormInput
+                  as="textarea"
                   placeholder="Note Description (Optional)"
                   value={newNoteDescription}
                   onChange={e => setNewNoteDescription(e.target.value)}
@@ -829,10 +1003,15 @@ const PersonalWork = () => {
             </FormOverlay>
           )}
 
-          <Button onClick={() => setPersonalWorkView('main')} style={{marginTop: 'auto', alignSelf: 'center'}}>Enter Personal Work</Button>
+          <Button 
+            onClick={() => setPersonalWorkView('main')} 
+            style={{marginTop: 'auto', alignSelf: 'center'}}
+          >
+            Enter Personal Work
+          </Button>
         </NoteContainer>
       ) : (
-        <>
+        <SectionsContainer>
           <ChatSection>
             {document ? (
               <>
@@ -842,8 +1021,12 @@ const PersonalWork = () => {
                     {document.name}
                   </StatusText>
                   <ActionButtons>
-                    <Button onClick={handleClearChat} title="Clear Chat"><FaBroom /></Button>
-                    <Button onClick={handleRemoveDocument} title="Remove Document"><FaTrash /></Button>
+                    <Button onClick={handleClearChat} title="Clear Chat">
+                      <FaBroom />
+                    </Button>
+                    <Button onClick={handleRemoveDocument} title="Remove Document">
+                      <FaTrash />
+                    </Button>
                   </ActionButtons>
                 </DocumentStatus>
                 <ChatArea ref={chatAreaRef}>
@@ -852,33 +1035,46 @@ const PersonalWork = () => {
                       <Avatar isUser={message.isUser}>
                         {message.isUser ? <FaUserCircle /> : <FaRobot />}
                       </Avatar>
-                      <MessageContent isUser={message.isUser}>{message.text}</MessageContent>
+                      <MessageContent isUser={message.isUser}>
+                        {message.text}
+                      </MessageContent>
                     </Message>
                   ))}
                 </ChatArea>
-                <ChatInput>
+                <ChatInputArea>
                   <Input
                     value={inputMessage}
                     onChange={e => setInputMessage(e.target.value)}
                     placeholder="Ask a question about the document..."
-                    disabled={!document}
                     onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
                   />
-                  <Button onClick={handleSendMessage} disabled={!document || !inputMessage.trim()}>Send</Button>
-                </ChatInput>
+                  <Button 
+                    onClick={handleSendMessage}
+                    disabled={!inputMessage.trim()}
+                  >
+                    Send
+                  </Button>
+                </ChatInputArea>
               </>
             ) : (
               <UploadArea {...getRootProps()}>
                 <input {...getInputProps()} />
                 <FaFileUpload size={48} color="#3b82f6" />
-                <h3 style={{margin: '16px 0 8px 0', color: '#3b82f6'}}>Upload a PDF or DOC file to start</h3>
-                <p style={{color: '#64748b'}}>Drag and drop a file here, or click to select</p>
+                <h3 style={{margin: '16px 0 8px 0', color: '#3b82f6'}}>
+                  Upload a PDF or DOC file to start
+                </h3>
+                <p style={{color: '#64748b'}}>
+                  Drag and drop a file here, or click to select
+                </p>
               </UploadArea>
             )}
           </ChatSection>
+
           <RightSection>
             <AudioSection>
-              <h3 style={{marginBottom: 8, color: '#3b82f6'}}>Audio Overview</h3>
+              <SectionTitle>
+                <h2>Audio Overview</h2>
+              </SectionTitle>
               <p style={{marginBottom: 16, color: '#64748b'}}>Generate a detailed audio explanation of the document</p>
               {!audioGenerated && !isGeneratingAudio && (
                 <Button
@@ -943,8 +1139,13 @@ const PersonalWork = () => {
               )}
             </AudioSection>
             <QuizSection>
-              <h3 style={{marginBottom: 8, color: '#3b82f6'}}>Quiz Generator</h3>
-              <p style={{marginBottom: 16, color: '#64748b'}}>Test your understanding with AI-generated questions</p>
+              <SectionTitle>
+                <h2>Quiz Generator</h2>
+              </SectionTitle>
+              <p style={{marginBottom: 16, color: '#64748b'}}>
+                Test your understanding with AI-generated questions
+              </p>
+              
               {!quizStarted && !isGeneratingQuiz && (
                 <Button
                   onClick={handleGenerateQuiz}
@@ -953,13 +1154,17 @@ const PersonalWork = () => {
                   <FaQuestionCircle /> Generate Quiz
                 </Button>
               )}
+
               {isGeneratingQuiz && (
-                <p style={{color: '#64748b', textAlign: 'center'}}>Generating quiz...</p>
+                <p style={{color: '#64748b', textAlign: 'center'}}>
+                  Generating quiz...
+                </p>
               )}
-              {currentQuiz && (
+
+              {currentQuiz && !quizCompleted && (
                 <QuizQuestion>
                   <QuestionText>{currentQuiz.question}</QuestionText>
-                  <Options>
+                  <OptionsContainer>
                     {currentQuiz.options.map((option, index) => {
                       let className = '';
                       if (quizAnswered) {
@@ -967,32 +1172,41 @@ const PersonalWork = () => {
                         if (selectedOption === index && index !== currentQuiz.correctAnswer) className = 'incorrect';
                       }
                       return (
-                        <Option
+                        <OptionButton
                           key={index}
                           className={className}
                           onClick={() => handleAnswerQuiz(index)}
                           disabled={quizAnswered}
                         >
                           {option}
-                        </Option>
+                        </OptionButton>
                       );
                     })}
-                  </Options>
+                  </OptionsContainer>
                   <Score>Score: {quizScore}/10</Score>
                 </QuizQuestion>
               )}
-              {quizCompleted && !currentQuiz && (
-                <QuizQuestion>
-                  <QuestionText>Quiz Completed!</QuestionText>
+
+              {quizCompleted && (
+                <QuizResult>
+                  <h4>Quiz Completed!</h4>
+                  <p>Great job! You've completed the quiz.</p>
                   <Score>Final Score: {quizScore}/10</Score>
-                  <Button onClick={handleStartNewQuiz} style={{ marginTop: '20px' }}>
-                    Regenerate Quiz
+                  <Button onClick={handleStartNewQuiz} style={{marginTop: '20px'}}>
+                    Start New Quiz
                   </Button>
-                </QuizQuestion>
+                </QuizResult>
               )}
             </QuizSection>
+
+            <Button 
+              onClick={() => setPersonalWorkView('notes')}
+              style={{marginTop: 'auto', alignSelf: 'center'}}
+            >
+              Back to Notes
+            </Button>
           </RightSection>
-        </>
+        </SectionsContainer>
       )}
     </GlassContainer>
   );
