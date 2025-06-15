@@ -786,30 +786,32 @@ This document covers key concepts and provides detailed explanations. Would you 
     }
   }, [messages]);
 
-  useEffect(() => {
-    if (audioRef.current && audioGenerated) {
-      const audio = audioRef.current;
-      
-      const handleTimeUpdate = () => setAudioCurrentTime(audio.currentTime);
-      const handleLoadedMetadata = () => setAudioDuration(audio.duration);
-      const handleEnded = () => {
-        setIsPlayingAudio(false);
-        setAudioCurrentTime(0);
-      };
-  
-      audio.addEventListener('timeupdate', handleTimeUpdate);
-      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.addEventListener('ended', handleEnded);
-  
-      return () => {
-        // Use the captured audio reference for cleanup
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.removeEventListener('ended', handleEnded);
-      };
-    }
-  }, [audioGenerated]); // Remove audioRef.current from dependencies
+// REPLACE FROM LINE 789 TO LINE 812 WITH THIS CODE:
+useEffect(() => {
+  if (audioRef.current && audioGenerated) {
+    const audio = audioRef.current;
+    
+    const handleTimeUpdate = () => setAudioCurrentTime(audio.currentTime);
+    const handleLoadedMetadata = () => setAudioDuration(audio.duration);
+    const handleEnded = () => {
+      setIsPlayingAudio(false);
+      setAudioCurrentTime(0);
+    };
 
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      // Use the captured audio reference for cleanup.
+      // The 'audio' variable here is the one that was available when the effect ran.
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }
+}, [audioGenerated]); // IMPORTANT: ONLY 'audioGenerated' IS IN THE DEPENDENCY ARRAY HERE
+// END OF REPLACEMENT
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (showNoteMenu && !event.target.closest('#note-menu-' + showNoteMenu) && !event.target.closest('#note-three-dots-' + showNoteMenu)) {
