@@ -804,7 +804,7 @@ const Rooms = () => {
       <NoScrollWrapper>
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
-            <BackButton onClick={() => navigate('/personalwork')}><FaChevronLeft /></BackButton>
+            <BackButton onClick={handleBackToTopics}><FaChevronLeft /></BackButton>
             <ChatHeader>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
               <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>
@@ -825,13 +825,13 @@ const Rooms = () => {
                         {msg.isUser ? (
                           <FaUser />
                         ) : (
-                          <img src="/ai_logo.png" alt="AI Chatbot Logo" />
+                          <img src="/ai_logo.png" alt="Chatbot Logo" />
                         )}
                       </Avatar>
-                      <SenderName>{msg.sender}</SenderName>
-                      <MessageTime>{msg.time}</MessageTime>
+                      <SenderName>{msg.isUser ? msg.sender : 'Chatbot'}</SenderName>
                     </MessageHeader>
                     <MessageContent isUser={msg.isUser}>{msg.text}</MessageContent>
+                    {!msg.isUser && <MessageTime style={{ alignSelf: 'flex-start', marginLeft: 'auto' }}>{msg.time}</MessageTime>}
                   </Message>
                 ))}
               </ChatMessages>

@@ -26,26 +26,6 @@ const SidebarContainer = styled(motion.div)`
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
 `;
 
-const ToggleButton = styled(motion.button)`
-  position: absolute;
-  right: -14px;
-  top: 24px;
-  background: #2563eb;
-  color: white;
-  border: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
-  &:hover {
-    background: #1d4ed8;
-  }
-`;
-
 const NavSection = styled.div`
   padding: 32px 0 0 0;
   flex: 1;
@@ -152,12 +132,6 @@ const Sidebar = ({ isOpen, onToggle }) => {
       initial={false}
       animate={{ width: isOpen ? 220 : 60 }}
     >
-      <ToggleButton
-        onClick={onToggle}
-        whileTap={{ scale: 0.95 }}
-      >
-        {/* Removed FaChevronLeft / FaChevronRight icons as requested */}
-      </ToggleButton>
       <NavSection>
         {navItems.map((item) => (
           <NavItem
