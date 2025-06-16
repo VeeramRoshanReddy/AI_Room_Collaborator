@@ -309,9 +309,9 @@ const Input = styled.input`
 
 const Message = styled.div`
   display: flex;
+  gap: 12px;
   margin-bottom: 15px;
   align-items: flex-start;
-  gap: 12px;
   flex-direction: ${props => props.isUser ? 'row-reverse' : 'row'};
 `;
 
@@ -332,6 +332,7 @@ const SenderName = styled.span`
 const MessageTime = styled.span`
   font-size: 0.8rem;
   color: #64748b;
+  margin-top: 5px; /* Add margin to separate from content */
 `;
 
 const MessageContent = styled.div`
@@ -366,7 +367,7 @@ const Avatar = styled.div`
 `;
 
 const BackButton = styled.button`
-  background: #2563eb; /* Blue background */
+  background: #2563eb; /* Strong blue background */
   color: white; /* White icon */
   border: none;
   border-radius: 50%; /* Circle shape */
@@ -375,7 +376,7 @@ const BackButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.2rem; /* Adjust icon size */
   cursor: pointer;
   position: absolute;
   top: 16px;
@@ -830,8 +831,10 @@ const Rooms = () => {
                       </Avatar>
                       <SenderName>{msg.isUser ? msg.sender : 'Chatbot'}</SenderName>
                     </MessageHeader>
-                    <MessageContent isUser={msg.isUser}>{msg.text}</MessageContent>
-                    {!msg.isUser && <MessageTime style={{ alignSelf: 'flex-start', marginLeft: 'auto' }}>{msg.time}</MessageTime>}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: msg.isUser ? 'flex-end' : 'flex-start' }}>
+                        <MessageContent isUser={msg.isUser}>{msg.text}</MessageContent>
+                        <MessageTime>{msg.time}</MessageTime>
+                    </div>
                   </Message>
                 ))}
               </ChatMessages>
