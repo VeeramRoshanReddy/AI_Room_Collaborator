@@ -55,7 +55,7 @@ const GlassBox = styled.div`
 const AudioSection = styled(GlassBox)`
   flex: 0 0 30%;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible; // Changed from hidden to visible for dropdown
   position: relative;
   padding: 12px;
 `;
@@ -264,57 +264,61 @@ const Score = styled.div`
   margin: 20px 0 0 0;
 `;
 
-const AudioPlayerContainer = styled.div`
+const CompactAudioPlayerContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 8px;
   width: 100%;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
 `;
 
-const AudioProgressBar = styled.div`
-  height: 8px;
-  background: rgba(59, 130, 246, 0.2);
-  border-radius: 4px;
+const CompactAudioProgressBar = styled.div`
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
 `;
 
-const AudioProgress = styled.div`
+const CompactAudioProgress = styled.div`
   height: 100%;
   width: ${props => props.progress}%;
   background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
-  border-radius: 4px;
+  border-radius: 2px;
 `;
 
-const AudioControls = styled.div`
+const AudioMainControls = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 8px;
+  position: relative;
+  
+  [data-audio-menu] {
+    position: relative;
+  }
 `;
 
-const PlaybackButton = styled.button`
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+const PlayPauseButton = styled.button`
+  background: #3b82f6;
   color: white;
   border: none;
   border-radius: 50%;
-  width: 44px;
-  height: 44px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 12px;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-  transition: transform 0.1s, box-shadow 0.2s;
+  transition: all 0.2s;
   &:hover {
+    background: #2563eb;
     transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
-  }
-  &:active {
-    transform: scale(0.95);
   }
 `;
 
@@ -330,23 +334,30 @@ const VolumeControl = styled.div`
   gap: 8px;
 `;
 
-const VolumeSlider = styled.input`
-  width: 80px;
-  -webkit-appearance: none;
-  height: 6px;
-  background: #e0e7ef;
-  border-radius: 3px;
+const CompactVolumeSlider = styled.input`
+  width: 60px;
+  height: 3px;
+  background: #e2e8f0;
+  border-radius: 2px;
   outline: none;
   cursor: pointer;
+  -webkit-appearance: none;
   &::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: #3b82f6;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
   }
+`;
+
+const VolumeContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
 `;
 
 const PlaybackSpeedControl = styled.div`
@@ -372,17 +383,19 @@ const SpeedButton = styled.button`
 `;
 
 const SkipButton = styled.button`
-  background: none;
-  border: none;
-  color: #3b82f6;
-  font-size: 24px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.1s;
+  transition: all 0.2s;
   &:hover {
-    transform: scale(1.1);
-  }
-  &:active {
-    transform: scale(0.9);
+    background: #f1f5f9;
+    color: #3b82f6;
+    border-color: #3b82f6;
   }
 `;
 
@@ -779,30 +792,29 @@ const BackButton = styled.button`
   }
 `;
 
-const AudioMenuButton = styled.button`
-  position: absolute;
-  top: 16px;
-  right: 16px;
+const MenuButton = styled.button`
   background: none;
   border: none;
   color: #64748b;
   cursor: pointer;
-  padding: 4px;
+  padding: 2px;
+  font-size: 14px;
   &:hover {
-    color: #1d4ed8;
+    color: #3b82f6;
   }
 `;
 
-const AudioMenu = styled.div`
+const AudioDropdownMenu = styled.div`
   position: absolute;
-  top: 40px;
-  right: 16px;
-  background: #fff;
+  top: 100%;
+  right: 0;
+  background: white;
   border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.18);
-  padding: 8px 0;
-  min-width: 120px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 4px;
   z-index: 1000;
+  min-width: 140px;
+  border: 1px solid #e2e8f0;
 `;
 
 const AudioMenuItem = styled.div`
@@ -815,6 +827,25 @@ const AudioMenuItem = styled.div`
   }
   &.delete {
     color: #ef4444;
+  }
+`;
+
+const DropdownItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  &:hover {
+    background-color: #f3f4f6;
   }
 `;
 
@@ -851,6 +882,13 @@ const CompactAudioControls = styled.div`
   font-size: 12px;
 `;
 
+const AudioSkipControls = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`;
+
 const CompactPlaybackButton = styled.button`
   background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
   color: white;
@@ -871,10 +909,23 @@ const CompactPlaybackButton = styled.button`
   }
 `;
 
-const CompactTimeDisplay = styled.span`
+const TimeInfo = styled.div`
   font-size: 10px;
-  color: #4b5563;
+  color: #64748b;
+  text-align: center;
   font-weight: 500;
+`;
+
+const SpeedSubmenu = styled.div`
+  position: absolute;
+  top: 0;
+  left: -140px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  min-width: 80px;
+  border: 1px solid #e2e8f0;
 `;
 
 const PersonalWork = () => {
@@ -966,19 +1017,20 @@ This document covers key concepts and provides detailed explanations. Would you 
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showNoteMenu && !event.target.closest('#note-menu-' + showNoteMenu) && !event.target.closest('#note-three-dots-' + showNoteMenu)) {
-        setShowNoteMenu(null);
+      if (showAudioMenu && !event.target.closest('[data-audio-menu]')) {
+        setShowAudioMenu(false);
+        setShowSpeedMenu(false);
       }
     };
 
-    if (showNoteMenu) {
+    if (showAudioMenu) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showNoteMenu]);
+  }, [showAudioMenu]);
 
   const handleSendMessage = () => {
     if (!inputMessage.trim() || !uploadedDocument) return;
@@ -1388,56 +1440,94 @@ This document covers key concepts and provides detailed explanations. Would you 
                     <p style={{color: '#64748b', textAlign: 'center', marginTop: '10px'}}>Generate audio, please wait</p>
                   )}
                   {audioGenerated && (
-                    <AudioPlayerContainer>
+                    <CompactAudioPlayerContainer>
                       <audio
                         ref={audioRef}
                         src="/path/to/your/simulated-audio.mp3"
                         preload="metadata"
                       />
-                      <AudioProgressBar onClick={handleSeek}>
-                        <AudioProgress progress={(audioCurrentTime / audioDuration) * 100} />
-                      </AudioProgressBar>
-                      <CompactAudioControls>
-                        <CompactPlaybackButton onClick={handleTogglePlayPause}>
+
+                      <CompactAudioProgressBar onClick={handleSeek}>
+                        <CompactAudioProgress progress={(audioCurrentTime / audioDuration) * 100} />
+                      </CompactAudioProgressBar>
+
+                      <AudioMainControls>
+                        <PlayPauseButton onClick={handleTogglePlayPause}>
                           {isPlayingAudio ? <FaPause /> : <FaPlay />}
-                        </CompactPlaybackButton>
-                        <CompactTimeDisplay>{formatTime(audioCurrentTime)}/{formatTime(audioDuration)}</CompactTimeDisplay>
-                      </CompactAudioControls>
-                      <VolumeControl style={{marginTop: '10px', width: '100%', justifyContent: 'center' }}>
-                        <FaVolumeUp size={16} color="#4b5563" />
-                        <VolumeSlider
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.01"
-                          value={audioVolume}
-                          onChange={handleVolumeChange}
-                        />
-                      </VolumeControl>
-                      <PlaybackSpeedControl style={{marginTop: '10px', width: '100%', justifyContent: 'center' }}>
-                        {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
-                          <SpeedButton
-                            key={speed}
-                            active={audioPlaybackSpeed === speed}
-                            onClick={() => handlePlaybackSpeedChange(speed)}
-                          >
-                            {speed.toFixed(1)}x
-                          </SpeedButton>
-                        ))}
-                      </PlaybackSpeedControl>
-                      <Button
-                        onClick={() => {
-                          setIsAudioDownloading(true);
-                          setTimeout(() => {
-                            alert('Audio download started (simulated)');
-                            setIsAudioDownloading(false);
-                          }, 1000);
-                        }}
-                        style={{ marginTop: '12px' }}
-                      >
-                        <FaDownload /> {isAudioDownloading ? 'Downloading...' : 'Download Audio'}
-                      </Button>
-                    </AudioPlayerContainer>
+                        </PlayPauseButton>
+
+                        <VolumeContainer>
+                          <FaVolumeUp size={12} color="#64748b" />
+                          <CompactVolumeSlider
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={audioVolume}
+                            onChange={handleVolumeChange}
+                          />
+                        </VolumeContainer>
+
+                        <MenuButton 
+                          data-audio-menu
+                          onClick={() => setShowAudioMenu(!showAudioMenu)}
+                        >
+                          <FaEllipsisV />
+                        </MenuButton>
+
+                        {showAudioMenu && (
+                          <AudioDropdownMenu>
+                            <DropdownItem 
+                              onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                              onMouseEnter={() => setShowSpeedMenu(true)}
+                            >
+                              Playback Speed
+                            </DropdownItem>
+                            {showSpeedMenu && (
+                              <SpeedSubmenu>
+                                {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
+                                  <DropdownItem 
+                                    key={speed} 
+                                    onClick={() => {
+                                      handlePlaybackSpeedChange(speed);
+                                      setShowSpeedMenu(false);
+                                      setShowAudioMenu(false);
+                                    }}
+                                    style={{ 
+                                      fontSize: '12px',
+                                      background: audioPlaybackSpeed === speed ? '#eff6ff' : 'transparent',
+                                      color: audioPlaybackSpeed === speed ? '#2563eb' : '#374151'
+                                    }}
+                                  >
+                                    {speed.toFixed(1)}x
+                                  </DropdownItem>
+                                ))}
+                              </SpeedSubmenu>
+                            )}
+                            <DropdownItem onClick={() => {
+                              handleDownloadAudio();
+                              setShowAudioMenu(false);
+                            }}>
+                              <FaDownload size={12} /> Download
+                            </DropdownItem>
+                          </AudioDropdownMenu>
+                        )}
+                      </AudioMainControls>
+                      
+                      <AudioSkipControls>
+                        <SkipButton onClick={() => handleSkip(-10)}>
+                          &lt;&lt; 10s
+                        </SkipButton>
+
+                        <TimeInfo>
+                          {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
+                        </TimeInfo>
+
+                        <SkipButton onClick={() => handleSkip(10)}>
+                          10s &gt;&gt;
+                        </SkipButton>
+                      </AudioSkipControls>
+                    </CompactAudioPlayerContainer>
                   )}
                 </AudioSection>
                 <QuizSection>
