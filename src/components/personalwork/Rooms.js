@@ -336,14 +336,17 @@ const MessageTime = styled.span`
 `;
 
 const MessageContent = styled.div`
-  max-width: 70%;
-  padding: 12px 16px;
-  border-radius: 8px;
-  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : '#e0e7ef'};
-  color: ${props => props.isUser ? 'white' : '#1e293b'};
-  font-size: 15px;
-  line-height: 1.5;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  background: ${props => props.isUser ? '#dbeafe' : '#eff6ff'};
+  color: #1e293b;
+  padding: 10px 14px;
+  border-radius: 18px;
+  max-width: 75%;
+  word-wrap: break-word; /* Ensure long words break */
+  overflow-wrap: break-word; /* Modern property for word breaking */
+  white-space: pre-wrap; /* Preserve whitespace and wrap text */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  font-size: 0.95rem;
+  line-height: 1.4;
 `;
 
 const Avatar = styled.div`
@@ -626,8 +629,10 @@ const Rooms = () => {
     setView('rooms');
   };
   const handleBackToTopics = () => {
+    console.log('handleBackToTopics called. Current view:', view);
     setSelectedTopic(null);
     setView('topics');
+    console.log('New view after handleBackToTopics:', 'topics');
   };
   const handleTopicClick = (topic) => {
     setSelectedTopic(topic);
