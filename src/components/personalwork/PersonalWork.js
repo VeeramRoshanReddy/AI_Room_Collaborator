@@ -123,7 +123,7 @@ const Input = styled.input`
 
 const Button = styled.button`
   padding: 12px 24px;
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%); // Changed from #3b82f6 to #2563eb for darker blue
   color: white;
   border: none;
   border-radius: 16px;
@@ -133,11 +133,11 @@ const Button = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.10);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10); // Updated shadow color
   transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
   &:hover {
-    background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
-    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.18);
+    background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%); // Updated hover colors
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.18); // Updated shadow color
     transform: translateY(-2px) scale(1.03);
   }
   &:active {
@@ -406,7 +406,7 @@ const NoteItem = styled.div`
 
 const NoteTitle = styled.h4`
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 700; // Increased from 600 to 700
   color: #1e293b;
 `;
 
@@ -478,6 +478,32 @@ const ThreeDotsIcon = styled.div`
   }
 `;
 
+const EnterNoteButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #4F46E5;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: auto;
+  
+  &:hover {
+    background: #4338CA;
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
 const DropdownMenu = styled.div`
   position: absolute;
   top: 40px;
@@ -534,12 +560,12 @@ const NotesSection = styled.div`
 
 const SectionTitle = styled.div`
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
   width: 100%;
   h2 {
-    font-size: 24px;
+    font-size: 32px; // Increased from 24px
     font-weight: 700;
     color: #2563eb;
   }
@@ -682,7 +708,7 @@ const NotesView = styled.div`
 
 const NotesGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); // Reduced from 300px to 280px
   gap: 24px;
   padding: 24px;
   overflow-y: hidden;
@@ -699,7 +725,7 @@ const NoteCard = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
-  cursor: pointer;
+  // Remove cursor: pointer and onClick hover effects since we now have a button
   transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
 
@@ -1123,10 +1149,13 @@ This document covers key concepts and provides detailed explanations. Would you 
               <p style={{textAlign: 'center', color: '#64748b'}}>No notes yet. Create your first note!</p>
             ) : (
               notes.map(note => (
-                <NoteCard key={note.id} onClick={() => handleNoteClick(note)}>
+                <NoteCard key={note.id}>
                   <NoteTitle>{note.title}</NoteTitle>
                   <NoteDescription>{note.description}</NoteDescription>
                   <NoteDate>Created on: {note.date}</NoteDate>
+                  <EnterNoteButton onClick={() => handleNoteClick(note)}>
+                    Enter Note
+                  </EnterNoteButton>
                   <NoteActions>
                     <ThreeDotsButton
                       id={`note-three-dots-${note.id}`}
