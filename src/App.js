@@ -48,7 +48,7 @@ const AppContainer = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: #d9d9d9; /* A slightly darker grey */
+  background: #c0c0c0; /* A slightly darker grey */
   color: ${props => props.theme.colors.text};
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   overflow: hidden;

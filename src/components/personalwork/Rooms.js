@@ -216,6 +216,16 @@ const ActionButton = styled.button`
   }
 `;
 
+const LeaveRoomButton = styled(ActionButton)`
+  background: none; /* Remove background gradient */
+  color: #FFD700; /* Yellow text */
+  border: 1px solid #FFD700; /* Yellow border */
+  &:hover {
+    color: #FFF; /* White text on hover */
+    background: #FFD700; /* Yellow background on hover */
+  }
+`;
+
 const TopicList = styled.div`
   display: flex;
   gap: 24px;
@@ -355,19 +365,28 @@ const Avatar = styled.div`
 `;
 
 const BackButton = styled.button`
-  background: none;
+  background: #2563eb; /* Blue background */
+  color: white; /* White icon */
   border: none;
-  color: #2563eb;
-  font-size: 1.5rem;
-  font-weight: 600;
+  border-radius: 50%; /* Circle shape */
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  font-size: 1.2rem;
+  cursor: pointer;
   position: absolute;
   top: 16px;
   left: 16px;
   z-index: 2;
-  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+  transition: all 0.2s;
+
+  &:hover {
+    background: #1d4ed8; /* Darker blue on hover */
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  }
 `;
 
 const FormOverlay = styled.div`
@@ -783,7 +802,7 @@ const Rooms = () => {
       <NoScrollWrapper>
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
-            <BackButton onClick={handleBackToTopics}><FaArrowLeft /></BackButton>
+            <BackButton onClick={handleBackToTopics}><FaChevronLeft /></BackButton>
             <ChatHeader>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
               <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>
@@ -861,7 +880,7 @@ const Rooms = () => {
       <NoScrollWrapper>
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
-            <BackButton onClick={handleBackToRooms}><FaArrowLeft /></BackButton>
+            <BackButton onClick={handleBackToRooms}><FaChevronLeft /></BackButton>
             <SectionTitle style={{textAlign:'center',marginTop:80}}>Topics in {selectedRoom.name}</SectionTitle>
             <div style={{position: 'absolute', top: 16, right: 16, display: 'flex', gap: '10px'}}>
               <ActionButton onClick={() => setShowCreateTopicForm(true)}><FaPlus /> Create New Topic</ActionButton>

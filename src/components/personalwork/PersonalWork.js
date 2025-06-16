@@ -9,13 +9,13 @@ const GlassContainer = styled.div`
   height: 100%;
   min-height: 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
-  overflow-y: auto;
+  overflow-y: hidden;
   background: rgba(255,255,255,0.15);
   backdrop-filter: blur(8px) saturate(1.2);
 `;
 
 const ChatSection = styled.div`
-  flex: 0 0 65%;
+  flex: 0 0 70%;
   display: flex;
   flex-direction: column;
   background: rgba(255,255,255,0.7);
@@ -29,7 +29,7 @@ const ChatSection = styled.div`
 `;
 
 const RightSection = styled.div`
-  flex: 0 0 35%;
+  flex: 0 0 30%;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -51,14 +51,18 @@ const GlassBox = styled.div`
 `;
 
 const AudioSection = styled(GlassBox)`
-  flex: 0 0 25%;
-  height: 20%;
-  min-height: 150px;
+  flex: none;
+  height: 30%;
+  min-height: 0;
+  overflow-y: hidden;
+  position: relative;
 `;
 
 const QuizSection = styled(GlassBox)`
-  flex: 0 0 75%;
-  height: 80%;
+  flex: none;
+  height: 70%;
+  min-height: 0;
+  overflow-y: hidden;
 `;
 
 const UploadArea = styled.div`
@@ -476,7 +480,7 @@ const ThreeDotsIcon = styled.div`
 
 const DropdownMenu = styled.div`
   position: absolute;
-  top: 40px; /* Adjust based on icon position */
+  top: 40px;
   right: 16px;
   background: #fff;
   border-radius: 8px;
@@ -530,13 +534,14 @@ const NotesSection = styled.div`
 
 const SectionTitle = styled.div`
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   margin-bottom: 24px;
+  width: 100%;
   h2 {
     font-size: 24px;
     font-weight: 700;
-    color: #1e293b;
+    color: #2563eb;
   }
 `;
 
@@ -579,7 +584,9 @@ const NoteList = styled.div`
 `;
 
 const NoteActions = styled.div`
-  position: relative;
+  position: absolute;
+  top: 16px;
+  right: 16px;
 `;
 
 const NoteMenu = styled.div`
@@ -678,7 +685,10 @@ const NotesGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 24px;
   padding: 24px;
-  overflow-y: auto;
+  overflow-y: hidden;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
 `;
 
 const NoteCard = styled.div`
@@ -691,6 +701,7 @@ const NoteCard = styled.div`
   gap: 16px;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
 
   &:hover {
     transform: translateY(-2px);
@@ -711,18 +722,61 @@ const DocumentView = styled.div`
 const BackButton = styled.button`
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: none;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: white;
   border: none;
-  color: #2563eb;
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 600;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
 
   &:hover {
+    background: #1d4ed8;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  }
+`;
+
+const AudioMenuButton = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  &:hover {
     color: #1d4ed8;
+  }
+`;
+
+const AudioMenu = styled.div`
+  position: absolute;
+  top: 40px;
+  right: 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.18);
+  padding: 8px 0;
+  min-width: 120px;
+  z-index: 100;
+`;
+
+const AudioMenuItem = styled.div`
+  padding: 10px 18px;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover {
+    background: #f1f5fd;
+  }
+  &.delete {
+    color: #ef4444;
   }
 `;
 
@@ -759,6 +813,8 @@ const PersonalWork = () => {
   const [showNoteMenu, setShowNoteMenu] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showAudioMenu, setShowAudioMenu] = useState(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
   const { getRootProps, getInputProps } = useDropzone({
     accept: {
@@ -788,43 +844,44 @@ This document covers key concepts and provides detailed explanations. Would you 
     }
   }, [messages]);
 
-useEffect(() => {
-  if (audioRef.current && audioGenerated) {
-    const audio = audioRef.current;
-    
-    const handleTimeUpdate = () => setAudioCurrentTime(audio.currentTime);
-    const handleLoadedMetadata = () => setAudioDuration(audio.duration);
-    const handleEnded = () => {
-      setIsPlayingAudio(false);
-      setAudioCurrentTime(0);
-    };
+  useEffect(() => {
+    if (audioRef.current && audioGenerated) {
+      const audio = audioRef.current;
+      
+      const handleTimeUpdate = () => setAudioCurrentTime(audio.currentTime);
+      const handleLoadedMetadata = () => setAudioDuration(audio.duration);
+      const handleEnded = () => {
+        setIsPlayingAudio(false);
+        setAudioCurrentTime(0);
+      };
 
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('ended', handleEnded);
+      audio.addEventListener('timeupdate', handleTimeUpdate);
+      audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.addEventListener('ended', handleEnded);
 
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('ended', handleEnded);
-    };
-  }
-}, [audioGenerated]);
-useEffect(() => {
-  const handleClickOutside = (event) => {
-    if (showNoteMenu && !event.target.closest('#note-menu-' + showNoteMenu) && !event.target.closest('#note-three-dots-' + showNoteMenu)) {
-      setShowNoteMenu(null);
+      return () => {
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.removeEventListener('ended', handleEnded);
+      };
     }
-  };
+  }, [audioGenerated]);
 
-  if (showNoteMenu) {
-    document.addEventListener('mousedown', handleClickOutside);
-  }
-  
-  return () => {
-    document.removeEventListener('mousedown', handleClickOutside);
-  };
-}, [showNoteMenu]);
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNoteMenu && !event.target.closest('#note-menu-' + showNoteMenu) && !event.target.closest('#note-three-dots-' + showNoteMenu)) {
+        setShowNoteMenu(null);
+      }
+    };
+
+    if (showNoteMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNoteMenu]);
 
   const handleSendMessage = () => {
     if (!inputMessage.trim() || !uploadedDocument) return;
@@ -1038,6 +1095,18 @@ useEffect(() => {
     setAudioCurrentTime(0);
   };
 
+  const handleAudioMenuClick = () => {
+    setShowAudioMenu(!showAudioMenu);
+  };
+
+  const handleDownloadAudio = () => {
+    setIsAudioDownloading(true);
+    setTimeout(() => {
+      alert('Audio download started (simulated)');
+      setIsAudioDownloading(false);
+    }, 1000);
+  };
+
   return (
     <PersonalWorkContainer>
       {!selectedNote ? (
@@ -1109,7 +1178,7 @@ useEffect(() => {
       ) : (
         <DocumentView>
           <BackButton onClick={handleBackToNotes}>
-            <FaChevronLeft /> Back to Notes
+            <FaChevronLeft />
           </BackButton>
           
           <GlassContainer>
@@ -1176,6 +1245,24 @@ useEffect(() => {
                 <AudioSection>
                   <SectionTitle>
                     <h2>Audio Overview</h2>
+                    <AudioMenuButton onClick={handleAudioMenuClick}>
+                      <FaEllipsisV />
+                    </AudioMenuButton>
+                    {showAudioMenu && (
+                      <AudioMenu>
+                        <AudioMenuItem onClick={() => setShowSpeedMenu(!showSpeedMenu)}>Playback Speed</AudioMenuItem>
+                        {showSpeedMenu && (
+                          <div style={{ padding: '8px 0' }}>
+                            {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
+                              <AudioMenuItem key={speed} onClick={() => { handlePlaybackSpeedChange(speed); setShowSpeedMenu(false); setShowAudioMenu(false); }}>
+                                {speed.toFixed(1)}x
+                              </AudioMenuItem>
+                            ))}
+                          </div>
+                        )}
+                        <AudioMenuItem onClick={handleDownloadAudio}>Download</AudioMenuItem>
+                      </AudioMenu>
+                    )}
                   </SectionTitle>
                   <p style={{marginBottom: 16, color: '#64748b'}}>Generate a detailed audio explanation of the document</p>
                   {!audioGenerated && !isGeneratingAudio && (
@@ -1187,7 +1274,7 @@ useEffect(() => {
                     </Button>
                   )}
                   {isGeneratingAudio && (
-                    <p style={{color: '#64748b', textAlign: 'center', marginTop: '10px'}}>Generating audio, wait...</p>
+                    <p style={{color: '#64748b', textAlign: 'center', marginTop: '10px'}}>Generate audio, please wait</p>
                   )}
                   {audioGenerated && (
                     <AudioPlayerContainer>
@@ -1206,29 +1293,29 @@ useEffect(() => {
                         </PlaybackButton>
                         <SkipButton onClick={() => handleSkip(10)}>10s &#187;</SkipButton>
                         <TimeDisplay>{formatTime(audioCurrentTime)} / {formatTime(audioDuration)}</TimeDisplay>
-                        <VolumeControl>
-                          <FaVolumeUp size={16} color="#4b5563" />
-                          <VolumeSlider
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={audioVolume}
-                            onChange={handleVolumeChange}
-                          />
-                        </VolumeControl>
-                        <PlaybackSpeedControl>
-                          {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
-                            <SpeedButton
-                              key={speed}
-                              active={audioPlaybackSpeed === speed}
-                              onClick={() => handlePlaybackSpeedChange(speed)}
-                            >
-                              {speed.toFixed(1)}x
-                            </SpeedButton>
-                          ))}
-                        </PlaybackSpeedControl>
                       </AudioControls>
+                      <VolumeControl style={{marginTop: '10px', width: '100%', justifyContent: 'center' }}>
+                        <FaVolumeUp size={16} color="#4b5563" />
+                        <VolumeSlider
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={audioVolume}
+                          onChange={handleVolumeChange}
+                        />
+                      </VolumeControl>
+                      <PlaybackSpeedControl style={{marginTop: '10px', width: '100%', justifyContent: 'center' }}>
+                        {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
+                          <SpeedButton
+                            key={speed}
+                            active={audioPlaybackSpeed === speed}
+                            onClick={() => handlePlaybackSpeedChange(speed)}
+                          >
+                            {speed.toFixed(1)}x
+                          </SpeedButton>
+                        ))}
+                      </PlaybackSpeedControl>
                       <Button
                         onClick={() => {
                           setIsAudioDownloading(true);
