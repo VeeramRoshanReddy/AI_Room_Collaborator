@@ -5,13 +5,14 @@ import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownlo
 
 const GlassContainer = styled.div`
   display: flex;
-  gap: 32px;
-  height: 100%;
+  gap: 16px;
+  height: calc(100% - 60px);
   min-height: 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
-  overflow-y: hidden;
+  overflow: hidden;
   background: rgba(255,255,255,0.15);
   backdrop-filter: blur(8px) saturate(1.2);
+  margin-top: 8px;
 `;
 
 const ChatSection = styled.div`
@@ -19,23 +20,24 @@ const ChatSection = styled.div`
   display: flex;
   flex-direction: column;
   background: rgba(255,255,255,0.7);
-  border-radius: 24px;
+  border-radius: 0 24px 24px 24px;
+  border-top-left-radius: 0;
   box-shadow: 0 8px 32px rgba(59, 130, 246, 0.12);
   overflow: hidden;
   min-width: 0;
   height: 100%;
   transition: box-shadow 0.2s;
-  padding: 24px;
+  padding: 16px;
 `;
 
 const RightSection = styled.div`
   flex: 0 0 30%;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 16px;
   min-width: 0;
   height: 100%;
-  padding: 24px;
+  padding: 0;
 `;
 
 const GlassBox = styled.div`
@@ -51,18 +53,18 @@ const GlassBox = styled.div`
 `;
 
 const AudioSection = styled(GlassBox)`
-  flex: none;
-  height: 30%;
+  flex: 0 0 30%;
   min-height: 0;
-  overflow-y: hidden;
+  overflow: hidden;
   position: relative;
+  padding: 12px;
 `;
 
 const QuizSection = styled(GlassBox)`
-  flex: none;
-  height: 70%;
+  flex: 0 0 70%;
   min-height: 0;
-  overflow-y: hidden;
+  overflow: hidden;
+  padding: 12px;
 `;
 
 const UploadArea = styled.div`
@@ -92,8 +94,8 @@ const ChatArea = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 24px;
-  overflow-y: auto;
+  padding: 16px;
+  overflow: hidden;
   background: transparent;
 `;
 
@@ -487,13 +489,13 @@ const EnterNoteButton = styled.button`
   background: #4F46E5;
   color: white;
   border: none;
-  border-radius: 20px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   margin-top: auto;
-  width: 75%;
+  width: 70%;
   align-self: center;
   
   &:hover {
@@ -714,7 +716,7 @@ const NotesView = styled.div`
 
 const NotesGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); // 0.75x of 280px
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); // 0.75x of 280px
   gap: 24px;
   padding: 24px;
   overflow-y: hidden;
@@ -722,6 +724,7 @@ const NotesGrid = styled.div`
   max-width: 1200px;
   margin: 0 auto;
   justify-content: center;
+  justify-items: center;
 `;
 
 const NoteCard = styled.div`
@@ -735,7 +738,7 @@ const NoteCard = styled.div`
   transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
   width: 100%;
-  max-width: 210px;
+  max-width: 230px;
 
   &:hover {
     transform: translateY(-2px);
@@ -748,9 +751,10 @@ const DocumentView = styled.div`
   display: flex;
   flex-direction: column;
   padding: 24px;
-  gap: 24px;
+  gap: 16px;
   background: #f8fafc;
   overflow: hidden;
+  position: relative;
 `;
 
 const BackButton = styled.button`
@@ -798,7 +802,7 @@ const AudioMenu = styled.div`
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.18);
   padding: 8px 0;
   min-width: 120px;
-  z-index: 100;
+  z-index: 1000;
 `;
 
 const AudioMenuItem = styled.div`
@@ -812,6 +816,65 @@ const AudioMenuItem = styled.div`
   &.delete {
     color: #ef4444;
   }
+`;
+
+const CompactSectionTitle = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2563eb;
+  }
+`;
+
+const CompactText = styled.p`
+  margin-bottom: 8px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.3;
+`;
+
+const CompactButton = styled(Button)`
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+`;
+
+const CompactAudioControls = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+`;
+
+const CompactPlaybackButton = styled.button`
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  transition: transform 0.1s, box-shadow 0.2s;
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+  }
+`;
+
+const CompactTimeDisplay = styled.span`
+  font-size: 10px;
+  color: #4b5563;
+  font-weight: 500;
 `;
 
 const PersonalWork = () => {
@@ -1181,6 +1244,7 @@ This document covers key concepts and provides detailed explanations. Would you 
                             e.stopPropagation();
                             handleDeleteNote(note.id);
                           }}
+                          style={{ whiteSpace: 'nowrap' }}
                         >
                           <FaTrash /> Delete Note
                         </DropdownMenuItem>
@@ -1214,7 +1278,15 @@ This document covers key concepts and provides detailed explanations. Would you 
         </NotesView>
       ) : (
         <DocumentView>
-          <BackButton onClick={handleBackToNotes}>
+          <BackButton 
+            onClick={handleBackToNotes}
+            style={{
+              position: 'absolute',
+              top: '32px',
+              left: '32px',
+              zIndex: 10
+            }}
+          >
             <FaChevronLeft />
           </BackButton>
           
@@ -1280,11 +1352,13 @@ This document covers key concepts and provides detailed explanations. Would you 
 
               <RightSection>
                 <AudioSection>
-                  <SectionTitle>
+                  <CompactSectionTitle>
                     <h2>Audio Overview</h2>
-                    <AudioMenuButton onClick={handleAudioMenuClick}>
-                      <FaEllipsisV />
-                    </AudioMenuButton>
+                    {audioGenerated && (
+                      <AudioMenuButton onClick={handleAudioMenuClick}>
+                        <FaEllipsisV />
+                      </AudioMenuButton>
+                    )}
                     {showAudioMenu && (
                       <AudioMenu>
                         <AudioMenuItem onClick={() => setShowSpeedMenu(!showSpeedMenu)}>Playback Speed</AudioMenuItem>
@@ -1300,15 +1374,15 @@ This document covers key concepts and provides detailed explanations. Would you 
                         <AudioMenuItem onClick={handleDownloadAudio}>Download</AudioMenuItem>
                       </AudioMenu>
                     )}
-                  </SectionTitle>
-                  <p style={{marginBottom: 16, color: '#64748b'}}>Generate a detailed audio explanation of the document</p>
+                  </CompactSectionTitle>
+                  <CompactText>Generate audio explanation</CompactText>
                   {!audioGenerated && !isGeneratingAudio && (
-                    <Button
+                    <CompactButton
                       onClick={handleGenerateAudio}
                       disabled={!uploadedDocument}
                     >
-                      <FaPlay /> Generate Audio Overview
-                    </Button>
+                      <FaPlay /> Generate Audio
+                    </CompactButton>
                   )}
                   {isGeneratingAudio && (
                     <p style={{color: '#64748b', textAlign: 'center', marginTop: '10px'}}>Generate audio, please wait</p>
@@ -1323,14 +1397,12 @@ This document covers key concepts and provides detailed explanations. Would you 
                       <AudioProgressBar onClick={handleSeek}>
                         <AudioProgress progress={(audioCurrentTime / audioDuration) * 100} />
                       </AudioProgressBar>
-                      <AudioControls>
-                        <SkipButton onClick={() => handleSkip(-10)}>&#171; 10s</SkipButton>
-                        <PlaybackButton onClick={handleTogglePlayPause}>
+                      <CompactAudioControls>
+                        <CompactPlaybackButton onClick={handleTogglePlayPause}>
                           {isPlayingAudio ? <FaPause /> : <FaPlay />}
-                        </PlaybackButton>
-                        <SkipButton onClick={() => handleSkip(10)}>10s &#187;</SkipButton>
-                        <TimeDisplay>{formatTime(audioCurrentTime)} / {formatTime(audioDuration)}</TimeDisplay>
-                      </AudioControls>
+                        </CompactPlaybackButton>
+                        <CompactTimeDisplay>{formatTime(audioCurrentTime)}/{formatTime(audioDuration)}</CompactTimeDisplay>
+                      </CompactAudioControls>
                       <VolumeControl style={{marginTop: '10px', width: '100%', justifyContent: 'center' }}>
                         <FaVolumeUp size={16} color="#4b5563" />
                         <VolumeSlider
