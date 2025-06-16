@@ -91,6 +91,8 @@ const UserProfile = styled.div`
   background: rgba(255,255,255,0.10);
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
   transition: background 0.2s;
+  width: 180px;
+  max-width: 180px;
   &:hover {
     background: rgba(255,255,255,0.18);
   }
@@ -108,6 +110,11 @@ const UserName = styled.span`
   font-size: 15px;
   font-weight: 600;
   font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  max-width: 120px;
 `;
 
 const IconButton = styled(motion.button)`
@@ -131,12 +138,12 @@ const IconButton = styled(motion.button)`
 const Navbar = ({ user, onSidebarToggle, onLogout }) => {
   const navigate = useNavigate();
   const handleLogout = () => {
-    // This `onLogout` should trigger the actual Google logout (e.g., gapi.auth2.getAuthInstance().signOut())
-    // This should be implemented in the parent component that provides the `onLogout` prop.
-    if (onLogout) {
-      onLogout();
-    }
-    navigate('/login');
+  // This `onLogout` should trigger the actual Google logout (e.g., gapi.auth2.getAuthInstance().signOut())
+  // This should be implemented in the parent component that provides the `onLogout` prop.
+  if (onLogout) {
+    onLogout();
+  }
+  // Remove the navigate call - let App.js handle the redirect
   };
   return (
     <NavbarContainer>
@@ -162,7 +169,9 @@ const Navbar = ({ user, onSidebarToggle, onLogout }) => {
           ) : (
             <FaUserCircle size={32} />
           )}
-          <UserName>{user?.name || 'User'}</UserName>
+          <UserName title={user?.name || 'User'}>
+            {user?.name || 'User'}
+          </UserName>
         </UserProfile>
         <IconButton
           whileTap={{ scale: 0.95 }}

@@ -111,23 +111,24 @@ function App() {
   };
 
   // Handle logout - REMOVED localStorage usage
-  const handleLogout = () => {
-    try {
-      // Clear Google session
-      if (window.google?.accounts?.id) {
-        window.google.accounts.id.disableAutoSelect();
-      }
-      
-      // Reset state
-      setUser(null);
-      setIsAuthenticated(false);
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Force reset even if there's an error
-      setUser(null);
-      setIsAuthenticated(false);
+const handleLogout = () => {
+  try {
+    // Clear Google session
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.disableAutoSelect();
     }
-  };
+    
+    // Reset state first
+    setUser(null);
+    setIsAuthenticated(false);
+    
+  } catch (error) {
+    console.error('Error during logout:', error);
+    // Force reset even if there's an error
+    setUser(null);
+    setIsAuthenticated(false);
+  }
+};
 
   // Show loading spinner while checking authentication
   if (isLoading) {

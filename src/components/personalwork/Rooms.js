@@ -184,6 +184,9 @@ const DropdownMenuItem = styled.div`
   &.delete {
     color: #ef4444;
   }
+  &.leave {
+    color: #eab308;
+  }
 `;
 
 const RoomMeta = styled.div`
@@ -977,16 +980,16 @@ const Rooms = () => {
           {rooms.map(room => (
             <RoomBox key={room.id}>
               <ThreeDotsIcon onClick={(e) => { e.stopPropagation(); setShowRoomMenu(room.id); }}><FaEllipsisV /></ThreeDotsIcon>
-              {showRoomMenu === room.id && (
-                <DropdownMenu>
-                  {isAdmin(room) ? (
-                    <DropdownMenuItem className="delete" onClick={() => handleDeleteRoom(room.id)}><FaTrash /> Delete Room</DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onClick={() => handleLeaveRoom(room.id)}><FaSignInAlt /> Leave Room</DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem onClick={() => setShowRoomMenu(null)}><FaTimes /> Cancel</DropdownMenuItem>
-                </DropdownMenu>
-              )}
+                {showRoomMenu === room.id && (
+                  <DropdownMenu>
+                    {isAdmin(room) ? (
+                      <DropdownMenuItem className="delete" onClick={() => handleDeleteRoom(room.id)}><FaTrash /> Delete Room</DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem className="leave" onClick={() => handleLeaveRoom(room.id)}><FaSignInAlt /> Leave Room</DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => setShowRoomMenu(null)}><FaTimes /> Cancel</DropdownMenuItem>
+                  </DropdownMenu>
+                )}
               <h3>{room.name}</h3>
               <RoomMeta>{room.members.length + room.admins.length} Members</RoomMeta>
               <RoomMeta>{room.topics.length} Topics</RoomMeta>
