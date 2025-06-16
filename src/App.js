@@ -100,15 +100,22 @@ function App() {
   }, []);
 
   // Handle successful login - REMOVED localStorage usage
-  const handleLogin = (userData) => {
-    try {
-      setUser(userData);
-      setIsAuthenticated(true);
-      // Store user data in memory only
-    } catch (error) {
-      console.error('Error saving user data:', error);
-    }
-  };
+const handleLogin = (credentialResponse) => {
+  try {
+    // Decode JWT token to get user info
+    const decodedToken = JSON.parse(atob(credentialResponse.credential.split('.')[1]));
+    const userData = {
+      name: decodedToken.name,
+      email: decodedToken.email,
+      picture: decodedToken.picture,
+      sub: decodedToken.sub
+    };
+    setUser(userData);
+    setIsAuthenticated(true);
+  } catch (error) {
+    console.error('Error processing login:', error);
+  }
+};
 
   // Handle logout - REMOVED localStorage usage
 const handleLogout = () => {
@@ -116,6 +123,7 @@ const handleLogout = () => {
     // Clear Google session
     if (window.google?.accounts?.id) {
       window.google.accounts.id.disableAutoSelect();
+      window.google.accounts.id.cancel();
     }
     
     // Reset state first

@@ -138,12 +138,9 @@ const IconButton = styled(motion.button)`
 const Navbar = ({ user, onSidebarToggle, onLogout }) => {
   const navigate = useNavigate();
   const handleLogout = () => {
-  // This `onLogout` should trigger the actual Google logout (e.g., gapi.auth2.getAuthInstance().signOut())
-  // This should be implemented in the parent component that provides the `onLogout` prop.
-  if (onLogout) {
-    onLogout();
-  }
-  // Remove the navigate call - let App.js handle the redirect
+    if (onLogout) {
+      onLogout();
+    }
   };
   return (
     <NavbarContainer>

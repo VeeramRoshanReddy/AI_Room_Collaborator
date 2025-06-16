@@ -79,41 +79,24 @@ const Login = ({ onLogin, setUser }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already logged in (you might want to implement this with a proper auth token)
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-      onLogin(true);
-      navigate('/dashboard');
-    }
+    // Authentication check removed since we're not using localStorage
   }, [navigate, onLogin, setUser]);
   
-  const handleGoogleSuccess = async (credentialResponse) => {
-    try {
-      // Reverted to previous behavior: storing placeholder user data locally
-      const userData = {
-        name: 'User Name', // This will be replaced with actual user data from Google
-        email: 'user@example.com', // This will be replaced with actual user data from Google
-        picture: 'https://via.placeholder.com/150', // This will be replaced with actual user data from Google
-        accessToken: credentialResponse.credential, // Store the access token
-      };
-      
-      // Store user data in localStorage
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      setUser(userData);
-      onLogin(true);
-      
-      // Show success message
-      toast.success('Successfully logged in!');
-      
-      // Redirect to dashboard
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Login failed:', error);
-      toast.error('Login failed. Please try again.');
-    }
-  };
+const handleGoogleSuccess = async (credentialResponse) => {
+  try {
+    console.log(credentialResponse);
+    onLogin(credentialResponse); // Pass the entire credential response
+    
+    // Show success message
+    toast.success('Successfully logged in!');
+    
+    // Redirect to dashboard
+    navigate('/dashboard');
+  } catch (error) {
+    console.error('Login failed:', error);
+    toast.error('Login failed. Please try again.');
+  }
+};
 
   const handleGoogleError = () => {
     console.error('Google login failed');
