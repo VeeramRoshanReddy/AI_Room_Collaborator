@@ -5,7 +5,7 @@ import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownlo
 const GlassContainer = styled.div`
   display: flex;
   gap: 16px;
-  height: calc(100% - 60px);
+  height: calc(100vh - 80px); // Changed to match container height
   min-height: 0;
   font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
   overflow: hidden;
@@ -78,9 +78,8 @@ const UploadArea = styled.div`
   background: rgba(224,231,239,0.7);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
-  max-width: 700px;
-  align-self: center;
-  width: 100%;
+  width: 100%; // Changed from max-width: 700px to full width
+  height: 100%; // Add full height
   box-shadow: 0 4px 24px rgba(59, 130, 246, 0.10);
   &:hover {
     border-color: #3b82f6;
@@ -296,10 +295,6 @@ const AudioMainControls = styled.div`
   justify-content: space-between;
   gap: 8px;
   position: relative;
-  
-  [data-audio-menu] {
-    position: relative;
-  }
 `;
 
 const PlayPauseButton = styled.button`
@@ -708,12 +703,13 @@ const FormButton = styled(Button)`
 `;
 
 const PersonalWorkContainer = styled.div`
-  height: 100%;
+  height: calc(100vh - 20px); // Changed from 100% to extend more
   width: 100%;
   display: flex;
   flex-direction: column;
   background: #f8fafc;
   overflow: hidden;
+  margin: 10px 0; // Add margin for spacing from top/bottom
 `;
 
 const NotesView = styled.div`
@@ -724,6 +720,7 @@ const NotesView = styled.div`
   gap: 24px;
   overflow-y: auto;
   background: #f8fafc;
+  height: calc(100vh - 48px); // Add explicit height
 `;
 
 const NotesGrid = styled.div`
@@ -767,6 +764,7 @@ const DocumentView = styled.div`
   background: #f8fafc;
   overflow: hidden;
   position: relative;
+  height: calc(100vh - 48px); // Add explicit height
 `;
 
 const BackButton = styled.button`
@@ -1481,12 +1479,7 @@ This document covers key concepts and provides detailed explanations. Would you 
                           />
                         </VolumeContainer>
 
-                        <MenuButton 
-                          data-audio-menu
-                          onClick={() => setShowAudioMenu(!showAudioMenu)}
-                        >
-                          <FaEllipsisV />
-                        </MenuButton>
+                        
 
                         {showAudioMenu && (
                           <AudioDropdownMenu>
