@@ -23,7 +23,7 @@ const ChatSection = styled.div`
   border-top-left-radius: 0;
   box-shadow: 0 8px 32px rgba(59, 130, 246, 0.12);
   overflow: hidden;
-  min-width: 0;
+  min-width: 500px; // Add minimum width to prevent shrinking
   height: 100%;
   transition: box-shadow 0.2s;
   padding: 16px;
@@ -54,16 +54,16 @@ const GlassBox = styled.div`
 const AudioSection = styled(GlassBox)`
   flex: 0 0 30%;
   min-height: 0;
-  overflow: visible; // Changed from hidden to visible for dropdown
+  overflow: visible;
   position: relative;
-  padding: 12px;
+  padding: 8px; // Reduced from 12px
 `;
 
 const QuizSection = styled(GlassBox)`
   flex: 0 0 70%;
   min-height: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: 8px; // Reduced from 12px
 `;
 
 const UploadArea = styled.div`
@@ -93,8 +93,9 @@ const ChatArea = styled.div`
   display: flex;
   flex-direction: column;
   padding: 16px;
-  overflow: hidden;
+  overflow-y: auto; // Changed from hidden to auto
   background: transparent;
+  min-width: 0; // Add this for proper text wrapping
 `;
 
 const ChatInputArea = styled.div`
@@ -169,6 +170,9 @@ const MessageContent = styled.div`
   line-height: 1.5;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
   transition: background 0.2s, box-shadow 0.2s;
+  word-wrap: break-word; // Add this
+  word-break: break-word; // Add this
+  white-space: pre-wrap; // Add this to preserve line breaks
 `;
 
 const Avatar = styled.div`
@@ -1012,20 +1016,22 @@ This document covers key concepts and provides detailed explanations. Would you 
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Check for audio menu
       if (showAudioMenu && !event.target.closest('[data-audio-menu]')) {
         setShowAudioMenu(false);
         setShowSpeedMenu(false);
       }
+      // Check for note menu
+      if (showNoteMenu && !event.target.closest(`#note-three-dots-${showNoteMenu}`) && !event.target.closest(`#note-menu-${showNoteMenu}`)) {
+        setShowNoteMenu(null);
+      }
     };
 
-    if (showAudioMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showAudioMenu]);
+  }, [showAudioMenu, showNoteMenu]);
 
   const handleSendMessage = () => {
     if (!inputMessage.trim() || !uploadedDocument) return;
@@ -1418,12 +1424,15 @@ This document covers key concepts and provides detailed explanations. Would you 
                   <CompactSectionTitle>
                     <h2>Audio Overview</h2>
                     {audioGenerated && (
-                      <MenuButton onClick={handleAudioMenuClick}>
+                      <MenuButton 
+                        data-audio-menu
+                        onClick={handleAudioMenuClick}
+                      >
                         <FaEllipsisV />
                       </MenuButton>
                     )}
                     {showAudioMenu && (
-                      <AudioDropdownMenu>
+                      <AudioDropdownMenu data-audio-menu>
                         <AudioMenuItem onClick={() => setShowSpeedMenu(!showSpeedMenu)}>Playback Speed</AudioMenuItem>
                         {showSpeedMenu && (
                           <div style={{ padding: '8px 0' }}>
