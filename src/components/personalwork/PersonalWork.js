@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
-import { useDropzone } from 'react-dropzone';
 import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft, FaPause, FaVolumeUp } from 'react-icons/fa';
 
 const GlassContainer = styled.div`
@@ -822,6 +821,8 @@ const AudioMenuItem = styled.div`
   color: #2563eb;
   font-weight: 600;
   cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
   &:hover {
     background: #f1f5fd;
   }
@@ -964,27 +965,23 @@ const PersonalWork = () => {
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
-  const { getRootProps, getInputProps } = useDropzone({
-    accept: {
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
-    },
-    maxFiles: 1,
-    onDrop: acceptedFiles => {
-      const file = acceptedFiles[0];
-      setUploadedDocument(file);
-      setMessages([
-        {
-          id: 1,
-          text: `Here's a summary of "${file.name}":
+  const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (file && (file.type === 'application/pdf' || 
+                file.type === 'application/msword' || 
+                file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
+    setUploadedDocument(file);
+    setMessages([
+      {
+        id: 1,
+        text: `Here's a summary of "${file.name}":
 
 This document covers key concepts and provides detailed explanations. Would you like to know more about any specific aspect?`,
-          isUser: false
-        }
-      ]);
-    }
-  });
+        isUser: false
+      }
+    ]);
+  }
+};
 
   useEffect(() => {
     if (chatAreaRef.current) {
@@ -1317,8 +1314,18 @@ This document covers key concepts and provides detailed explanations. Would you 
                   value={newNoteTitle}
                   onChange={e => setNewNoteTitle(e.target.value)}
                 />
-                <FormInput
-                  as="textarea"
+                <textarea
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #e0e7ef',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    color: '#1e293b',
+                    minHeight: '100px',
+                    resize: 'vertical',
+                    fontFamily: 'inherit'
+                  }}
                   placeholder="Note Description (Optional)"
                   value={newNoteDescription}
                   onChange={e => setNewNoteDescription(e.target.value)}
@@ -1389,14 +1396,20 @@ This document covers key concepts and provides detailed explanations. Would you 
                     </ChatInputArea>
                   </>
                 ) : (
-                  <UploadArea {...getRootProps()}>
-                    <input {...getInputProps()} />
+                  <UploadArea onClick={() => document.getElementById('file-input').click()}>
+                    <input 
+                      id="file-input"
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleFileUpload}
+                      style={{ display: 'none' }}
+                    />
                     <FaFileUpload size={48} color="#3b82f6" />
                     <h3 style={{margin: '16px 0 8px 0', color: '#3b82f6'}}>
                       Upload a PDF or DOC file to start
                     </h3>
                     <p style={{color: '#64748b'}}>
-                      Drag and drop a file here, or click to select
+                      Click to select a file
                     </p>
                   </UploadArea>
                 )}
@@ -1407,12 +1420,12 @@ This document covers key concepts and provides detailed explanations. Would you 
                   <CompactSectionTitle>
                     <h2>Audio Overview</h2>
                     {audioGenerated && (
-                      <AudioMenuButton onClick={handleAudioMenuClick}>
+                      <MenuButton onClick={handleAudioMenuClick}>
                         <FaEllipsisV />
-                      </AudioMenuButton>
+                      </MenuButton>
                     )}
                     {showAudioMenu && (
-                      <AudioMenu>
+                      <AudioDropdownMenu>
                         <AudioMenuItem onClick={() => setShowSpeedMenu(!showSpeedMenu)}>Playback Speed</AudioMenuItem>
                         {showSpeedMenu && (
                           <div style={{ padding: '8px 0' }}>
@@ -1424,7 +1437,7 @@ This document covers key concepts and provides detailed explanations. Would you 
                           </div>
                         )}
                         <AudioMenuItem onClick={handleDownloadAudio}>Download</AudioMenuItem>
-                      </AudioMenu>
+                      </AudioDropdownMenu>
                     )}
                   </CompactSectionTitle>
                   <CompactText>Generate audio explanation</CompactText>
