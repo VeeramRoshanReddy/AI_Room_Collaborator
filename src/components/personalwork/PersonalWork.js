@@ -405,8 +405,8 @@ const NoteItem = styled.div`
 `;
 
 const NoteTitle = styled.h4`
-  font-size: 1.1rem;
-  font-weight: 700; // Increased from 600 to 700
+  font-size: 1.3rem;
+  font-weight: 700;
   color: #1e293b;
 `;
 
@@ -493,6 +493,8 @@ const EnterNoteButton = styled.button`
   cursor: pointer;
   transition: all 0.2s;
   margin-top: auto;
+  width: 75%;
+  align-self: center;
   
   &:hover {
     background: #4338CA;
@@ -564,10 +566,12 @@ const SectionTitle = styled.div`
   align-items: center;
   margin-bottom: 24px;
   width: 100%;
+  text-align: center;
   h2 {
     font-size: 32px; // Increased from 24px
     font-weight: 700;
     color: #2563eb;
+    flex: 1;
   }
 `;
 
@@ -654,6 +658,8 @@ const ThreeDotsButton = styled.button`
   padding: 4px;
   border-radius: 4px;
   transition: color 0.2s, background-color 0.2s;
+  font-weight: 900;
+  font-size: 16px;
 
   &:hover {
     color: #1e293b;
@@ -708,13 +714,14 @@ const NotesView = styled.div`
 
 const NotesGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); // Reduced from 300px to 280px
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); // 0.75x of 280px
   gap: 24px;
   padding: 24px;
   overflow-y: hidden;
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  justify-content: center;
 `;
 
 const NoteCard = styled.div`
@@ -725,9 +732,10 @@ const NoteCard = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
-  // Remove cursor: pointer and onClick hover effects since we now have a button
   transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
+  width: 100%;
+  max-width: 210px;
 
   &:hover {
     transform: translateY(-2px);
