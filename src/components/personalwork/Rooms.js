@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { FaPlus, FaSignInAlt, FaUsers, FaClock, FaArrowLeft, FaCommentDots, FaUserShield, FaUser, FaCrown, FaTimes, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 
 const NoScrollWrapper = styled.div`
   height: 100%;
@@ -802,7 +803,7 @@ const Rooms = () => {
       <NoScrollWrapper>
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
-            <BackButton onClick={handleBackToTopics}><FaChevronLeft /></BackButton>
+            <BackButton onClick={() => navigate('/personalwork')}><FaChevronLeft /></BackButton>
             <ChatHeader>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
               <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>

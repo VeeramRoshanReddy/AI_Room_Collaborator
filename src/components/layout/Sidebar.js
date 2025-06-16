@@ -156,7 +156,7 @@ const Sidebar = ({ isOpen, onToggle }) => {
         onClick={onToggle}
         whileTap={{ scale: 0.95 }}
       >
-        {isOpen ? <FaChevronLeft /> : <FaChevronRight />}
+        {/* Removed FaChevronLeft / FaChevronRight icons as requested */}
       </ToggleButton>
       <NavSection>
         {navItems.map((item) => (
