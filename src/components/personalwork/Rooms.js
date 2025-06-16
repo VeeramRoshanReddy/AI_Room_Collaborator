@@ -575,6 +575,7 @@ function randomPassword() {
 }
 
 const Rooms = () => {
+  const navigate = useNavigate();
   const [view, setView] = useState('rooms'); // rooms | topics | chat
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [selectedTopic, setSelectedTopic] = useState(null);
