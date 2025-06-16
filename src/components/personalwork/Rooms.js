@@ -370,26 +370,26 @@ const Avatar = styled.div`
 `;
 
 const BackButton = styled.button`
-  background: #2563eb; /* Strong blue background */
-  color: white; /* White icon */
+  background: #2563eb;
+  color: white;
   border: none;
-  border-radius: 50%; /* Circle shape */
+  border-radius: 50%;
   width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem; /* Adjust icon size */
+  font-size: 1.2rem;
   cursor: pointer;
   position: absolute;
   top: 16px;
   left: 16px;
-  z-index: 2;
+  z-index: 20;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
   transition: all 0.2s;
 
   &:hover {
-    background: #1d4ed8; /* Darker blue on hover */
+    background: #1d4ed8;
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
   }
 `;
@@ -629,10 +629,8 @@ const Rooms = () => {
     setView('rooms');
   };
   const handleBackToTopics = () => {
-    console.log('handleBackToTopics called. Current view:', view);
-    setSelectedTopic(null);
-    setView('topics');
-    console.log('New view after handleBackToTopics:', 'topics');
+  setSelectedTopic(null);
+  setView('topics');
   };
   const handleTopicClick = (topic) => {
     setSelectedTopic(topic);
