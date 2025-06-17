@@ -156,7 +156,7 @@ const handleLogout = () => {
   }
 
   // Google OAuth Client ID
-  const GOOGLE_CLIENT_ID = '290635245122-a60ie2u5b8ga1lklu79tktgecs3s7l6c.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '290635245122-a60ie2u5b8ga1lklu79tktgecs3s7l6c.apps.googleusercontent.com';
 
   return (
     <ThemeProvider theme={theme}>
