@@ -1,3 +1,4 @@
 {
-  "framework": "create-react-app"
-} 
+  "framework": "create-react-app",
+  "outputDirectory": "frontend/build"
+}
