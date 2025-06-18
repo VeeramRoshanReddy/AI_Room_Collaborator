@@ -2,6 +2,7 @@ from supabase import create_client, Client
 from typing import Dict, Any, List, Optional
 import logging
 from core.config import settings
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -232,11 +233,12 @@ class SupabaseService:
             return []
     
     async def create_topic(self, topic_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Create a new topic"""
+        """Create a new topic with a random encryption key"""
         if not self.client:
             return None
-        
         try:
+            # Generate a random encryption key for this topic
+            topic_data['encryption_key'] = secrets.token_urlsafe(32)
             response = self.client.table('topics').insert(topic_data).execute()
             if response.data:
                 return response.data[0]

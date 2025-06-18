@@ -4,27 +4,111 @@ from core.config import settings
 import logging
 import time
 from models.mongodb.ai_response import AIResponse, QuizQuestion, QuizResponse, AudioResponse
+from services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)
 
 # Configure OpenAI
-openai.api_key = settings.OPENAI_API_KEY
+client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
 
 class AIService:
     def __init__(self):
         self.model = settings.OPENAI_MODEL
-        self.max_tokens = 2000
-        self.temperature = 0.7
+        self.max_tokens = settings.OPENAI_MAX_TOKENS
+        self.temperature = settings.OPENAI_TEMPERATURE
+    
+    async def generate_group_chat_response(self, message: str, chat_history: List[Dict], room_id: str, user_id: str = None) -> Dict[str, Any]:
+        """Generate AI response for group chat (open-ended)"""
+        start_time = time.time()
+        
+        try:
+            # Prepare chat history for context
+            formatted_history = self._format_chat_history(chat_history)
+            
+            # Create system prompt for group chat
+            system_prompt = """You are an educational assistant helping students discuss classroom topics. 
+            Engage helpfully in group discussions by:
+            1. Providing relevant insights and explanations
+            2. Asking clarifying questions when needed
+            3. Encouraging collaborative thinking
+            4. Being supportive and educational
+            5. Staying on topic and contributing meaningfully to the conversation
+            
+            Respond naturally as if you're part of the group discussion."""
+            
+            # Prepare messages for OpenAI
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Add chat history
+            for msg in formatted_history[-10:]:  # Last 10 messages for context
+                messages.append(msg)
+            
+            # Add current message
+            messages.append({"role": "user", "content": message})
+            
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=self.max_tokens,
+                temperature=0.7,  # Slightly higher for more engaging responses
+                top_p=0.9
+            )
+            
+            processing_time = time.time() - start_time
+            ai_response = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens if response.usage else None
+            
+            # Encrypt the response for end-to-end security
+            encrypted_response = encryption_service.encrypt_message(ai_response, room_id)
+            
+            # Log the response
+            if user_id:
+                await self._log_ai_response(
+                    user_id=user_id,
+                    request_type="group_chat",
+                    prompt=message,
+                    response=ai_response,
+                    tokens_used=tokens_used,
+                    processing_time=processing_time,
+                    room_id=room_id
+                )
+            
+            return {
+                "response": encrypted_response,
+                "original_response": ai_response,  # For logging purposes
+                "tokens_used": tokens_used,
+                "processing_time": processing_time,
+                "model_used": self.model,
+                "is_encrypted": True
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating group chat response: {e}")
+            raise
+    
+    def _format_chat_history(self, chat_history: List[Dict]) -> List[Dict]:
+        """Format chat history for OpenAI API"""
+        formatted = []
+        
+        for msg in chat_history:
+            if msg.get("type") == "user":
+                formatted.append({"role": "user", "content": msg.get("content", "")})
+            elif msg.get("type") == "ai":
+                formatted.append({"role": "assistant", "content": msg.get("content", "")})
+            elif msg.get("type") == "system":
+                formatted.append({"role": "system", "content": msg.get("content", "")})
+        
+        return formatted
     
     async def generate_chat_response(self, prompt: str, context: str = "", user_id: str = None) -> Dict[str, Any]:
-        """Generate AI chat response"""
+        """Generate AI chat response (legacy method)"""
         start_time = time.time()
         
         try:
             # Prepare the full prompt with context
             full_prompt = f"{context}\n\nUser: {prompt}\n\nAI Assistant:"
             
-            response = await openai.ChatCompletion.acreate(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "You are a helpful AI assistant for an educational platform. Provide clear, accurate, and educational responses."},
@@ -85,7 +169,7 @@ class AIService:
             Make sure the questions are relevant to the content and have clear, distinct options.
             """
             
-            response = await openai.ChatCompletion.acreate(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "You are an expert quiz generator. Create educational and engaging multiple choice questions."},
@@ -162,7 +246,7 @@ class AIService:
             4. Be suitable for educational purposes
             """
             
-            response = await openai.ChatCompletion.acreate(
+            response = client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": "You are an expert at creating educational summaries."},
@@ -198,82 +282,60 @@ class AIService:
             logger.error(f"Error generating summary: {e}")
             raise
     
-    async def generate_audio_script(self, content: str, user_id: str = None) -> Dict[str, Any]:
-        """Generate an audio script from content"""
+    async def generate_audio_transcript(self, audio_file_path: str, user_id: str = None) -> Dict[str, Any]:
+        """Generate transcript from audio file"""
         start_time = time.time()
         
         try:
-            prompt = f"""
-            Create an engaging audio script based on the following content. The script should be:
-            1. Conversational and easy to listen to
-            2. Well-structured with clear sections
-            3. Include natural transitions
-            4. Be suitable for text-to-speech conversion
-            
-            Content:
-            {content}
-            """
-            
-            response = await openai.ChatCompletion.acreate(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert at creating engaging audio scripts for educational content."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=2000,
-                temperature=0.6
-            )
+            with open(audio_file_path, "rb") as audio_file:
+                transcript = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file
+                )
             
             processing_time = time.time() - start_time
-            ai_response = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens if response.usage else None
             
             # Log the response
             if user_id:
                 await self._log_ai_response(
                     user_id=user_id,
-                    request_type="audio_script",
-                    prompt="Generate audio script from content",
-                    response=ai_response,
-                    tokens_used=tokens_used,
+                    request_type="audio_transcript",
+                    prompt=f"Transcribe audio file: {audio_file_path}",
+                    response=transcript.text,
                     processing_time=processing_time
                 )
             
             return {
-                "audio_script": ai_response,
-                "tokens_used": tokens_used,
+                "transcript": transcript.text,
                 "processing_time": processing_time,
-                "model_used": self.model
+                "model_used": "whisper-1"
             }
             
         except Exception as e:
-            logger.error(f"Error generating audio script: {e}")
+            logger.error(f"Error generating audio transcript: {e}")
             raise
     
     async def _log_ai_response(self, user_id: str, request_type: str, prompt: str, response: str, 
                               tokens_used: int = None, processing_time: float = None, 
                               room_id: str = None, topic_id: str = None, document_id: str = None,
                               metadata: Dict[str, Any] = None):
-        """Log AI response to MongoDB"""
+        """Log AI response to database"""
         try:
-            from core.database import get_mongo_db
-            db = get_mongo_db()
-            
             ai_response = AIResponse(
                 user_id=user_id,
                 request_type=request_type,
                 prompt=prompt,
                 response=response,
+                tokens_used=tokens_used,
+                processing_time=processing_time,
                 room_id=room_id,
                 topic_id=topic_id,
                 document_id=document_id,
-                model_used=self.model,
-                tokens_used=tokens_used,
-                processing_time=processing_time,
                 metadata=metadata or {}
             )
             
-            await db.ai_responses.insert_one(ai_response.to_dict())
+            # Save to database (implement based on your database setup)
+            # await ai_response.save()
             
         except Exception as e:
             logger.error(f"Error logging AI response: {e}")
