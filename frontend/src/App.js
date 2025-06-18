@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import styled, { ThemeProvider } from 'styled-components';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
-// Import components
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
 import Login from './components/auth/Login';
@@ -92,130 +89,89 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize authentication state - REMOVED localStorage usage
+  // Check session on mount
   useEffect(() => {
-    // Simulate checking authentication state
-    // In a real app, you might check with your backend or a token
-    setIsLoading(false);
+    const checkSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+          setIsAuthenticated(true);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } catch (err) {
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkSession();
   }, []);
 
-  // Handle successful login - REMOVED localStorage usage
-const handleLogin = (credentialResponse) => {
-  try {
-    // Decode JWT token to get user info
-    const decodedToken = JSON.parse(atob(credentialResponse.credential.split('.')[1]));
-    const userData = {
-      name: decodedToken.name,
-      email: decodedToken.email,
-      picture: decodedToken.picture,
-      sub: decodedToken.sub
-    };
-    setUser(userData);
-    setIsAuthenticated(true);
-  } catch (error) {
-    console.error('Error processing login:', error);
-  }
-};
-
-  // Handle logout - REMOVED localStorage usage
-const handleLogout = () => {
-  try {
-    // Clear Google session
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.disableAutoSelect();
-      window.google.accounts.id.cancel();
-    }
-    
-    // Reset state first
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (err) {}
     setUser(null);
     setIsAuthenticated(false);
-    
-  } catch (error) {
-    console.error('Error during logout:', error);
-    // Force reset even if there's an error
-    setUser(null);
-    setIsAuthenticated(false);
-  }
-};
+    window.location.href = '/login';
+  };
 
-  // Show loading spinner while checking authentication
   if (isLoading) {
     return (
       <ThemeProvider theme={theme}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          background: theme.colors.background
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: theme.colors.background }}>
           <div>Loading...</div>
         </div>
       </ThemeProvider>
     );
   }
 
-  // Google OAuth Client ID
-  const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '290635245122-a60ie2u5b8ga1lklu79tktgecs3s7l6c.apps.googleusercontent.com';
-
   return (
     <ThemeProvider theme={theme}>
-      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-        <Router>
-          <AppContainer>
-            <ToastContainer
-              position="top-right"
-              autoClose={3000}
-              hideProgressBar={false}
-              newestOnTop
-              closeOnClick
-              rtl={false}
-              pauseOnFocusLoss
-              draggable
-              pauseOnHover
-              theme="light"
-            />
-            
-            {isAuthenticated ? (
-              <>
-                <Navbar 
-                  user={user}
-                  onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-                  onLogout={handleLogout}
-                />
-                <Sidebar 
-                  isOpen={isSidebarOpen}
-                  onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
-                />
-                <MainContent isSidebarOpen={isSidebarOpen}>
-                  <Routes>
-                    <Route path="/dashboard" element={<Home />} />
-                    <Route path="/rooms" element={<Rooms />} />
-                    <Route path="/personalwork" element={<PersonalWork />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                  </Routes>
-                </MainContent>
-              </>
-            ) : (
-              <Routes>
-                <Route 
-                  path="/login" 
-                  element={
-                    <Login 
-                      onLogin={handleLogin}
-                      setUser={setUser}
-                    />
-                  } 
-                />
-                <Route path="/" element={<Navigate to="/login" replace />} />
-                <Route path="*" element={<Navigate to="/login" replace />} />
-              </Routes>
-            )}
-          </AppContainer>
-        </Router>
-      </GoogleOAuthProvider>
+      <Router>
+        <AppContainer>
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="light"
+          />
+          {isAuthenticated ? (
+            <>
+              <Navbar user={user} onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)} onLogout={handleLogout} />
+              <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+              <MainContent isSidebarOpen={isSidebarOpen}>
+                <Routes>
+                  <Route path="/dashboard" element={<Home />} />
+                  <Route path="/rooms" element={<Rooms />} />
+                  <Route path="/personalwork" element={<PersonalWork />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </MainContent>
+            </>
+          ) : (
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          )}
+        </AppContainer>
+      </Router>
     </ThemeProvider>
   );
 }

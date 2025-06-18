@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import styled from 'styled-components';
-import { GoogleLogin } from '@react-oauth/google';
 import { motion } from 'framer-motion';
 import { FaGraduationCap } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -54,6 +53,25 @@ const GoogleButtonContainer = styled.div`
   margin-top: 24px;
 `;
 
+const GoogleButton = styled.button`
+  background: #4285f4;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(66, 133, 244, 0.15);
+  transition: background 0.2s;
+  &:hover {
+    background: #2563eb;
+  }
+`;
+
 const FeaturesList = styled.div`
   margin-top: 40px;
   display: grid;
@@ -68,39 +86,17 @@ const FeatureItem = styled.div`
   gap: 12px;
   color: ${props => props.theme.colors.text};
   font-size: 14px;
-  
   svg {
     color: ${props => props.theme.colors.primary};
     font-size: 20px;
   }
 `;
 
-const Login = ({ onLogin, setUser }) => {
+const Login = () => {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Authentication check removed since we're not using localStorage
-  }, [navigate, onLogin, setUser]);
-  
-const handleGoogleSuccess = async (credentialResponse) => {
-  try {
-    console.log(credentialResponse);
-    onLogin(credentialResponse); // Pass the entire credential response
-    
-    // Show success message
-    toast.success('Successfully logged in!');
-    
-    // Redirect to dashboard
-    navigate('/dashboard');
-  } catch (error) {
-    console.error('Login failed:', error);
-    toast.error('Login failed. Please try again.');
-  }
-};
-
-  const handleGoogleError = () => {
-    console.error('Google login failed');
-    toast.error('Google login failed. Please try again.');
+  const handleGoogleLogin = () => {
+    window.location.href = '/api/auth/google/login';
   };
 
   return (
@@ -115,22 +111,12 @@ const handleGoogleSuccess = async (credentialResponse) => {
         </Logo>
         <Title>AI Learning Platform</Title>
         <Subtitle>Your collaborative space for enhanced learning</Subtitle>
-        
         <GoogleButtonContainer>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={handleGoogleError}
-            useOneTap
-            theme="filled_blue"
-            shape="rectangular"
-            text="continue_with"
-            size="large"
-            popup_type="full_screen"
-            flow="implicit"
-            context="signin"
-          />
+          <GoogleButton onClick={handleGoogleLogin}>
+            <img src="/ai_logo.png" alt="Google Logo" style={{ width: 24, height: 24 }} />
+            Sign in with Google
+          </GoogleButton>
         </GoogleButtonContainer>
-
         <FeaturesList>
           <FeatureItem>
             <FaGraduationCap />
