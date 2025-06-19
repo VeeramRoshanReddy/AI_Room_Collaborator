@@ -7,7 +7,7 @@ import logging
 from openai import OpenAI
 import PyPDF2
 import docx
-from core.config import settings
+from backend.core.config import settings
 from services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)

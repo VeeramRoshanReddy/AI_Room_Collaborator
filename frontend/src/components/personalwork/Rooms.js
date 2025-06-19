@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FaPlus, FaSignInAlt, FaUsers, FaClock, FaArrowLeft, FaCommentDots, FaUserShield, FaUser, FaCrown, FaTimes, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -534,52 +534,35 @@ const DeleteChatButton = styled.button`
   }
 `;
 
-// Dummy data
-const dummyRooms = [
-  {
-    name: 'AI Study Group',
-    id: '1234567890123456',
-    admins: [
-      { name: 'Alice', email: 'alice@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/1.jpg' }
-    ],
-    members: [
-      { name: 'Bob', email: 'bob@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/2.jpg' },
-      { name: 'Charlie', email: 'charlie@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/3.jpg' },
-      { name: 'David', email: 'david@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/4.jpg' },
-      { name: 'Eve', email: 'eve@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/5.jpg' }
-    ],
-    topics: [
-      { title: 'Intro to AI', description: 'Basics of Artificial Intelligence', createdBy: 'Alice', date: '2024-06-12' },
-      { title: 'ML Algorithms', description: 'Discussion on ML algorithms', createdBy: 'Bob', date: '2024-06-11' },
-    ]
-  },
-  {
-    name: 'Math Wizards',
-    id: '2345678901234567',
-    admins: [
-      { name: 'Frank', email: 'frank@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/6.jpg' }
-    ],
-    members: [
-      { name: 'Grace', email: 'grace@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/7.jpg' },
-      { name: 'Heidi', email: 'heidi@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/8.jpg' },
-      { name: 'Ivan', email: 'ivan@gmail.com', avatar: 'https://randomuser.me/api/portraits/men/9.jpg' }
-    ],
-    topics: [
-      { title: 'Calculus', description: 'Limits, derivatives, and integrals', createdBy: 'Frank', date: '2024-06-10' },
-      { title: 'Algebra', description: 'Linear equations and more', createdBy: 'Grace', date: '2024-06-09' },
-    ]
-  },
-];
-const dummyPending = [
-  { name: 'Physics Enthusiasts', id: '3456789012345678', requested: true }
-];
+const fetchRooms = async (setRooms, setLoading, setError) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await fetch('/api/room/list', { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to fetch rooms');
+    const data = await res.json();
+    setRooms(data.rooms || []);
+  } catch (err) {
+    setError(err.message || 'Error fetching rooms');
+  } finally {
+    setLoading(false);
+  }
+};
 
-function randomPassword() {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-  let pass = '';
-  for (let i = 0; i < 16; i++) pass += chars[Math.floor(Math.random() * chars.length)];
-  return pass;
-}
+const fetchTopics = async (roomId, setSelectedRoom, setLoading, setError) => {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await fetch(`/api/topic/list/${roomId}`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to fetch topics');
+    const data = await res.json();
+    setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
+  } catch (err) {
+    setError(err.message || 'Error fetching topics');
+  } finally {
+    setLoading(false);
+  }
+};
 
 const Rooms = () => {
   const navigate = useNavigate();
@@ -588,11 +571,10 @@ const Rooms = () => {
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
-  const [rooms, setRooms] = useState(dummyRooms);
-  const [pending, setPending] = useState(dummyPending);
-  const [newRoomName, setNewRoomName] = useState('');
-  const [joinRoomId, setJoinRoomId] = useState('');
-  const [joinRoomPass, setJoinRoomPass] = useState('');
+  const [rooms, setRooms] = useState([]); // API-driven
+  const [pending, setPending] = useState([]); // To be API-driven in future
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   // Chat state
   const [chatMessages, setChatMessages] = useState([
     { id: 1, text: 'Welcome to the topic group chat!', isUser: false }
@@ -626,14 +608,15 @@ const Rooms = () => {
   const handleEnterRoom = (room) => {
     setSelectedRoom(room);
     setView('topics');
+    fetchTopics(room.id, setSelectedRoom, setLoading, setError);
   };
   const handleBackToRooms = () => {
     setSelectedRoom(null);
     setView('rooms');
   };
   const handleBackToTopics = () => {
-  setSelectedTopic(null);
-  setView('topics');
+    setSelectedTopic(null);
+    setView('topics');
   };
   const handleTopicClick = (topic) => {
     setSelectedTopic(topic);
@@ -648,28 +631,50 @@ const Rooms = () => {
     setChatInput(''); // Clear input on topic change
   };
   // Create room
-  const handleCreateRoom = () => {
-    const id = String(Math.floor(1000000000000000 + Math.random() * 9000000000000000));
-    const pass = randomPassword();
-    setRooms([...rooms, { name: newRoomName, id, members: ['You'], topics: [] }]);
-    setShowCreate(false);
-    setNewRoomName('');
+  const handleCreateRoom = async () => {
+    if (!newRoomName.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const password = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
+      const res = await fetch('/api/room/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: newRoomName, password }),
+      });
+      if (!res.ok) throw new Error('Failed to create room');
+      setShowCreate(false);
+      setNewRoomName('');
+      await fetchRooms(setRooms, setLoading, setError);
+    } catch (err) {
+      setError(err.message || 'Error creating room');
+      setLoading(false);
+    }
   };
   // Join room
-  const handleJoinRoom = () => {
-    // Simulate: if id matches any dummy room, add to pending
-    const found = rooms.find(r => r.id === joinRoomId);
-    if (found && joinRoomPass.length === 16) {
-      setPending([...pending, { name: found.name, id: found.id, requested: true }]);
+  const handleJoinRoom = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/room/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ room_id: joinRoomId, password: joinRoomPass }),
+      });
+      if (!res.ok) throw new Error('Failed to join room');
       setShowJoin(false);
       setJoinRoomId('');
       setJoinRoomPass('');
-    } else {
-      alert('Invalid room credentials');
+      await fetchRooms(setRooms, setLoading, setError);
+    } catch (err) {
+      setError(err.message || 'Error joining room');
+      setLoading(false);
     }
   };
   // Chat send
-  const handleSendChat = () => {
+  const handleSendChat = async () => {
     if (!chatInput.trim()) return;
     const newMessage = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 1, text: chatInput, isUser: true, sender: currentUser.name, avatar: currentUser.avatar, time: new Date().toLocaleTimeString() };
     
@@ -688,75 +693,93 @@ const Rooms = () => {
         }));
       }, 1000);
     }
+
+    const ws = new WebSocket(`ws://${window.location.host}/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${currentUser.email}`);
+    ws.send(JSON.stringify({ type: chatInput.startsWith('@chatbot') ? 'ai_request' : 'chat', content: chatInput }));
   };
   // Leave room
-  const handleLeaveRoom = (roomId) => {
-    const roomToLeave = rooms.find(r => r.id === roomId);
-    if (isAdmin(roomToLeave) && roomToLeave.admins.length === 1) {
-      // Admin is trying to leave and is the only admin
-      setLeavingRoomId(roomId);
-      setAdminLeavePrompt(true);
-      return;
+  const handleLeaveRoom = async (roomId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/room/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ room_id: roomId }),
+      });
+      if (!res.ok) throw new Error('Failed to leave room');
+      setSelectedRoom(null);
+      setView('rooms');
+      setShowRoomMenu(null);
+      await fetchRooms(setRooms, setLoading, setError);
+    } catch (err) {
+      setError(err.message || 'Error leaving room');
+      setLoading(false);
     }
-    setRooms(rooms.filter(r => r.id !== roomId));
-    setSelectedRoom(null); // Go back to rooms view
-    setView('rooms');
-    setShowRoomMenu(null); // Close menu
   };
-  // Delete room (admin only)
-  const handleDeleteRoom = (roomId) => {
-    setRooms(rooms.filter(r => r.id !== roomId));
-    setSelectedRoom(null); // Go back to rooms view
-    setView('rooms');
-    setShowRoomMenu(null); // Close menu
+  // Delete room
+  const handleDeleteRoom = async (roomId) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/room/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ room_id: roomId }),
+      });
+      if (!res.ok) throw new Error('Failed to delete room');
+      setSelectedRoom(null);
+      setView('rooms');
+      setShowRoomMenu(null);
+      await fetchRooms(setRooms, setLoading, setError);
+    } catch (err) {
+      setError(err.message || 'Error deleting room');
+      setLoading(false);
+    }
   };
   // Create topic
-  const handleCreateTopic = () => {
+  const handleCreateTopic = async () => {
     if (!newTopicTitle.trim()) return;
-    setRooms(rooms.map(r => {
-      if (r.id === selectedRoom.id) {
-        return {
-          ...r,
-          topics: [
-            ...r.topics,
-            { title: newTopicTitle, description: newTopicDesc, createdBy: currentUser.name, date: new Date().toISOString().slice(0,10) }
-          ]
-        };
-      }
-      return r;
-    }));
-    setSelectedRoom({
-      ...selectedRoom,
-      topics: [
-        ...selectedRoom.topics,
-        { title: newTopicTitle, description: newTopicDesc, createdBy: currentUser.name, date: new Date().toISOString().slice(0,10) }
-      ]
-    });
-    setNewTopicTitle('');
-    setNewTopicDesc('');
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/topic/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ room_id: selectedRoom.id, title: newTopicTitle, description: newTopicDesc }),
+      });
+      if (!res.ok) throw new Error('Failed to create topic');
+      setShowCreateTopicForm(false);
+      setNewTopicTitle('');
+      setNewTopicDesc('');
+      await fetchTopics(selectedRoom.id, setSelectedRoom, setLoading, setError);
+    } catch (err) {
+      setError(err.message || 'Error creating topic');
+      setLoading(false);
+    }
   };
   // Delete topic
-  const handleDeleteTopic = (topic) => {
-    // Check if the current user is an admin of the room or the creator of the topic
-    if (!isAdmin(selectedRoom) && topic.createdBy !== currentUser.name) {
-      setShowAuthError(true);
-      return;
+  const handleDeleteTopic = async (topic) => {
+    // Only allow if admin or topic creator (backend enforces this too)
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/topic/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ topic_id: topic.id }),
+      });
+      if (!res.ok) throw new Error('Failed to delete topic');
+      setShowTopicMenu(null);
+      await fetchTopics(selectedRoom.id, setSelectedRoom, setLoading, setError);
+    } catch (err) {
+      setError(err.message || 'Error deleting topic');
+      setLoading(false);
     }
-
-    setRooms(rooms.map(r => {
-      if (r.id === selectedRoom.id) {
-        return {
-          ...r,
-          topics: r.topics.filter(t => t.title !== topic.title)
-        };
-      }
-      return r;
-    }));
-    setSelectedRoom({
-      ...selectedRoom,
-      topics: selectedRoom.topics.filter(t => t.title !== topic.title)
-    });
-    setShowTopicMenu(null); // Close menu after deletion
   };
   // Member actions
   const handleRemoveUser = (user) => {
@@ -796,8 +819,9 @@ const Rooms = () => {
     setMemberAction({ show: false, user: null, anchor: null });
   };
 
-  const handleDeleteChat = () => {
+  const handleDeleteChat = async () => {
     if (window.confirm('Are you sure you want to delete this chat conversation?')) {
+      await fetch(`/api/chat/history/${selectedRoom.id}/${selectedTopic.id}`, { method: 'DELETE', credentials: 'include' });
       setRoomChatMessages(prev => ({
         ...prev,
         [selectedTopic.title]: []
@@ -805,7 +829,17 @@ const Rooms = () => {
     }
   };
 
+  useEffect(() => {
+    fetchRooms(setRooms, setLoading, setError);
+  }, []);
+
   // Main render
+  if (loading) {
+    return <CenteredContent><SectionTitle>Loading rooms...</SectionTitle></CenteredContent>;
+  }
+  if (error) {
+    return <CenteredContent><SectionTitle>Error: {error}</SectionTitle></CenteredContent>;
+  }
   if (view === 'chat') {
     return (
       <NoScrollWrapper>

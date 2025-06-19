@@ -1,17 +1,39 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Request
 from typing import List, Dict, Any, Optional
 import os
 import uuid
 from datetime import datetime
 from pydantic import BaseModel
 import logging
-
-from services.rag_service import rag_service
-from services.encryption_service import encryption_service
-from core.config import settings
+from sqlalchemy.orm import Session
+from backend.core.database import get_db, get_mongo_db
+from backend.core.config import settings
+from backend.models.postgresql.user import User
+from backend.models.postgresql.note import Note as PGNote
+from backend.models.mongodb.note import Note as MongoNote
+from backend.models.mongodb.ai_response import AIResponse, QuizResponse, AudioResponse
+from backend.services.rag_service import rag_service
+from backend.services.ai_service import ai_service
+from backend.services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Helper: get current user from session cookie
+async def get_current_user(request: Request, db: Session = Depends(get_db)):
+    token = request.cookies.get("airoom_session")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    import jwt
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload["user"]["sub"]
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid session")
 
 # Pydantic models
 class DocumentUpload(BaseModel):
@@ -48,7 +70,8 @@ documents: Dict[str, Dict] = {}
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    user_id: str = None
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Upload and process a document for RAG-based QA"""
     try:
@@ -84,13 +107,24 @@ async def upload_document(
         processing_result = await rag_service.process_document(
             file_path=file_path,
             file_id=file_id,
-            user_id=user_id or "anonymous"
+            user_id=user.id
         )
+        
+        # Store note metadata in PostgreSQL
+        note = PGNote(
+            id=file_id,
+            title=file.filename,
+            description="",
+            created_by=user.id,
+            created_at=datetime.utcnow()
+        )
+        db.add(note)
+        db.commit()
         
         # Store document info
         document_info = {
             "file_id": file_id,
-            "user_id": user_id or "anonymous",
+            "user_id": user.id,
             "file_name": file.filename,
             "file_type": file_extension,
             "file_path": file_path,
@@ -120,179 +154,55 @@ async def upload_document(
         logger.error(f"Error uploading document: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to upload document: {str(e)}")
 
-@router.post("/query", response_model=QueryResponse)
-async def query_document(query: DocumentQuery):
-    """Query a document with a question using RAG"""
+@router.post("/query")
+async def query_document(file_id: str, question: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Query a document with a question using RAG. Only answers based on file content."""
     try:
-        # Check if document exists
-        if query.file_id not in documents:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        # Check if user has access to the document
-        document_info = documents[query.file_id]
-        if document_info["user_id"] != query.user_id:
-            raise HTTPException(status_code=403, detail="Access denied to this document")
-        
-        # Query the document using RAG
+        note = db.query(PGNote).filter(PGNote.id == file_id, PGNote.created_by == user.id).first()
+        if not note:
+            raise HTTPException(status_code=404, detail="Document not found or access denied")
         start_time = datetime.now()
         rag_response = await rag_service.query_document(
-            file_id=query.file_id,
-            question=query.question,
-            user_id=query.user_id
+            file_id=file_id,
+            question=question,
+            user_id=user.id
         )
         processing_time = (datetime.now() - start_time).total_seconds()
-        
-        # Calculate confidence based on context relevance
-        confidence = min(1.0, len(rag_response["context_chunks"]) / 3.0)
-        
-        return QueryResponse(
-            answer=rag_response["answer"],
-            context_chunks=rag_response["context_chunks"],
-            file_id=query.file_id,
-            question=query.question,
-            confidence=confidence,
-            processing_time=processing_time
-        )
-    
+        # If RAG cannot answer, reply 'Out of scope'
+        if not rag_response["answer"] or rag_response["answer"].strip().lower() == "out of scope":
+            return {"answer": "Out of scope", "context_chunks": [], "file_id": file_id, "question": question, "confidence": 0.0, "processing_time": processing_time}
+        return {
+            "answer": rag_response["answer"],
+            "context_chunks": rag_response["context_chunks"],
+            "file_id": file_id,
+            "question": question,
+            "confidence": min(1.0, len(rag_response["context_chunks"]) / 3.0),
+            "processing_time": processing_time
+        }
     except Exception as e:
         logger.error(f"Error querying document: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to query document: {str(e)}")
 
-@router.get("/documents/{user_id}")
-async def get_user_documents(user_id: str):
-    """Get all documents for a user"""
-    try:
-        user_documents = []
-        for file_id, doc_info in documents.items():
-            if doc_info["user_id"] == user_id:
-                user_documents.append({
-                    "file_id": file_id,
-                    "file_name": doc_info["file_name"],
-                    "file_type": doc_info["file_type"],
-                    "chunk_count": doc_info["chunk_count"],
-                    "total_tokens": doc_info["total_tokens"],
-                    "upload_date": doc_info["upload_date"],
-                    "status": doc_info["status"],
-                    "file_size": doc_info.get("file_size", 0)
-                })
-        
-        return {
-            "user_id": user_id,
-            "documents": user_documents,
-            "total_documents": len(user_documents)
-        }
-    
-    except Exception as e:
-        logger.error(f"Error getting user documents: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get user documents")
+@router.get("/notes")
+async def get_user_notes(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get all notes for the current user."""
+    notes = db.query(PGNote).filter(PGNote.created_by == user.id).all()
+    return {"notes": [n.to_dict() for n in notes]}
 
-@router.get("/document/{file_id}")
-async def get_document_info(file_id: str, user_id: str):
-    """Get information about a specific document"""
-    try:
-        if file_id not in documents:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        document_info = documents[file_id]
-        
-        # Check access
-        if document_info["user_id"] != user_id:
-            raise HTTPException(status_code=403, detail="Access denied to this document")
-        
-        return {
-            "file_id": file_id,
-            "file_name": document_info["file_name"],
-            "file_type": document_info["file_type"],
-            "chunk_count": document_info["chunk_count"],
-            "total_tokens": document_info["total_tokens"],
-            "upload_date": document_info["upload_date"],
-            "status": document_info["status"],
-            "file_size": document_info.get("file_size", 0)
-        }
-    
-    except Exception as e:
-        logger.error(f"Error getting document info: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get document info")
-
-@router.delete("/document/{file_id}")
-async def delete_document(file_id: str, user_id: str):
-    """Delete a document"""
-    try:
-        if file_id not in documents:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        document_info = documents[file_id]
-        
-        # Check access
-        if document_info["user_id"] != user_id:
-            raise HTTPException(status_code=403, detail="Access denied to this document")
-        
-        # Delete from RAG service
-        await rag_service.delete_document(file_id)
-        
-        # Delete physical file
-        try:
-            if os.path.exists(document_info["file_path"]):
-                os.remove(document_info["file_path"])
-        except Exception as e:
-            logger.warning(f"Failed to delete physical file: {e}")
-        
-        # Remove from documents dict
-        del documents[file_id]
-        
-        return {
-            "message": "Document deleted successfully",
-            "file_id": file_id
-        }
-    
-    except Exception as e:
-        logger.error(f"Error deleting document: {e}")
-        raise HTTPException(status_code=500, detail="Failed to delete document")
-
-@router.post("/document/{file_id}/summary")
-async def generate_document_summary(file_id: str, user_id: str):
-    """Generate a summary of the document"""
-    try:
-        if file_id not in documents:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        document_info = documents[file_id]
-        
-        # Check access
-        if document_info["user_id"] != user_id:
-            raise HTTPException(status_code=403, detail="Access denied to this document")
-        
-        # Get document info from RAG service
-        rag_info = await rag_service.get_document_info(file_id)
-        if not rag_info:
-            raise HTTPException(status_code=404, detail="Document not found in RAG system")
-        
-        # Generate summary using AI service
-        from services.ai_service import ai_service
-        
-        # Get all chunks for summary
-        document_data = rag_service.vector_db.get(file_id)
-        if not document_data:
-            raise HTTPException(status_code=404, detail="Document data not found")
-        
-        # Combine all chunks for summary
-        full_content = "\n\n".join(document_data["chunks"])
-        
-        summary_response = await ai_service.generate_summary(
-            content=full_content,
-            user_id=user_id
-        )
-        
-        return {
-            "file_id": file_id,
-            "summary": summary_response["summary"],
-            "total_tokens": summary_response.get("tokens_used", 0),
-            "processing_time": summary_response.get("processing_time", 0)
-        }
-    
-    except Exception as e:
-        logger.error(f"Error generating document summary: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate document summary")
+@router.delete("/note/{file_id}")
+async def delete_note(file_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Delete a note and all associated AI/quiz/audio logs."""
+    note = db.query(PGNote).filter(PGNote.id == file_id, PGNote.created_by == user.id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found or access denied")
+    db.delete(note)
+    db.commit()
+    # Delete AI/quiz/audio logs in MongoDB
+    mongo_db = get_mongo_db()
+    await mongo_db.ai_responses.delete_many({"document_id": file_id})
+    await mongo_db.quiz_responses.delete_many({"document_id": file_id})
+    await mongo_db.audio_responses.delete_many({"document_id": file_id})
+    return {"message": "Note and all associated data deleted", "file_id": file_id}
 
 @router.get("/health")
 async def health_check():

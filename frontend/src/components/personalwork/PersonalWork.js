@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft, FaPause, FaVolumeUp } from 'react-icons/fa';
+import { useUserContext } from '../../context/UserContext';
+import axios from 'axios';
 
 const GlassContainer = styled.div`
   display: flex;
@@ -932,7 +934,14 @@ const SpeedSubmenu = styled.div`
 `;
 
 const PersonalWork = () => {
+  const { user } = useUserContext();
+  const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [audioData, setAudioData] = useState(null);
+  const [quizData, setQuizData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [uploadedDocument, setUploadedDocument] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -954,36 +963,98 @@ const PersonalWork = () => {
   const audioRef = useRef(null);
   const chatAreaRef = useRef(null);
   const [isAudioDownloading, setIsAudioDownloading] = useState(false);
-  const [notes, setNotes] = useState([
-    { id: 1, title: 'Meeting Notes', description: 'Summary of project meeting', date: '2024-07-20' },
-    { id: 2, title: 'Research Ideas', description: 'Brainstorming for new AI models', date: '2024-07-19' },
-  ]);
   const [showCreateNoteForm, setShowCreateNoteForm] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [newNoteDescription, setNewNoteDescription] = useState('');
   const [showNoteMenu, setShowNoteMenu] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
-  const handleFileUpload = (event) => {
-  const file = event.target.files[0];
-  if (file && (file.type === 'application/pdf' || 
-                file.type === 'application/msword' || 
-                file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')) {
-    setUploadedDocument(file);
-    setMessages([
-      {
-        id: 1,
-        text: `Here's a summary of "${file.name}":
+  useEffect(() => {
+    if (user) fetchNotes();
+  }, [user]);
 
-This document covers key concepts and provides detailed explanations. Would you like to know more about any specific aspect?`,
-        isUser: false
-      }
-    ]);
-  }
-};
+  const fetchNotes = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.get('/api/notes/notes', { withCredentials: true });
+      setNotes(res.data.notes);
+    } catch (err) {
+      setError('Failed to load notes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const file = event.target.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+      await axios.post('/api/notes/upload', formData, { withCredentials: true });
+      await fetchNotes();
+    } catch (err) {
+      setError('Failed to upload file');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (question) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.post('/api/notes/query', { file_id: selectedNote.id, question }, { withCredentials: true });
+      setChatHistory([...chatHistory, { question, answer: res.data.answer }]);
+    } catch (err) {
+      setError('Failed to get answer');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateAudio = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.post(`/api/notes/audio/${selectedNote.id}`, {}, { withCredentials: true });
+      setAudioData(res.data);
+    } catch (err) {
+      setError('Failed to generate audio');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateQuiz = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.post(`/api/notes/quiz/${selectedNote.id}`, {}, { withCredentials: true });
+      setQuizData(res.data);
+    } catch (err) {
+      setError('Failed to generate quiz');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteNote = async (id) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await axios.delete(`/api/notes/note/${id}`, { withCredentials: true });
+      await fetchNotes();
+      if (selectedNote && selectedNote.id === id) setSelectedNote(null);
+    } catch (err) {
+      setError('Failed to delete note');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (chatAreaRef.current) {
@@ -1033,54 +1104,6 @@ This document covers key concepts and provides detailed explanations. Would you 
     };
   }, [showAudioMenu, showNoteMenu]);
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim() || !uploadedDocument) return;
-    const newMessage = {
-      id: messages.length + 1,
-      text: inputMessage,
-      isUser: true
-    };
-    setMessages(prev => [...prev, newMessage]);
-    setInputMessage('');
-    setTimeout(() => {
-      const aiResponse = {
-        id: messages.length + 2,
-        text: "I'm analyzing your question about the document. Here is a detailed response...",
-        isUser: false
-      };
-      setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
-  };
-
-  const handleClearChat = () => {
-    setMessages([]);
-  };
-
-  const handleRemoveDocument = () => {
-    setUploadedDocument(null);
-    setMessages([]);
-    setCurrentQuiz(null);
-    setQuizScore(0);
-    setQuizIndex(0);
-    setQuizStarted(false);
-    setQuizCompleted(false);
-    setAudioGenerated(false);
-    setIsPlayingAudio(false);
-    setAudioCurrentTime(0);
-    setIsAudioDownloading(false);
-  };
-
-  const handleGenerateAudio = () => {
-    setIsGeneratingAudio(true);
-    setAudioGenerated(false);
-    setIsAudioDownloading(false);
-    setTimeout(() => {
-      setIsGeneratingAudio(false);
-      setAudioGenerated(true);
-      setAudioDuration(180);
-    }, 2000);
-  };
-
   const handleTogglePlayPause = () => {
     if (!audioRef.current) return;
     if (audioRef.current.paused) {
@@ -1122,27 +1145,6 @@ This document covers key concepts and provides detailed explanations. Would you 
     const minutes = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleGenerateQuiz = () => {
-    setIsGeneratingQuiz(true);
-    setQuizStarted(true);
-    setQuizCompleted(false);
-    setTimeout(() => {
-      setCurrentQuiz({
-        question: "What is the main topic discussed in the document?",
-        options: [
-          "Machine Learning",
-          "Artificial Intelligence",
-          "Deep Learning",
-          "Neural Networks"
-        ],
-        correctAnswer: 1
-      });
-      setIsGeneratingQuiz(false);
-      setQuizIndex(1);
-      setQuizScore(0);
-    }, 1000);
   };
 
   const handleAnswerQuiz = (selectedIndex) => {
@@ -1206,31 +1208,6 @@ This document covers key concepts and provides detailed explanations. Would you 
     setShowCreateNoteForm(false);
   };
 
-  const handleDeleteNote = (id) => {
-    setNotes(prev => prev.filter(note => note.id !== id));
-    setShowNoteMenu(null);
-  };
-
-  const handleResetAll = () => {
-    setMessages([]);
-    setUploadedDocument(null);
-    setCurrentQuiz(null);
-    setQuizScore(0);
-    setQuizIndex(0);
-    setQuizStarted(false);
-    setQuizCompleted(false);
-    setQuizAnswered(false);
-    setSelectedOption(null);
-    setAudioGenerated(false);
-    setIsPlayingAudio(false);
-    setAudioCurrentTime(0);
-    setIsAudioDownloading(false);
-  };
-
-  const handleNoteClick = (note) => {
-    setSelectedNote(note);
-  };
-
   const handleBackToNotes = () => {
     setSelectedNote(null);
     setUploadedDocument(null);
@@ -1277,7 +1254,7 @@ This document covers key concepts and provides detailed explanations. Would you 
                   <NoteTitle>{note.title}</NoteTitle>
                   <NoteDescription>{note.description}</NoteDescription>
                   <NoteDate>Created on: {note.date}</NoteDate>
-                  <EnterNoteButton onClick={() => handleNoteClick(note)}>
+                  <EnterNoteButton onClick={() => setSelectedNote(note)}>
                     Enter Note
                   </EnterNoteButton>
                   <NoteActions>
@@ -1364,10 +1341,10 @@ This document covers key concepts and provides detailed explanations. Would you 
                         {uploadedDocument.name}
                       </StatusText>
                       <ActionButtons>
-                        <Button onClick={handleClearChat} title="Clear Chat">
+                        <Button onClick={() => setMessages([])} title="Clear Chat">
                           <FaBroom />
                         </Button>
-                        <Button onClick={handleRemoveDocument} title="Remove Document">
+                        <Button onClick={() => setUploadedDocument(null)} title="Remove Document">
                           <FaTrash />
                         </Button>
                       </ActionButtons>
@@ -1389,10 +1366,10 @@ This document covers key concepts and provides detailed explanations. Would you 
                         value={inputMessage}
                         onChange={e => setInputMessage(e.target.value)}
                         placeholder="Ask a question about the document..."
-                        onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
+                        onKeyDown={e => e.key === 'Enter' && handleSendMessage(inputMessage)}
                       />
                       <Button 
-                        onClick={handleSendMessage}
+                        onClick={() => handleSendMessage(inputMessage)}
                         disabled={!inputMessage.trim()}
                       >
                         Send

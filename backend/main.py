@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import uvicorn
 
-from api import auth, user, room, topic, notes, chat, quiz, audio
+from backend.api import auth, user, room, topic, notes, chat, quiz, audio
 from core.config import settings
 
 app = FastAPI(
@@ -31,9 +31,9 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(user.router, prefix="/api/users", tags=["Users"])
-app.include_router(room.router, prefix="/api/rooms", tags=["Rooms"])
-app.include_router(topic.router, prefix="/api/topics", tags=["Topics"])
+app.include_router(user.router, prefix="/api/user", tags=["Users"])
+app.include_router(room.router, prefix="/api/room", tags=["Rooms"])
+app.include_router(topic.router, prefix="/api/topic", tags=["Topics"])
 app.include_router(notes.router, prefix="/api/notes", tags=["Notes"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz"])
