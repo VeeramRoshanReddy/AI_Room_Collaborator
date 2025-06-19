@@ -1,15 +1,19 @@
-from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
 from typing import List, Dict, Any, Optional
 import json
 import logging
 from datetime import datetime
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
+from core.database import get_db, get_mongo_db
 from services.ai_service import ai_service
 from services.encryption_service import encryption_service, get_topic_encryption_key
 from core.config import settings
-from core.database import get_db
+from models.postgresql.room import Room, room_members
+from models.postgresql.topic import Topic
+from models.postgresql.user import User
+from models.mongodb.chat_log import ChatLog, ChatMessage
+import uuid
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -72,13 +76,33 @@ class ChatResponse(BaseModel):
     timestamp: datetime
     is_encrypted: bool = True
 
-# In-memory chat history (replace with database in production)
-chat_history: Dict[str, List[Dict]] = {}
+# Helper: get current user from session cookie
+async def get_current_user(request: Request, db: Session = Depends(get_db)):
+    token = request.cookies.get("airoom_session")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    import jwt
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id = payload["user"]["sub"]
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid session")
 
-@router.websocket("/ws/{room_id}/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
+def is_room_member(db: Session, room_id: str, user_id: str) -> bool:
+    return db.execute(room_members.select().where((room_members.c.room_id == room_id) & (room_members.c.user_id == user_id))).rowcount > 0
+
+@router.websocket("/ws/{room_id}/{topic_id}/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, db: Session = Depends(get_db)):
+    # Membership check
+    if not is_room_member(db, room_id, user_id):
+        await websocket.close(code=4001)
+        return
     await manager.connect(websocket, room_id)
-    
+    mongo_db = get_mongo_db()
     try:
         while True:
             # Receive message from client
@@ -87,13 +111,13 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
             
             # Handle different message types
             if message_data.get("type") == "chat":
-                await handle_chat_message(websocket, room_id, user_id, message_data)
+                await handle_chat_message(websocket, room_id, topic_id, user_id, message_data, db, mongo_db)
             elif message_data.get("type") == "ai_request":
-                await handle_ai_request(websocket, room_id, user_id, message_data)
+                await handle_ai_request(websocket, room_id, topic_id, user_id, message_data, db, mongo_db)
             elif message_data.get("type") == "join_room":
-                await handle_join_room(websocket, room_id, user_id)
+                await handle_join_room(websocket, room_id, topic_id, user_id, mongo_db)
             elif message_data.get("type") == "leave_room":
-                await handle_leave_room(websocket, room_id, user_id)
+                await handle_leave_room(websocket, room_id, topic_id, user_id, mongo_db)
     
     except WebSocketDisconnect:
         manager.disconnect(websocket, room_id)
@@ -101,12 +125,9 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, user_id: str):
         logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket, room_id)
 
-async def handle_chat_message(websocket: WebSocket, room_id: str, user_id: str, message_data: Dict, db: Session = Depends(get_db)):
+async def handle_chat_message(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, message_data: Dict, db: Session, mongo_db):
     """Handle regular chat messages"""
     try:
-        topic_id = message_data.get("topic_id")
-        if not topic_id:
-            raise ValueError("topic_id is required for chat encryption")
         # Fetch the encryption key for this topic
         encryption_key = get_topic_encryption_key(db, topic_id)
         # Encrypt the message for end-to-end security
@@ -116,27 +137,39 @@ async def handle_chat_message(websocket: WebSocket, room_id: str, user_id: str, 
         )
         
         # Create message object
-        message = {
-            "message_id": f"msg_{datetime.now().timestamp()}",
-            "room_id": room_id,
-            "user_id": user_id,
-            "content": encrypted_message,
-            "original_content": message_data.get("content", ""),
-            "message_type": "user",
-            "timestamp": datetime.now().isoformat(),
-            "is_encrypted": True
-        }
+        message = ChatMessage(
+            message_id=str(uuid.uuid4()),
+            room_id=room_id,
+            user_id=user_id,
+            message=encrypted_message,
+            message_type="user",
+            timestamp=datetime.utcnow()
+        )
         
-        # Store in chat history
-        if room_id not in chat_history:
-            chat_history[room_id] = []
-        chat_history[room_id].append(message)
+        # Store in MongoDB
+        chat_log = await mongo_db.chat_logs.find_one({"room_id": room_id, "topic_id": topic_id})
+        if not chat_log:
+            chat_log_doc = {
+                "room_id": room_id,
+                "topic_id": topic_id,
+                "messages": [message.dict()],
+                "is_active": True,
+                "last_activity": datetime.utcnow(),
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            await mongo_db.chat_logs.insert_one(chat_log_doc)
+        else:
+            await mongo_db.chat_logs.update_one(
+                {"_id": chat_log["_id"]},
+                {"$push": {"messages": message.dict()}, "$set": {"last_activity": datetime.utcnow(), "updated_at": datetime.utcnow()}}
+            )
         
         # Broadcast to all clients in the room
         await manager.broadcast_to_room(
             json.dumps({
                 "type": "chat_message",
-                "data": message
+                "data": message.dict()
             }),
             room_id
         )
@@ -145,7 +178,7 @@ async def handle_chat_message(websocket: WebSocket, room_id: str, user_id: str, 
         await manager.send_personal_message(
             json.dumps({
                 "type": "message_sent",
-                "data": {"message_id": message["message_id"]}
+                "data": {"message_id": message.message_id}
             }),
             websocket
         )
@@ -160,60 +193,78 @@ async def handle_chat_message(websocket: WebSocket, room_id: str, user_id: str, 
             websocket
         )
 
-async def handle_ai_request(websocket: WebSocket, room_id: str, user_id: str, message_data: Dict, db: Session = Depends(get_db)):
+async def handle_ai_request(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, message_data: Dict, db: Session, mongo_db):
     """Handle AI chat requests"""
     try:
-        topic_id = message_data.get("topic_id")
-        if not topic_id:
-            raise ValueError("topic_id is required for chat encryption")
+        # Only respond if message starts with @chatbot
+        content = message_data.get("content", "")
+        if not content.strip().startswith("@chatbot"):
+            return
         # Fetch the encryption key for this topic
         encryption_key = get_topic_encryption_key(db, topic_id)
         # Get chat history for context
-        room_history = chat_history.get(room_id, [])
+        chat_log = await mongo_db.chat_logs.find_one({"room_id": room_id, "topic_id": topic_id})
+        room_history = chat_log["messages"] if chat_log else []
         
         # Format history for AI
-        formatted_history = []
-        for msg in room_history[-20:]:  # Last 20 messages
-            formatted_history.append({
-                "type": msg["message_type"],
-                "content": msg.get("original_content", msg["content"])
-            })
+        formatted_history = [
+            {"type": msg["message_type"], "content": msg.get("content", "")}
+            for msg in room_history[-20:]
+        ]
         
         # Generate AI response
         ai_response = await ai_service.generate_group_chat_response(
-            message=message_data.get("content", ""),
+            message=content,
             chat_history=formatted_history,
             room_id=room_id,
             user_id=user_id
         )
         
+        # Encrypt AI response
+        encrypted_ai_response = encryption_service.encrypt_message(
+            ai_response["response"],
+            room_id
+        )
+        
         # Create AI message object
-        ai_message = {
-            "message_id": f"ai_{datetime.now().timestamp()}",
-            "room_id": room_id,
-            "user_id": "ai_assistant",
-            "content": ai_response["response"],  # Encrypted response
-            "original_content": ai_response["original_response"],
-            "message_type": "ai",
-            "timestamp": datetime.now().isoformat(),
-            "is_encrypted": True,
-            "metadata": {
+        ai_message = ChatMessage(
+            message_id=str(uuid.uuid4()),
+            room_id=room_id,
+            user_id="ai_assistant",
+            message=encrypted_ai_response,
+            message_type="ai",
+            timestamp=datetime.utcnow(),
+            is_ai=True,
+            metadata={
                 "tokens_used": ai_response.get("tokens_used"),
                 "processing_time": ai_response.get("processing_time"),
                 "model_used": ai_response.get("model_used")
             }
-        }
+        )
         
-        # Store in chat history
-        if room_id not in chat_history:
-            chat_history[room_id] = []
-        chat_history[room_id].append(ai_message)
+        # Store in MongoDB
+        if not chat_log:
+            chat_log_doc = {
+                "room_id": room_id,
+                "topic_id": topic_id,
+                "messages": [ai_message.dict()],
+                "is_active": True,
+                "last_activity": datetime.utcnow(),
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            await mongo_db.chat_logs.insert_one(chat_log_doc)
+        else:
+            await mongo_db.chat_logs.update_one(
+                {"_id": chat_log["_id"]},
+                {"$push": {"messages": ai_message.dict()}, "$set": {"last_activity": datetime.utcnow(), "updated_at": datetime.utcnow()}}
+            )
         
         # Broadcast AI response to all clients in the room
         await manager.broadcast_to_room(
             json.dumps({
                 "type": "ai_response",
-                "data": ai_message
+                "data": ai_message.dict()
             }),
             room_id
         )
@@ -228,18 +279,20 @@ async def handle_ai_request(websocket: WebSocket, room_id: str, user_id: str, me
             websocket
         )
 
-async def handle_join_room(websocket: WebSocket, room_id: str, user_id: str):
+async def handle_join_room(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, mongo_db):
     """Handle user joining a room"""
     try:
         # Send room history to the new user
-        room_history = chat_history.get(room_id, [])
+        chat_log = await mongo_db.chat_logs.find_one({"room_id": room_id, "topic_id": topic_id})
+        messages = chat_log["messages"][-50:] if chat_log else []
         
         await manager.send_personal_message(
             json.dumps({
                 "type": "room_history",
                 "data": {
                     "room_id": room_id,
-                    "messages": room_history[-50:]  # Last 50 messages
+                    "topic_id": topic_id,
+                    "messages": messages
                 }
             }),
             websocket
@@ -252,7 +305,8 @@ async def handle_join_room(websocket: WebSocket, room_id: str, user_id: str):
                 "data": {
                     "user_id": user_id,
                     "room_id": room_id,
-                    "timestamp": datetime.now().isoformat()
+                    "topic_id": topic_id,
+                    "timestamp": datetime.utcnow().isoformat()
                 }
             }),
             room_id,
@@ -262,7 +316,7 @@ async def handle_join_room(websocket: WebSocket, room_id: str, user_id: str):
     except Exception as e:
         logger.error(f"Error handling join room: {e}")
 
-async def handle_leave_room(websocket: WebSocket, room_id: str, user_id: str):
+async def handle_leave_room(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, mongo_db):
     """Handle user leaving a room"""
     try:
         # Notify other users
@@ -272,7 +326,8 @@ async def handle_leave_room(websocket: WebSocket, room_id: str, user_id: str):
                 "data": {
                     "user_id": user_id,
                     "room_id": room_id,
-                    "timestamp": datetime.now().isoformat()
+                    "topic_id": topic_id,
+                    "timestamp": datetime.utcnow().isoformat()
                 }
             }),
             room_id,
@@ -302,19 +357,19 @@ async def send_message(message: ChatMessage):
         )
         
         # Store in chat history
-        if message.room_id not in chat_history:
-            chat_history[message.room_id] = []
-        
-        chat_history[message.room_id].append({
-            "message_id": response.message_id,
-            "room_id": response.room_id,
-            "user_id": response.user_id,
-            "content": response.content,
-            "original_content": message.message,
-            "message_type": response.message_type,
-            "timestamp": response.timestamp.isoformat(),
-            "is_encrypted": True
-        })
+        mongo_db = get_mongo_db()
+        chat_log = await mongo_db.chat_logs.find_one({"room_id": message.room_id})
+        if not chat_log:
+            chat_log_doc = {
+                "room_id": message.room_id,
+                "messages": [response.dict()]
+            }
+            await mongo_db.chat_logs.insert_one(chat_log_doc)
+        else:
+            await mongo_db.chat_logs.update_one(
+                {"_id": chat_log["_id"]},
+                {"$push": {"messages": response.dict()}}
+            )
         
         return response
     
@@ -327,15 +382,15 @@ async def ai_chat(request: AIRequest):
     """Generate AI response for group chat"""
     try:
         # Get room history
-        room_history = chat_history.get(request.room_id, [])
+        mongo_db = get_mongo_db()
+        chat_log = await mongo_db.chat_logs.find_one({"room_id": request.room_id})
+        room_history = chat_log["messages"] if chat_log else []
         
         # Format history for AI
-        formatted_history = []
-        for msg in room_history[-20:]:
-            formatted_history.append({
-                "type": msg["message_type"],
-                "content": msg.get("original_content", msg["content"])
-            })
+        formatted_history = [
+            {"type": msg["message_type"], "content": msg.get("content", "")}
+            for msg in room_history[-20:]
+        ]
         
         # Generate AI response
         ai_response = await ai_service.generate_group_chat_response(
@@ -346,26 +401,33 @@ async def ai_chat(request: AIRequest):
         )
         
         # Create AI message
-        ai_message = {
-            "message_id": f"ai_{datetime.now().timestamp()}",
-            "room_id": request.room_id,
-            "user_id": "ai_assistant",
-            "content": ai_response["response"],
-            "original_content": ai_response["original_response"],
-            "message_type": "ai",
-            "timestamp": datetime.now().isoformat(),
-            "is_encrypted": True,
-            "metadata": {
+        ai_message = ChatMessage(
+            message_id=f"ai_{datetime.now().timestamp()}",
+            room_id=request.room_id,
+            user_id="ai_assistant",
+            message=ai_response["response"],
+            message_type="ai",
+            timestamp=datetime.now(),
+            is_ai=True,
+            metadata={
                 "tokens_used": ai_response.get("tokens_used"),
                 "processing_time": ai_response.get("processing_time"),
                 "model_used": ai_response.get("model_used")
             }
-        }
+        )
         
         # Store in chat history
-        if request.room_id not in chat_history:
-            chat_history[request.room_id] = []
-        chat_history[request.room_id].append(ai_message)
+        if not chat_log:
+            chat_log_doc = {
+                "room_id": request.room_id,
+                "messages": [ai_message.dict()]
+            }
+            await mongo_db.chat_logs.insert_one(chat_log_doc)
+        else:
+            await mongo_db.chat_logs.update_one(
+                {"_id": chat_log["_id"]},
+                {"$push": {"messages": ai_message.dict()}}
+            )
         
         return ai_message
     
@@ -373,27 +435,30 @@ async def ai_chat(request: AIRequest):
         logger.error(f"Error generating AI response: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate AI response")
 
-@router.get("/history/{room_id}")
-async def get_chat_history(room_id: str, limit: int = 50):
+@router.get("/history/{room_id}/{topic_id}")
+async def get_chat_history(room_id: str, topic_id: str, limit: int = 50):
     """Get chat history for a room"""
     try:
-        room_history = chat_history.get(room_id, [])
+        mongo_db = get_mongo_db()
+        chat_log = await mongo_db.chat_logs.find_one({"room_id": room_id, "topic_id": topic_id})
+        messages = chat_log["messages"][-limit:] if chat_log else []
         return {
             "room_id": room_id,
-            "messages": room_history[-limit:],
-            "total_messages": len(room_history)
+            "topic_id": topic_id,
+            "messages": messages,
+            "total_messages": len(messages)
         }
     except Exception as e:
         logger.error(f"Error getting chat history: {e}")
         raise HTTPException(status_code=500, detail="Failed to get chat history")
 
-@router.delete("/history/{room_id}")
-async def clear_chat_history(room_id: str):
+@router.delete("/history/{room_id}/{topic_id}")
+async def clear_chat_history(room_id: str, topic_id: str):
     """Clear chat history for a room"""
     try:
-        if room_id in chat_history:
-            del chat_history[room_id]
-        return {"message": "Chat history cleared", "room_id": room_id}
+        mongo_db = get_mongo_db()
+        await mongo_db.chat_logs.delete_one({"room_id": room_id, "topic_id": topic_id})
+        return {"message": "Chat history cleared", "room_id": room_id, "topic_id": topic_id}
     except Exception as e:
         logger.error(f"Error clearing chat history: {e}")
         raise HTTPException(status_code=500, detail="Failed to clear chat history") 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
-from core.config import settings
+from backend.core.config import settings
 import requests
 import jwt
 import secrets
