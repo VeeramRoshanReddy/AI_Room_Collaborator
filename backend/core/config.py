@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     
     # CORS Settings
+    ALLOWED_ORIGINS: List[str] = os.getenv("ALLOWED_ORIGINS", "https://ai-room-collaborator.vercel.app").split(",")
+    ALLOWED_HOSTS: List[str] = os.getenv("ALLOWED_HOSTS", "ai-room-collaborator.vercel.app").split(",")
     
     # Database Settings
     DATABASE_URL: str = os.getenv("DATABASE_URL")
