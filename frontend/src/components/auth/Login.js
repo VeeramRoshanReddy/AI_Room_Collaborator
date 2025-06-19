@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { FaGraduationCap } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 const LoginContainer = styled.div`
@@ -94,6 +94,10 @@ const FeatureItem = styled.div`
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Show error if redirected back with error param
+  const params = new URLSearchParams(location.search);
+  const error = params.get('error');
 
   const handleGoogleLogin = () => {
     window.location.href = '/api/auth/google/login';
@@ -111,6 +115,15 @@ const Login = () => {
         </Logo>
         <Title>AI Learning Platform</Title>
         <Subtitle>Your collaborative space for enhanced learning</Subtitle>
+        {error && (
+          <div style={{ color: 'red', marginBottom: 16 }}>
+            {error === 'missing_code' && 'Google login failed: Missing code.'}
+            {error === 'token_exchange_failed' && 'Google login failed: Could not exchange code for token.'}
+            {error === 'missing_access_token' && 'Google login failed: Missing access token.'}
+            {error === 'userinfo_failed' && 'Google login failed: Could not fetch user info.'}
+            {!['missing_code','token_exchange_failed','missing_access_token','userinfo_failed'].includes(error) && 'Google login failed.'}
+          </div>
+        )}
         <GoogleButtonContainer>
           <GoogleButton onClick={handleGoogleLogin}>
             <img src="/google_g_logo.png" alt="Google Logo" style={{ width: 24, height: 24 }} />

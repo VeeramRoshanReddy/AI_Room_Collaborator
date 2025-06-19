@@ -35,7 +35,8 @@ def google_login():
 @router.get("/google/callback")
 def google_callback(request: Request, response: Response, code: str = None):
     if not code:
-        raise HTTPException(status_code=400, detail="Missing code from Google")
+        # Redirect to login with error message
+        return RedirectResponse(url="/login?error=missing_code")
     # Exchange code for tokens
     data = {
         "code": code,
@@ -46,18 +47,25 @@ def google_callback(request: Request, response: Response, code: str = None):
     }
     token_resp = requests.post(GOOGLE_TOKEN_URL, data=data)
     if not token_resp.ok:
-        raise HTTPException(status_code=400, detail="Failed to get tokens from Google")
+        # Redirect to login with error message
+        return RedirectResponse(url="/login?error=token_exchange_failed")
     tokens = token_resp.json()
     id_token = tokens.get("id_token")
     access_token = tokens.get("access_token")
+    if not access_token:
+        return RedirectResponse(url="/login?error=missing_access_token")
     # Get user info
     userinfo_resp = requests.get(GOOGLE_USERINFO_URL, headers={"Authorization": f"Bearer {access_token}"})
     if not userinfo_resp.ok:
-        raise HTTPException(status_code=400, detail="Failed to get user info from Google")
+        return RedirectResponse(url="/login?error=userinfo_failed")
     userinfo = userinfo_resp.json()
+    # --- User persistence logic (pseudo, replace with actual DB logic) ---
+    # from services.user_service import save_or_update_user
+    # save_or_update_user(userinfo)
+    # ---------------------------------------------------------------
     # Create JWT/session
     session_token = create_jwt(userinfo)
-    # Set secure HTTP-only cookie
+    # Set secure HTTP-only cookie with path='/'.
     response = RedirectResponse(url="/dashboard")
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
@@ -65,7 +73,8 @@ def google_callback(request: Request, response: Response, code: str = None):
         httponly=True,
         secure=True,
         samesite="lax",
-        max_age=60 * JWT_EXPIRE_MINUTES
+        max_age=60 * JWT_EXPIRE_MINUTES,
+        path="/"
     )
     return response
 
