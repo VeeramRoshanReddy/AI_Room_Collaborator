@@ -5,6 +5,7 @@ import requests
 import jwt
 import secrets
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 router = APIRouter()
 
@@ -21,6 +22,7 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
 @router.get("/google/login")
 def google_login():
+    """Redirect user to Google OAuth consent screen"""
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
@@ -29,75 +31,103 @@ def google_login():
         "access_type": "offline",
         "prompt": "consent"
     }
-    url = GOOGLE_AUTH_URL + "?" + "&".join([f"{k}={v}" for k, v in params.items()])
+    # Properly encode URL parameters
+    url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
     return RedirectResponse(url)
 
 @router.get("/google/callback")
-def google_callback(request: Request, response: Response, code: str = None):
+def google_callback(request: Request, code: str = None):
+    """Handle Google OAuth callback and create user session"""
     if not code:
-        # Redirect to login with error message
-        return RedirectResponse(url="/login?error=missing_code")
-    # Exchange code for tokens
-    data = {
-        "code": code,
-        "client_id": settings.GOOGLE_CLIENT_ID,
-        "client_secret": settings.GOOGLE_CLIENT_SECRET,
-        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-        "grant_type": "authorization_code"
-    }
-    token_resp = requests.post(GOOGLE_TOKEN_URL, data=data)
-    if not token_resp.ok:
-        # Redirect to login with error message
-        return RedirectResponse(url="/login?error=token_exchange_failed")
-    tokens = token_resp.json()
-    id_token = tokens.get("id_token")
-    access_token = tokens.get("access_token")
-    if not access_token:
-        return RedirectResponse(url="/login?error=missing_access_token")
-    # Get user info
-    userinfo_resp = requests.get(GOOGLE_USERINFO_URL, headers={"Authorization": f"Bearer {access_token}"})
-    if not userinfo_resp.ok:
-        return RedirectResponse(url="/login?error=userinfo_failed")
-    userinfo = userinfo_resp.json()
-    # --- User persistence logic (pseudo, replace with actual DB logic) ---
-    # from services.user_service import save_or_update_user
-    # save_or_update_user(userinfo)
-    # ---------------------------------------------------------------
-    # Create JWT/session
-    session_token = create_jwt(userinfo)
-    # Set secure HTTP-only cookie with path='/'.
-    response = RedirectResponse(url="/dashboard")
-    response.set_cookie(
-        key=SESSION_COOKIE_NAME,
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=60 * JWT_EXPIRE_MINUTES,
-        path="/"
-    )
-    return response
+        # Redirect to your frontend login page with error
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=missing_code")
+    
+    try:
+        # Exchange code for tokens
+        data = {
+            "code": code,
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            "grant_type": "authorization_code"
+        }
+        
+        token_resp = requests.post(GOOGLE_TOKEN_URL, data=data)
+        if not token_resp.ok:
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=token_exchange_failed")
+        
+        tokens = token_resp.json()
+        access_token = tokens.get("access_token")
+        
+        if not access_token:
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=missing_access_token")
+        
+        # Get user info from Google
+        userinfo_resp = requests.get(
+            GOOGLE_USERINFO_URL, 
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        
+        if not userinfo_resp.ok:
+            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=userinfo_failed")
+        
+        userinfo = userinfo_resp.json()
+        
+        # --- User persistence logic (implement with your database) ---
+        # from services.user_service import save_or_update_user
+        # user = save_or_update_user(userinfo)
+        # ---------------------------------------------------------------
+        
+        # Create JWT session token
+        session_token = create_jwt(userinfo)
+        
+        # Redirect to dashboard with secure cookie
+        response = RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard")
+        response.set_cookie(
+            key=SESSION_COOKIE_NAME,
+            value=session_token,
+            httponly=True,
+            secure=True,  # Set to False for development without HTTPS
+            samesite="lax",
+            max_age=60 * JWT_EXPIRE_MINUTES,
+            path="/"
+        )
+        
+        return response
+        
+    except Exception as e:
+        # Log the error in production
+        print(f"OAuth error: {str(e)}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=authentication_failed")
 
 @router.get("/me")
 def get_me(request: Request):
+    """Get current authenticated user info"""
     token = request.cookies.get(SESSION_COOKIE_NAME)
+    
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         return {"user": payload["user"]}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Session expired")
-    except Exception:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid session")
 
 @router.post("/logout")
 def logout(response: Response):
-    response = JSONResponse(content={"message": "Logged out"})
-    response.delete_cookie(SESSION_COOKIE_NAME)
+    """Logout user by clearing session cookie"""
+    response = JSONResponse(content={"message": "Logged out successfully"})
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/"  # Must match the path used when setting the cookie
+    )
     return response
 
 def create_jwt(userinfo: dict) -> str:
+    """Create JWT token with user information"""
     payload = {
         "user": {
             "sub": userinfo.get("sub"),
@@ -108,4 +138,4 @@ def create_jwt(userinfo: dict) -> str:
         "exp": datetime.utcnow() + timedelta(minutes=JWT_EXPIRE_MINUTES),
         "iat": datetime.utcnow()
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM) 
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
