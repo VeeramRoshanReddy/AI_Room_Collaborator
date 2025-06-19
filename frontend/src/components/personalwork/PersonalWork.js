@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft, FaPause, FaVolumeUp } from 'react-icons/fa';
 import { useUserContext } from '../../context/UserContext';
 import axios from 'axios';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const GlassContainer = styled.div`
   display: flex;
@@ -974,6 +976,50 @@ const PersonalWork = () => {
     if (user) fetchNotes();
   }, [user]);
 
+  // WebSocket for real-time note updates
+  useEffect(() => {
+    if (!user) return;
+    const ws = new window.WebSocket(`ws://${window.location.host}/api/notes/ws/${user.id}`);
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'note_update' || data.type === 'note_delete') {
+        fetchNotes();
+        toast.info('Notes updated in real-time');
+      }
+    };
+    ws.onerror = () => toast.error('WebSocket error');
+    return () => ws.close();
+  }, [user]);
+
+  // Reset all state when switching notes
+  useEffect(() => {
+    setChatHistory([]);
+    setAudioData(null);
+    setQuizData(null);
+    setMessages([]);
+    setInputMessage('');
+    setIsGeneratingAudio(false);
+    setIsGeneratingQuiz(false);
+    setCurrentQuiz(null);
+    setQuizScore(0);
+    setQuizIndex(0);
+    setQuizAnswered(false);
+    setSelectedOption(null);
+    setQuizCompleted(false);
+    setQuizStarted(false);
+    setAudioGenerated(false);
+    setIsPlayingAudio(false);
+    setAudioCurrentTime(0);
+    setAudioDuration(0);
+    setAudioVolume(1);
+    setAudioPlaybackSpeed(1);
+  }, [selectedNote]);
+
+  // Show toast for errors
+  useEffect(() => {
+    if (error) toast.error(error);
+  }, [error]);
+
   const fetchNotes = async () => {
     setLoading(true);
     setError(null);
@@ -996,6 +1042,7 @@ const PersonalWork = () => {
       formData.append('file', file);
       await axios.post('/api/notes/upload', formData, { withCredentials: true });
       await fetchNotes();
+      toast.success('File uploaded successfully');
     } catch (err) {
       setError('Failed to upload file');
     } finally {
@@ -1049,6 +1096,7 @@ const PersonalWork = () => {
       await axios.delete(`/api/notes/note/${id}`, { withCredentials: true });
       await fetchNotes();
       if (selectedNote && selectedNote.id === id) setSelectedNote(null);
+      toast.success('Note deleted successfully');
     } catch (err) {
       setError('Failed to delete note');
     } finally {
@@ -1235,360 +1283,384 @@ const PersonalWork = () => {
   };
 
   return (
-    <PersonalWorkContainer>
-      {!selectedNote ? (
-        <NotesView>
-          <SectionTitle>
-            <h2>Personal Notes</h2>
-            <Button onClick={() => setShowCreateNoteForm(true)}>
-              <FaPlus /> Create New Note
-            </Button>
-          </SectionTitle>
-          
-          <NotesGrid>
-            {notes.length === 0 ? (
-              <p style={{textAlign: 'center', color: '#64748b'}}>No notes yet. Create your first note!</p>
-            ) : (
-              notes.map(note => (
-                <NoteCard key={note.id}>
-                  <NoteTitle>{note.title}</NoteTitle>
-                  <NoteDescription>{note.description}</NoteDescription>
-                  <NoteDate>Created on: {note.date}</NoteDate>
-                  <EnterNoteButton onClick={() => setSelectedNote(note)}>
-                    Enter Note
-                  </EnterNoteButton>
-                  <NoteActions>
-                    <ThreeDotsButton
-                      id={`note-three-dots-${note.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowNoteMenu(note.id);
-                      }}
-                    >
-                      <FaEllipsisV />
-                    </ThreeDotsButton>
-                    {showNoteMenu === note.id && (
-                      <DropdownMenu id={`note-menu-${note.id}`}>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteNote(note.id);
-                          }}
-                          style={{ whiteSpace: 'nowrap' }}
-                        >
-                          <FaTrash /> Delete Note
-                        </DropdownMenuItem>
-                      </DropdownMenu>
-                    )}
-                  </NoteActions>
-                </NoteCard>
-              ))
-            )}
-          </NotesGrid>
-
-          {showCreateNoteForm && (
-            <FormOverlay onClick={() => setShowCreateNoteForm(false)}>
-              <FormBox onClick={e => e.stopPropagation()}>
-                <FormTitle>Create New Note</FormTitle>
-                <FormInput
-                  placeholder="Note Title"
-                  value={newNoteTitle}
-                  onChange={e => setNewNoteTitle(e.target.value)}
-                />
-                <textarea
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '1px solid #e0e7ef',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    color: '#1e293b',
-                    minHeight: '100px',
-                    resize: 'vertical',
-                    fontFamily: 'inherit'
-                  }}
-                  placeholder="Note Description (Optional)"
-                  value={newNoteDescription}
-                  onChange={e => setNewNoteDescription(e.target.value)}
-                />
-                <FormButton onClick={handleCreateNote}>Create Note</FormButton>
-              </FormBox>
-            </FormOverlay>
-          )}
-        </NotesView>
-      ) : (
-        <DocumentView>
-          <BackButton 
-            onClick={handleBackToNotes}
-            style={{
-              position: 'absolute',
-              top: '32px',
-              left: '32px',
-              zIndex: 10
-            }}
-          >
-            <FaChevronLeft />
-          </BackButton>
-          
-          <GlassContainer>
-            <SectionsContainer>
-              <ChatSection>
-                {uploadedDocument ? (
-                  <>
-                    <DocumentStatus>
-                      <StatusText>
-                        <FaFileUpload />
-                        {uploadedDocument.name}
-                      </StatusText>
-                      <ActionButtons>
-                        <Button onClick={() => setMessages([])} title="Clear Chat">
-                          <FaBroom />
-                        </Button>
-                        <Button onClick={() => setUploadedDocument(null)} title="Remove Document">
-                          <FaTrash />
-                        </Button>
-                      </ActionButtons>
-                    </DocumentStatus>
-                    <ChatArea ref={chatAreaRef}>
-                      {messages.map(message => (
-                        <Message key={message.id} isUser={message.isUser}>
-                          <Avatar isUser={message.isUser}>
-                            {message.isUser ? <FaUserCircle /> : <FaRobot />}
-                          </Avatar>
-                          <MessageContent isUser={message.isUser}>
-                            {message.text}
-                          </MessageContent>
-                        </Message>
-                      ))}
-                    </ChatArea>
-                    <ChatInputArea>
-                      <Input
-                        value={inputMessage}
-                        onChange={e => setInputMessage(e.target.value)}
-                        placeholder="Ask a question about the document..."
-                        onKeyDown={e => e.key === 'Enter' && handleSendMessage(inputMessage)}
-                      />
-                      <Button 
-                        onClick={() => handleSendMessage(inputMessage)}
-                        disabled={!inputMessage.trim()}
-                      >
-                        Send
-                      </Button>
-                    </ChatInputArea>
-                  </>
-                ) : (
-                  <UploadArea onClick={() => document.getElementById('file-input').click()}>
-                    <input 
-                      id="file-input"
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={handleFileUpload}
-                      style={{ display: 'none' }}
-                    />
-                    <FaFileUpload size={48} color="#3b82f6" />
-                    <h3 style={{margin: '16px 0 8px 0', color: '#3b82f6'}}>
-                      Upload a PDF or DOC file to start
-                    </h3>
-                    <p style={{color: '#64748b'}}>
-                      Click to select a file
-                    </p>
-                  </UploadArea>
-                )}
-              </ChatSection>
-
-              <RightSection>
-                <AudioSection>
-                  <CompactSectionTitle>
-                    <h2>Audio Overview</h2>
-                    {audioGenerated && (
-                      <MenuButton 
-                        data-audio-menu
-                        onClick={handleAudioMenuClick}
+    <>
+      {loading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(255,255,255,0.6)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div className="spinner" style={{ width: 60, height: 60, border: '6px solid #3b82f6', borderTop: '6px solid #e0e7ef', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        </div>
+      )}
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
+      <PersonalWorkContainer>
+        {!selectedNote ? (
+          <NotesView>
+            <SectionTitle>
+              <h2>Personal Notes</h2>
+              <Button onClick={() => setShowCreateNoteForm(true)}>
+                <FaPlus /> Create New Note
+              </Button>
+            </SectionTitle>
+            
+            <NotesGrid>
+              {notes.length === 0 ? (
+                <p style={{textAlign: 'center', color: '#64748b'}}>No notes yet. Create your first note!</p>
+              ) : (
+                notes.map(note => (
+                  <NoteCard key={note.id}>
+                    <NoteTitle>{note.title}</NoteTitle>
+                    <NoteDescription>{note.description}</NoteDescription>
+                    <NoteDate>Created on: {note.date}</NoteDate>
+                    <EnterNoteButton onClick={() => setSelectedNote(note)}>
+                      Enter Note
+                    </EnterNoteButton>
+                    <NoteActions>
+                      <ThreeDotsButton
+                        id={`note-three-dots-${note.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNoteMenu(note.id);
+                        }}
                       >
                         <FaEllipsisV />
-                      </MenuButton>
-                    )}
-                    {showAudioMenu && (
-                      <AudioDropdownMenu data-audio-menu>
-                        <AudioMenuItem onClick={() => setShowSpeedMenu(!showSpeedMenu)}>Playback Speed</AudioMenuItem>
-                        {showSpeedMenu && (
-                          <div style={{ padding: '8px 0' }}>
-                            {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
-                              <AudioMenuItem key={speed} onClick={() => { handlePlaybackSpeedChange(speed); setShowSpeedMenu(false); setShowAudioMenu(false); }}>
-                                {speed.toFixed(1)}x
-                              </AudioMenuItem>
-                            ))}
-                          </div>
-                        )}
-                        <AudioMenuItem onClick={handleDownloadAudio}>Download</AudioMenuItem>
-                      </AudioDropdownMenu>
-                    )}
-                  </CompactSectionTitle>
-                  <CompactText>Generate audio explanation</CompactText>
-                  {!audioGenerated && !isGeneratingAudio && (
-                    <CompactButton
-                      onClick={handleGenerateAudio}
-                      disabled={!uploadedDocument}
-                    >
-                      <FaPlay /> Generate Audio
-                    </CompactButton>
-                  )}
-                  {isGeneratingAudio && (
-                    <p style={{color: '#64748b', textAlign: 'center', marginTop: '10px'}}>Generate audio, please wait</p>
-                  )}
-                  {audioGenerated && (
-                    <CompactAudioPlayerContainer>
-                      <audio
-                        ref={audioRef}
-                        src="/path/to/your/simulated-audio.mp3"
-                        preload="metadata"
+                      </ThreeDotsButton>
+                      {showNoteMenu === note.id && (
+                        <DropdownMenu id={`note-menu-${note.id}`}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteNote(note.id);
+                            }}
+                            style={{ whiteSpace: 'nowrap' }}
+                          >
+                            <FaTrash /> Delete Note
+                          </DropdownMenuItem>
+                        </DropdownMenu>
+                      )}
+                    </NoteActions>
+                  </NoteCard>
+                ))
+              )}
+            </NotesGrid>
+
+            {showCreateNoteForm && (
+              <FormOverlay onClick={() => setShowCreateNoteForm(false)}>
+                <FormBox onClick={e => e.stopPropagation()}>
+                  <FormTitle>Create New Note</FormTitle>
+                  <FormInput
+                    placeholder="Note Title"
+                    value={newNoteTitle}
+                    onChange={e => setNewNoteTitle(e.target.value)}
+                  />
+                  <textarea
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '1px solid #e0e7ef',
+                      borderRadius: '8px',
+                      fontSize: '1rem',
+                      color: '#1e293b',
+                      minHeight: '100px',
+                      resize: 'vertical',
+                      fontFamily: 'inherit'
+                    }}
+                    placeholder="Note Description (Optional)"
+                    value={newNoteDescription}
+                    onChange={e => setNewNoteDescription(e.target.value)}
+                  />
+                  <FormButton onClick={handleCreateNote}>Create Note</FormButton>
+                </FormBox>
+              </FormOverlay>
+            )}
+          </NotesView>
+        ) : (
+          <DocumentView>
+            <BackButton 
+              onClick={handleBackToNotes}
+              style={{
+                position: 'absolute',
+                top: '32px',
+                left: '32px',
+                zIndex: 10
+              }}
+            >
+              <FaChevronLeft />
+            </BackButton>
+            
+            <GlassContainer>
+              <SectionsContainer>
+                <ChatSection>
+                  {uploadedDocument ? (
+                    <>
+                      <DocumentStatus>
+                        <StatusText>
+                          <FaFileUpload />
+                          {uploadedDocument.name}
+                        </StatusText>
+                        <ActionButtons>
+                          <Button onClick={() => setMessages([])} title="Clear Chat">
+                            <FaBroom />
+                          </Button>
+                          <Button onClick={() => setUploadedDocument(null)} title="Remove Document">
+                            <FaTrash />
+                          </Button>
+                        </ActionButtons>
+                      </DocumentStatus>
+                      <ChatArea ref={chatAreaRef}>
+                        {messages.map(message => (
+                          <Message key={message.id} isUser={message.isUser}>
+                            <Avatar isUser={message.isUser}>
+                              {message.isUser ? <FaUserCircle /> : <FaRobot />}
+                            </Avatar>
+                            <MessageContent isUser={message.isUser}>
+                              {message.text}
+                            </MessageContent>
+                          </Message>
+                        ))}
+                      </ChatArea>
+                      <ChatInputArea>
+                        <Input
+                          value={inputMessage}
+                          onChange={e => setInputMessage(e.target.value)}
+                          placeholder="Ask a question about the document..."
+                          onKeyDown={e => e.key === 'Enter' && handleSendMessage(inputMessage)}
+                        />
+                        <Button 
+                          onClick={() => handleSendMessage(inputMessage)}
+                          disabled={!inputMessage.trim()}
+                        >
+                          Send
+                        </Button>
+                      </ChatInputArea>
+                    </>
+                  ) : (
+                    <UploadArea onClick={() => document.getElementById('file-input').click()}>
+                      <input 
+                        id="file-input"
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleFileUpload}
+                        style={{ display: 'none' }}
                       />
+                      <FaFileUpload size={48} color="#3b82f6" />
+                      <h3 style={{margin: '16px 0 8px 0', color: '#3b82f6'}}>
+                        Upload a PDF or DOC file to start
+                      </h3>
+                      <p style={{color: '#64748b'}}>
+                        Click to select a file
+                      </p>
+                    </UploadArea>
+                  )}
+                </ChatSection>
 
-                      <CompactAudioProgressBar onClick={handleSeek}>
-                        <CompactAudioProgress progress={(audioCurrentTime / audioDuration) * 100} />
-                      </CompactAudioProgressBar>
+                <RightSection>
+                  <AudioSection>
+                    <CompactSectionTitle>
+                      <h2>Audio Overview</h2>
+                      {audioGenerated && (
+                        <MenuButton 
+                          data-audio-menu
+                          onClick={handleAudioMenuClick}
+                        >
+                          <FaEllipsisV />
+                        </MenuButton>
+                      )}
+                      {showAudioMenu && (
+                        <AudioDropdownMenu data-audio-menu>
+                          <AudioMenuItem onClick={() => setShowSpeedMenu(!showSpeedMenu)}>Playback Speed</AudioMenuItem>
+                          {showSpeedMenu && (
+                            <div style={{ padding: '8px 0' }}>
+                              {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
+                                <AudioMenuItem key={speed} onClick={() => { handlePlaybackSpeedChange(speed); setShowSpeedMenu(false); setShowAudioMenu(false); }}>
+                                  {speed.toFixed(1)}x
+                                </AudioMenuItem>
+                              ))}
+                            </div>
+                          )}
+                          <AudioMenuItem onClick={handleDownloadAudio}>Download</AudioMenuItem>
+                        </AudioDropdownMenu>
+                      )}
+                    </CompactSectionTitle>
+                    <CompactText>Generate audio explanation</CompactText>
+                    {!audioGenerated && !isGeneratingAudio && (
+                      <CompactButton
+                        onClick={handleGenerateAudio}
+                        disabled={!uploadedDocument}
+                      >
+                        <FaPlay /> Generate Audio
+                      </CompactButton>
+                    )}
+                    {isGeneratingAudio && (
+                      <p style={{color: '#64748b', textAlign: 'center', marginTop: '10px'}}>Generate audio, please wait</p>
+                    )}
+                    {audioGenerated && (
+                      <CompactAudioPlayerContainer>
+                        <audio
+                          ref={audioRef}
+                          src="/path/to/your/simulated-audio.mp3"
+                          preload="metadata"
+                        />
 
-                      <AudioMainControls>
-                        <PlayPauseButton onClick={handleTogglePlayPause}>
-                          {isPlayingAudio ? <FaPause /> : <FaPlay />}
-                        </PlayPauseButton>
+                        <CompactAudioProgressBar onClick={handleSeek}>
+                          <CompactAudioProgress progress={(audioCurrentTime / audioDuration) * 100} />
+                        </CompactAudioProgressBar>
 
-                        <VolumeContainer>
-                          <FaVolumeUp size={12} color="#64748b" />
-                          <CompactVolumeSlider
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={audioVolume}
-                            onChange={handleVolumeChange}
-                          />
-                        </VolumeContainer>
+                        <AudioMainControls>
+                          <PlayPauseButton onClick={handleTogglePlayPause}>
+                            {isPlayingAudio ? <FaPause /> : <FaPlay />}
+                          </PlayPauseButton>
 
+                          <VolumeContainer>
+                            <FaVolumeUp size={12} color="#64748b" />
+                            <CompactVolumeSlider
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={audioVolume}
+                              onChange={handleVolumeChange}
+                            />
+                          </VolumeContainer>
+
+                          
+
+                          {showAudioMenu && (
+                            <AudioDropdownMenu>
+                              <DropdownItem 
+                                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                                onMouseEnter={() => setShowSpeedMenu(true)}
+                              >
+                                Playback Speed
+                              </DropdownItem>
+                              {showSpeedMenu && (
+                                <SpeedSubmenu>
+                                  {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
+                                    <DropdownItem 
+                                      key={speed} 
+                                      onClick={() => {
+                                        handlePlaybackSpeedChange(speed);
+                                        setShowSpeedMenu(false);
+                                        setShowAudioMenu(false);
+                                      }}
+                                      style={{ 
+                                        fontSize: '12px',
+                                        background: audioPlaybackSpeed === speed ? '#eff6ff' : 'transparent',
+                                        color: audioPlaybackSpeed === speed ? '#2563eb' : '#374151'
+                                      }}
+                                    >
+                                      {speed.toFixed(1)}x
+                                    </DropdownItem>
+                                  ))}
+                                </SpeedSubmenu>
+                              )}
+                              <DropdownItem onClick={() => {
+                                handleDownloadAudio();
+                                setShowAudioMenu(false);
+                              }}>
+                                <FaDownload size={12} /> Download
+                              </DropdownItem>
+                            </AudioDropdownMenu>
+                          )}
+                        </AudioMainControls>
                         
+                        <AudioSkipControls>
+                          <SkipButton onClick={() => handleSkip(-10)}>
+                            &lt;&lt; 10s
+                          </SkipButton>
 
-                        {showAudioMenu && (
-                          <AudioDropdownMenu>
-                            <DropdownItem 
-                              onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                              onMouseEnter={() => setShowSpeedMenu(true)}
-                            >
-                              Playback Speed
-                            </DropdownItem>
-                            {showSpeedMenu && (
-                              <SpeedSubmenu>
-                                {[0.5, 0.8, 1.0, 1.2, 1.5, 1.8, 2.0].map(speed => (
-                                  <DropdownItem 
-                                    key={speed} 
-                                    onClick={() => {
-                                      handlePlaybackSpeedChange(speed);
-                                      setShowSpeedMenu(false);
-                                      setShowAudioMenu(false);
-                                    }}
-                                    style={{ 
-                                      fontSize: '12px',
-                                      background: audioPlaybackSpeed === speed ? '#eff6ff' : 'transparent',
-                                      color: audioPlaybackSpeed === speed ? '#2563eb' : '#374151'
-                                    }}
-                                  >
-                                    {speed.toFixed(1)}x
-                                  </DropdownItem>
-                                ))}
-                              </SpeedSubmenu>
-                            )}
-                            <DropdownItem onClick={() => {
-                              handleDownloadAudio();
-                              setShowAudioMenu(false);
-                            }}>
-                              <FaDownload size={12} /> Download
-                            </DropdownItem>
-                          </AudioDropdownMenu>
-                        )}
-                      </AudioMainControls>
-                      
-                      <AudioSkipControls>
-                        <SkipButton onClick={() => handleSkip(-10)}>
-                          &lt;&lt; 10s
-                        </SkipButton>
+                          <TimeInfo>
+                            {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
+                          </TimeInfo>
 
-                        <TimeInfo>
-                          {formatTime(audioCurrentTime)} / {formatTime(audioDuration)}
-                        </TimeInfo>
-
-                        <SkipButton onClick={() => handleSkip(10)}>
-                          10s &gt;&gt;
-                        </SkipButton>
-                      </AudioSkipControls>
-                    </CompactAudioPlayerContainer>
-                  )}
-                </AudioSection>
-                <QuizSection>
-                  <SectionTitle>
-                    <h2>Quiz Generator</h2>
-                  </SectionTitle>
-                  <p style={{marginBottom: 16, color: '#64748b'}}>
-                    Test your understanding with AI-generated questions
-                  </p>
-                  
-                  {!quizStarted && !isGeneratingQuiz && (
-                    <Button
-                      onClick={handleGenerateQuiz}
-                      disabled={!uploadedDocument}
-                    >
-                      <FaQuestionCircle /> Generate Quiz
-                    </Button>
-                  )}
-
-                  {isGeneratingQuiz && (
-                    <p style={{color: '#64748b', textAlign: 'center'}}>
-                      Generating quiz...
+                          <SkipButton onClick={() => handleSkip(10)}>
+                            10s &gt;&gt;
+                          </SkipButton>
+                        </AudioSkipControls>
+                      </CompactAudioPlayerContainer>
+                    )}
+                  </AudioSection>
+                  <QuizSection>
+                    <SectionTitle>
+                      <h2>Quiz Generator</h2>
+                    </SectionTitle>
+                    <p style={{marginBottom: 16, color: '#64748b'}}>
+                      Test your understanding with AI-generated questions
                     </p>
-                  )}
-
-                  {currentQuiz && !quizCompleted && (
-                    <QuizQuestion>
-                      <QuestionText>{currentQuiz.question}</QuestionText>
-                      <OptionsContainer>
-                        {currentQuiz.options.map((option, index) => {
-                          let className = '';
-                          if (quizAnswered) {
-                            if (index === currentQuiz.correctAnswer) className = 'correct';
-                            if (selectedOption === index && index !== currentQuiz.correctAnswer) className = 'incorrect';
-                          }
-                          return (
-                            <OptionButton
-                              key={index}
-                              className={className}
-                              onClick={() => handleAnswerQuiz(index)}
-                              disabled={quizAnswered}
-                            >
-                              {option}
-                            </OptionButton>
-                          );
-                        })}
-                      </OptionsContainer>
-                      <Score>Score: {quizScore}/10</Score>
-                    </QuizQuestion>
-                  )}
-
-                  {quizCompleted && (
-                    <QuizResult>
-                      <h4>Quiz Completed!</h4>
-                      <p>Great job! You've completed the quiz.</p>
-                      <Score>Final Score: {quizScore}/10</Score>
-                      <Button onClick={handleStartNewQuiz} style={{marginTop: '20px'}}>
-                        Start New Quiz
+                    
+                    {!quizStarted && !isGeneratingQuiz && (
+                      <Button
+                        onClick={handleGenerateQuiz}
+                        disabled={!uploadedDocument}
+                      >
+                        <FaQuestionCircle /> Generate Quiz
                       </Button>
-                    </QuizResult>
-                  )}
-                </QuizSection>
-              </RightSection>
-            </SectionsContainer>
-          </GlassContainer>
-        </DocumentView>
-      )}
-    </PersonalWorkContainer>
+                    )}
+
+                    {isGeneratingQuiz && (
+                      <p style={{color: '#64748b', textAlign: 'center'}}>
+                        Generating quiz...
+                      </p>
+                    )}
+
+                    {currentQuiz && !quizCompleted && (
+                      <QuizQuestion>
+                        <QuestionText>{currentQuiz.question}</QuestionText>
+                        <OptionsContainer>
+                          {currentQuiz.options.map((option, index) => {
+                            let className = '';
+                            if (quizAnswered) {
+                              if (index === currentQuiz.correctAnswer) className = 'correct';
+                              if (selectedOption === index && index !== currentQuiz.correctAnswer) className = 'incorrect';
+                            }
+                            return (
+                              <OptionButton
+                                key={index}
+                                className={className}
+                                onClick={() => handleAnswerQuiz(index)}
+                                disabled={quizAnswered}
+                              >
+                                {option}
+                              </OptionButton>
+                            );
+                          })}
+                        </OptionsContainer>
+                        <Score>Score: {quizScore}/10</Score>
+                      </QuizQuestion>
+                    )}
+
+                    {quizCompleted && (
+                      <QuizResult>
+                        <h4>Quiz Completed!</h4>
+                        <p>Great job! You've completed the quiz.</p>
+                        <Score>Final Score: {quizScore}/10</Score>
+                        <Button onClick={handleStartNewQuiz} style={{marginTop: '20px'}}>
+                          Start New Quiz
+                        </Button>
+                      </QuizResult>
+                    )}
+                  </QuizSection>
+                </RightSection>
+              </SectionsContainer>
+            </GlassContainer>
+          </DocumentView>
+        )}
+      </PersonalWorkContainer>
+    </>
   );
 };
+
+// Add spinner CSS
+const style = document.createElement('style');
+style.innerHTML = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
+document.head.appendChild(style);
 
 export default PersonalWork; 
