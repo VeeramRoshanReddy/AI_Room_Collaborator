@@ -89,11 +89,14 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Helper for API base URL
+  const API_BASE = process.env.REACT_APP_API_URL;
+
   // Check session on mount
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           setUser(data.user);
@@ -110,12 +113,12 @@ function App() {
       }
     };
     checkSession();
-  }, []);
+  }, [API_BASE]);
 
   // Logout handler
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
     } catch (err) {}
     setUser(null);
     setIsAuthenticated(false);

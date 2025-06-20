@@ -534,11 +534,14 @@ const DeleteChatButton = styled.button`
   }
 `;
 
+// Helper for API base URL
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const fetchRooms = async (setRooms, setLoading, setError) => {
   setLoading(true);
   setError(null);
   try {
-    const res = await fetch('/api/room/list', { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/room/list`, { credentials: 'include' });
     if (!res.ok) throw new Error('Failed to fetch rooms');
     const data = await res.json();
     setRooms(data.rooms || []);
@@ -553,7 +556,7 @@ const fetchTopics = async (roomId, setSelectedRoom, setLoading, setError) => {
   setLoading(true);
   setError(null);
   try {
-    const res = await fetch(`/api/topic/list/${roomId}`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/topic/list/${roomId}`, { credentials: 'include' });
     if (!res.ok) throw new Error('Failed to fetch topics');
     const data = await res.json();
     setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
@@ -637,7 +640,7 @@ const Rooms = () => {
     setError(null);
     try {
       const password = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
-      const res = await fetch('/api/room/create', {
+      const res = await fetch(`${API_BASE}/room/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -657,7 +660,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/room/join', {
+      const res = await fetch(`${API_BASE}/room/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -694,7 +697,7 @@ const Rooms = () => {
       }, 1000);
     }
 
-    const ws = new WebSocket(`ws://${window.location.host}/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${currentUser.email}`);
+    const ws = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${currentUser.email}`);
     ws.send(JSON.stringify({ type: chatInput.startsWith('@chatbot') ? 'ai_request' : 'chat', content: chatInput }));
   };
   // Leave room
@@ -702,7 +705,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/room/leave', {
+      const res = await fetch(`${API_BASE}/room/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -723,7 +726,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/room/delete', {
+      const res = await fetch(`${API_BASE}/room/delete`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -745,7 +748,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/topic/create', {
+      const res = await fetch(`${API_BASE}/topic/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -767,7 +770,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/topic/delete', {
+      const res = await fetch(`${API_BASE}/topic/delete`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -821,7 +824,7 @@ const Rooms = () => {
 
   const handleDeleteChat = async () => {
     if (window.confirm('Are you sure you want to delete this chat conversation?')) {
-      await fetch(`/api/chat/history/${selectedRoom.id}/${selectedTopic.id}`, { method: 'DELETE', credentials: 'include' });
+      await fetch(`${API_BASE}/chat/history/${selectedRoom.id}/${selectedTopic.id}`, { method: 'DELETE', credentials: 'include' });
       setRoomChatMessages(prev => ({
         ...prev,
         [selectedTopic.title]: []

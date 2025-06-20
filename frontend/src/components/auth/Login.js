@@ -92,6 +92,8 @@ const FeatureItem = styled.div`
   }
 `;
 
+const API_BASE = process.env.REACT_APP_API_URL;
+
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,7 +102,7 @@ const Login = () => {
   const error = params.get('error');
 
   const handleGoogleLogin = () => {
-    window.location.href = '/api/auth/google/login';
+    window.location.href = `${API_BASE}/api/auth/google/login`;
   };
 
   return (
