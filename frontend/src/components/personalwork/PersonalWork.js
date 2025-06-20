@@ -972,6 +972,9 @@ const PersonalWork = () => {
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
+  // Helper for API base URL
+  const API_BASE = process.env.REACT_APP_API_URL;
+
   useEffect(() => {
     if (user) fetchNotes();
   }, [user]);
@@ -979,7 +982,7 @@ const PersonalWork = () => {
   // WebSocket for real-time note updates
   useEffect(() => {
     if (!user) return;
-    const ws = new window.WebSocket(`ws://${window.location.host}/api/notes/ws/${user.id}`);
+    const ws = new window.WebSocket(`${API_BASE.replace(/^http/, 'ws')}/api/notes/ws/${user.id}`);
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'note_update' || data.type === 'note_delete') {
@@ -1024,7 +1027,7 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get('/api/notes/notes', { withCredentials: true });
+      const res = await axios.get(`${API_BASE}/api/notes/notes`, { withCredentials: true });
       setNotes(res.data.notes);
     } catch (err) {
       setError('Failed to load notes');
@@ -1040,7 +1043,7 @@ const PersonalWork = () => {
       const file = event.target.files[0];
       const formData = new FormData();
       formData.append('file', file);
-      await axios.post('/api/notes/upload', formData, { withCredentials: true });
+      await axios.post(`${API_BASE}/api/notes/upload`, formData, { withCredentials: true });
       await fetchNotes();
       toast.success('File uploaded successfully');
     } catch (err) {
@@ -1054,7 +1057,7 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post('/api/notes/query', { file_id: selectedNote.id, question }, { withCredentials: true });
+      const res = await axios.post(`${API_BASE}/api/notes/query`, { file_id: selectedNote.id, question }, { withCredentials: true });
       setChatHistory([...chatHistory, { question, answer: res.data.answer }]);
     } catch (err) {
       setError('Failed to get answer');
@@ -1067,7 +1070,7 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`/api/notes/audio/${selectedNote.id}`, {}, { withCredentials: true });
+      const res = await axios.post(`${API_BASE}/api/notes/audio/${selectedNote.id}`, {}, { withCredentials: true });
       setAudioData(res.data);
     } catch (err) {
       setError('Failed to generate audio');
@@ -1080,7 +1083,7 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`/api/notes/quiz/${selectedNote.id}`, {}, { withCredentials: true });
+      const res = await axios.post(`${API_BASE}/api/notes/quiz/${selectedNote.id}`, {}, { withCredentials: true });
       setQuizData(res.data);
     } catch (err) {
       setError('Failed to generate quiz');
@@ -1093,7 +1096,7 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      await axios.delete(`/api/notes/note/${id}`, { withCredentials: true });
+      await axios.delete(`${API_BASE}/api/notes/note/${id}`, { withCredentials: true });
       await fetchNotes();
       if (selectedNote && selectedNote.id === id) setSelectedNote(null);
       toast.success('Note deleted successfully');
