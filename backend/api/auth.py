@@ -6,6 +6,9 @@ import jwt
 import secrets
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
+from backend.models.postgresql.user import User as PGUser
+from sqlalchemy.orm import Session
+from backend.core.database import get_db
 
 router = APIRouter()
 
@@ -101,16 +104,21 @@ def google_callback(request: Request, code: str = None):
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=authentication_failed")
 
 @router.get("/me")
-def get_me(request: Request):
-    """Get current authenticated user info"""
+def get_me(request: Request, db: Session = Depends(get_db)):
+    """Get current authenticated user info from DB"""
     token = request.cookies.get(SESSION_COOKIE_NAME)
-    
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return {"user": payload["user"]}
+        google_id = payload["user"].get("sub")
+        email = payload["user"].get("email")
+        user = db.query(PGUser).filter(
+            (PGUser.google_id == google_id) | (PGUser.email == email)
+        ).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {"user": user.to_dict()}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Session expired")
     except jwt.InvalidTokenError:
