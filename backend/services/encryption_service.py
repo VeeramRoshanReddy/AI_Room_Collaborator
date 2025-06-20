@@ -11,19 +11,6 @@ from models.postgresql.topic import Topic
 
 logger = logging.getLogger(__name__)
 
-import base64
-import os
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from typing import Optional
-import logging
-from core.config import settings
-from sqlalchemy.orm import Session
-from models.postgresql.topic import Topic
-
-logger = logging.getLogger(__name__)
-
 class EncryptionService:
     def __init__(self):
         self.encryption_key = self._get_encryption_key()
@@ -47,6 +34,20 @@ class EncryptionService:
             logger.warning("Using generated encryption key. Set ENCRYPTION_KEY in environment for production.")
             logger.warning(f"Generated key: {key.decode()}")
             return key
+    
+    def _derive_key_from_string(self, password: str) -> bytes:
+        """Derive a proper Fernet key from a string using PBKDF2"""
+        # Use a fixed salt for consistency (in production, you might want to store this)
+        salt = b'stable_salt_for_consistency'  # 32 bytes
+        
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
+        key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+        return key
     
     def encrypt_message(self, message: str, room_id: str) -> str:
         """Encrypt a message for a specific room"""
