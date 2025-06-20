@@ -11,7 +11,7 @@ class PyObjectId(ObjectId):
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetJsonSchemaHandler
     ) -> core_schema.CoreSchema:
-        return core_schema.no_info_wrap_validator_schema(
+        return core_schema.no_info_wrap_validator_function(
             cls.validate,
             core_schema.str_schema(),
             serialization=core_schema.to_string_ser_schema(),
