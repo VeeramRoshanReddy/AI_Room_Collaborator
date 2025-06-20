@@ -1,7 +1,7 @@
 from supabase import create_client, Client
 from typing import Dict, Any, List, Optional
 import logging
-from backend.core.config import settings
+from core.config import settings
 import secrets
 
 logger = logging.getLogger(__name__)

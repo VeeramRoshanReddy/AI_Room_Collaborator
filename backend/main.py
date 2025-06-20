@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import uvicorn
 
-from backend.api import auth, user, room, topic, notes, chat, quiz, audio
+from api import auth, user, room, topic, notes, chat, quiz, audio
 from core.config import settings
 
 app = FastAPI(

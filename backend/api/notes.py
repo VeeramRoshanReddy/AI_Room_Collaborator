@@ -6,15 +6,15 @@ from datetime import datetime
 from pydantic import BaseModel
 import logging
 from sqlalchemy.orm import Session
-from backend.core.database import get_db, get_mongo_db
-from backend.core.config import settings
-from backend.models.postgresql.user import User
-from backend.models.postgresql.note import Note as PGNote
-from backend.models.mongodb.note import Note as MongoNote
-from backend.models.mongodb.ai_response import AIResponse, QuizResponse, AudioResponse
-from backend.services.rag_service import rag_service
-from backend.services.ai_service import ai_service
-from backend.services.encryption_service import encryption_service
+from core.database import get_db, get_mongo_db
+from core.config import settings
+from models.postgresql.user import User
+from models.mongodb.note import Note as PGNote
+from models.mongodb.note import Note as MongoNote
+from models.mongodb.ai_response import AIResponse, QuizResponse, AudioResponse
+from services.rag_service import rag_service
+from services.ai_service import ai_service
+from services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

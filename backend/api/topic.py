@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-from backend.core.database import get_db
-from backend.core.config import settings
-from backend.models.postgresql.topic import Topic
-from backend.models.postgresql.room import Room, room_admins
-from backend.models.postgresql.user import User
+from core.database import get_db
+from core.config import settings
+from models.postgresql.topic import Topic
+from models.postgresql.room import Room, room_admins
+from models.postgresql.user import User
 import uuid
 import os
 import base64

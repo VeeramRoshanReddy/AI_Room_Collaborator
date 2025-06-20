@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from core.database import get_db
-from backend.core.config import settings
+from core.config import settings
 from services.supabase_service import SupabaseService
 from models.postgresql.room import Room, room_members, room_admins
 from models.postgresql.user import User

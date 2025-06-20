@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
-from backend.core.config import settings
+from core.config import settings
 import requests
 import jwt
 import secrets
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
-from backend.models.postgresql.user import User as PGUser
+from models.postgresql.user import User as PGUser
 from sqlalchemy.orm import Session
-from backend.core.database import get_db
+from core.database import get_db
 
 router = APIRouter()
 
