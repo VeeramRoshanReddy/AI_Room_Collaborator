@@ -3,7 +3,7 @@ from firebase_admin import credentials, storage, firestore
 from typing import Optional, Dict, Any, List
 import os
 import logging
-from backend.core.config import settings
+from core.config import settings
 import aiofiles
 import mimetypes
 from datetime import datetime

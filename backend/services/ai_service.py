@@ -1,6 +1,6 @@
 import openai
 from typing import List, Dict, Any, Optional
-from backend.core.config import settings
+from core.config import settings
 import logging
 import time
 from models.mongodb.ai_response import AIResponse, QuizQuestion, QuizResponse, AudioResponse

@@ -5,7 +5,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from typing import Optional
 import logging
-from backend.core.config import settings
+from core.config import settings
 from sqlalchemy.orm import Session
 from models.postgresql.topic import Topic
 
