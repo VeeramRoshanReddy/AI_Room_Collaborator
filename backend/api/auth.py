@@ -90,10 +90,9 @@ def google_callback(request: Request, code: str = None):
             key=SESSION_COOKIE_NAME,
             value=session_token,
             httponly=True,
-            secure=True,  # Set to False for development without HTTPS
-            samesite="lax",
-            max_age=60 * JWT_EXPIRE_MINUTES,
-            path="/"
+            samesite='none',
+            secure=True,
+            expires=datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         )
         
         return response
