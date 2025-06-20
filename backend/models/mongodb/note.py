@@ -1,22 +1,39 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, GetJsonSchemaHandler
+from pydantic.json_schema import JsonSchemaValue
+from pydantic_core import core_schema
+from typing import Optional, List, Any
 from datetime import datetime
 from bson import ObjectId
 
+
 class PyObjectId(ObjectId):
     @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetJsonSchemaHandler
+    ) -> core_schema.CoreSchema:
+        return core_schema.no_info_wrap_validator_schema(
+            cls.validate,
+            core_schema.str_schema(),
+            serialization=core_schema.to_string_ser_schema(),
+        )
 
     @classmethod
     def validate(cls, v):
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
+        return cls(v)
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __get_pydantic_json_schema__(
+        cls, core_schema: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
+        return {"type": "string", "format": "objectid"}
+    
+    def __str__(self) -> str:
+        return str(super())
+    
+    def __repr__(self) -> str:
+        return f"PyObjectId('{str(self)}')"
 
 class NoteBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
