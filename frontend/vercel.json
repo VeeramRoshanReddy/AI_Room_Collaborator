@@ -1,5 +1,0 @@
-{
-  "framework": "create-react-app",
-  "build": "npm run build",
-  "outputDirectory": "frontend/build"
-}
