@@ -596,6 +596,9 @@ const Rooms = () => {
   const [roomChatMessages, setRoomChatMessages] = useState({}); // Stores chat messages for each topic
   // Simulate current user
   const currentUser = { name: 'Alice', email: 'alice@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/1.jpg' };
+  const [newRoomName, setNewRoomName] = useState('');
+  const [joinRoomId, setJoinRoomId] = useState('');
+  const [joinRoomPass, setJoinRoomPass] = useState('');
 
   // Alphabetical member list
   const memberList = selectedRoom ? [...selectedRoom.members].sort() : [];
