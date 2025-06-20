@@ -11,6 +11,19 @@ from models.postgresql.topic import Topic
 
 logger = logging.getLogger(__name__)
 
+import base64
+import os
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from typing import Optional
+import logging
+from core.config import settings
+from sqlalchemy.orm import Session
+from models.postgresql.topic import Topic
+
+logger = logging.getLogger(__name__)
+
 class EncryptionService:
     def __init__(self):
         self.encryption_key = self._get_encryption_key()
@@ -18,15 +31,22 @@ class EncryptionService:
     
     def _get_encryption_key(self) -> bytes:
         """Get or generate encryption key"""
-        if settings.ENCRYPTION_KEY and len(settings.ENCRYPTION_KEY) >= 32:
-            # Use provided key
-            key = settings.ENCRYPTION_KEY[:32].encode()
+        if settings.ENCRYPTION_KEY:
+            try:
+                # First, try to use it as a direct Fernet key
+                test_key = settings.ENCRYPTION_KEY.encode() if isinstance(settings.ENCRYPTION_KEY, str) else settings.ENCRYPTION_KEY
+                Fernet(test_key)  # Test if it's valid
+                return test_key
+            except Exception:
+                # If not valid, derive a proper key from the provided string
+                logger.info("Converting provided ENCRYPTION_KEY to proper Fernet format")
+                return self._derive_key_from_string(settings.ENCRYPTION_KEY)
         else:
             # Generate a new key (for development)
             key = Fernet.generate_key()
             logger.warning("Using generated encryption key. Set ENCRYPTION_KEY in environment for production.")
-        
-        return key
+            logger.warning(f"Generated key: {key.decode()}")
+            return key
     
     def encrypt_message(self, message: str, room_id: str) -> str:
         """Encrypt a message for a specific room"""
