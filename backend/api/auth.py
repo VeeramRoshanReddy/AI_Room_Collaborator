@@ -105,23 +105,85 @@ def google_callback(request: Request, code: str = None):
 @router.get("/me")
 def get_me(request: Request, db: Session = Depends(get_db)):
     """Get current authenticated user info from DB"""
+    
+    # Check both cookies and Authorization header
+    token = None
+    
+    # Try to get token from cookie first
     token = request.cookies.get(SESSION_COOKIE_NAME)
+    
+    # If no cookie, try Authorization header
     if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+    
+    if not token:
+        raise HTTPException(
+            status_code=401, 
+            detail="Not authenticated - no token found",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
     try:
+        # Decode JWT token
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        google_id = payload["user"].get("sub")
-        email = payload["user"].get("email")
-        user = db.query(PGUser).filter(
-            (PGUser.google_id == google_id) | (PGUser.email == email)
-        ).first()
+        
+        # Handle different JWT payload structures
+        user_data = payload.get("user") or payload
+        
+        # Extract user identifiers - handle both structures
+        google_id = user_data.get("sub") or user_data.get("google_id")
+        email = user_data.get("email")
+        
+        if not google_id and not email:
+            raise HTTPException(
+                status_code=401, 
+                detail="Invalid token - missing user identifiers"
+            )
+        
+        # Query user from database
+        query = db.query(PGUser)
+        if google_id and email:
+            user = query.filter(
+                (PGUser.google_id == google_id) | (PGUser.email == email)
+            ).first()
+        elif google_id:
+            user = query.filter(PGUser.google_id == google_id).first()
+        else:
+            user = query.filter(PGUser.email == email).first()
+        
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        return {"user": user.to_dict()}
+            raise HTTPException(
+                status_code=404, 
+                detail="User not found in database"
+            )
+        
+        # Return user data
+        return {
+            "user": user.to_dict(),
+            "authenticated": True
+        }
+        
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid session")
+        raise HTTPException(
+            status_code=401, 
+            detail="Session expired - please login again",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(
+            status_code=401, 
+            detail=f"Invalid session - {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Unexpected error in /me endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail="Internal server error"
+        )
 
 @router.post("/logout")
 def logout(response: Response):
