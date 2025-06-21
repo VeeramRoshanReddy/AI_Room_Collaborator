@@ -4,6 +4,7 @@ import styled, { ThemeProvider } from 'styled-components';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { UserProvider, useUserContext } from './context/UserContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
 import Login from './components/auth/Login';
@@ -52,6 +53,12 @@ const AppContainer = styled.div`
   overflow: hidden;
 `;
 
+const AuthenticatedLayout = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+`;
+
 const MainContent = styled.main`
   display: flex;
   flex-direction: column;
@@ -94,18 +101,37 @@ const Settings = () => (
   </div>
 );
 
-// Main App Component that uses UserContext
-function AppContent() {
-  const { user, loading, logout } = useUserContext();
+// Layout component for authenticated routes
+const AuthenticatedApp = ({ children }) => {
+  const { user, logout } = useUserContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  const isAuthenticated = !!user;
 
   // Handle logout
   const handleLogout = async () => {
     await logout();
-    window.location.href = '/login';
   };
+
+  return (
+    <AuthenticatedLayout>
+      <Navbar 
+        user={user} 
+        onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
+        onLogout={handleLogout} 
+      />
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
+      />
+      <MainContent isSidebarOpen={isSidebarOpen}>
+        {children}
+      </MainContent>
+    </AuthenticatedLayout>
+  );
+};
+
+// Main App Component that uses UserContext
+function AppContent() {
+  const { loading } = useUserContext();
 
   if (loading) {
     return (
@@ -129,35 +155,47 @@ function AppContent() {
         pauseOnHover
         theme="light"
       />
-      {isAuthenticated ? (
-        <>
-          <Navbar 
-            user={user} 
-            onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
-            onLogout={handleLogout} 
-          />
-          <Sidebar 
-            isOpen={isSidebarOpen} 
-            onToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
-          />
-          <MainContent isSidebarOpen={isSidebarOpen}>
-            <Routes>
-              <Route path="/dashboard" element={<Home />} />
-              <Route path="/rooms" element={<Rooms />} />
-              <Route path="/personalwork" element={<PersonalWork />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
-          </MainContent>
-        </>
-      ) : (
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      )}
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<Login />} />
+        
+        {/* Protected routes */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <Home />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/rooms" element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <Rooms />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/personalwork" element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <PersonalWork />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <AuthenticatedApp>
+              <Settings />
+            </AuthenticatedApp>
+          </ProtectedRoute>
+        } />
+        
+        {/* Default redirects */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
     </AppContainer>
   );
 }

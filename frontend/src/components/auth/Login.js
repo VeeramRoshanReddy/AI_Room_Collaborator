@@ -107,6 +107,21 @@ const ErrorMessage = styled.div`
   font-size: 14px;
 `;
 
+const LoadingSpinner = styled.div`
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #4285f4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
 // Construct API_BASE URL properly
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -114,16 +129,43 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isProcessingCallback, setIsProcessingCallback] = React.useState(false);
   
   // Use UserContext
-  const { user, loading, isAuthenticated, refreshUser } = useUserContext();
+  const { user, loading, isAuthenticated, refreshUser, handleOAuthCallback } = useUserContext();
   
   // Show error if redirected back with error param
   const params = new URLSearchParams(location.search);
   const error = params.get('error');
   const success = params.get('success');
+  const token = params.get('token');
+  const code = params.get('code');
 
   useEffect(() => {
+    // Handle OAuth callback with token
+    if (token) {
+      setIsProcessingCallback(true);
+      console.log('Token found in URL, processing OAuth callback...');
+      
+      const callbackHandled = handleOAuthCallback();
+      if (callbackHandled) {
+        toast.success('Login successful!');
+        navigate('/dashboard');
+      } else {
+        toast.error('Failed to process login callback');
+      }
+      setIsProcessingCallback(false);
+      return;
+    }
+
+    // Handle OAuth callback with authorization code
+    if (code) {
+      setIsProcessingCallback(true);
+      console.log('Authorization code found, exchanging for token...');
+      exchangeCodeForToken(code);
+      return;
+    }
+
     // If user is already authenticated (from context), redirect to dashboard
     if (!loading && isAuthenticated) {
       console.log('User already authenticated from context:', user);
@@ -131,23 +173,67 @@ const Login = () => {
       return;
     }
 
-    // Check for successful login callback
+    // Check for successful login callback (legacy)
     if (success === 'true') {
       console.log('Login success detected, refreshing user data...');
-      // Refresh user data after successful OAuth callback
       refreshUser();
       // Remove success param from URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
     }
-  }, [loading, isAuthenticated, user, navigate, success, refreshUser]);
+  }, [loading, isAuthenticated, user, navigate, success, refreshUser, token, code, handleOAuthCallback]);
+
+  // Exchange authorization code for token
+  const exchangeCodeForToken = async (authCode) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/google/callback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ code: authCode }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.token) {
+        // Store token and user data
+        localStorage.setItem('authToken', data.token);
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+        
+        toast.success('Login successful!');
+        
+        // Clean up URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        
+        // Refresh user context and navigate
+        refreshUser();
+        navigate('/dashboard');
+      } else {
+        throw new Error(data.error || 'Token exchange failed');
+      }
+    } catch (err) {
+      console.error('Token exchange failed:', err);
+      toast.error('Login failed. Please try again.');
+      
+      // Clean up URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    } finally {
+      setIsProcessingCallback(false);
+    }
+  };
 
   // Redirect to dashboard once user data is loaded after successful login
   useEffect(() => {
-    if (!loading && isAuthenticated && success === 'true') {
+    if (!loading && isAuthenticated && (success === 'true' || token)) {
       navigate('/dashboard');
     }
-  }, [loading, isAuthenticated, navigate, success]);
+  }, [loading, isAuthenticated, navigate, success, token]);
 
   const handleGoogleLogin = () => {
     setIsLoading(true);
@@ -180,8 +266,8 @@ const Login = () => {
     return errorMessages[errorCode] || 'Google login failed. Please try again.';
   };
 
-  // Show loading if context is still loading
-  if (loading) {
+  // Show loading if context is still loading or processing callback
+  if (loading || isProcessingCallback) {
     return (
       <LoginContainer>
         <LoginCard
@@ -189,7 +275,10 @@ const Login = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div>Loading...</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+            <LoadingSpinner />
+            <span>{isProcessingCallback ? 'Processing login...' : 'Loading...'}</span>
+          </div>
         </LoginCard>
       </LoginContainer>
     );
