@@ -39,7 +39,7 @@ def google_login():
     return RedirectResponse(url)
 
 @router.get("/google/callback")
-def google_callback(request: Request, code: str = None):
+def google_callback(request: Request, code: str = None, db: Session = Depends(get_db)):
     """Handle Google OAuth callback and create user session"""
     if not code:
         # Redirect to your frontend login page with error
@@ -76,10 +76,29 @@ def google_callback(request: Request, code: str = None):
         
         userinfo = userinfo_resp.json()
         
-        # --- User persistence logic (implement with your database) ---
-        # from services.user_service import save_or_update_user
-        # user = save_or_update_user(userinfo)
-        # ---------------------------------------------------------------
+        # FIXED: Save or update user in database
+        user = db.query(PGUser).filter(
+            (PGUser.google_id == userinfo.get("sub")) | 
+            (PGUser.email == userinfo.get("email"))
+        ).first()
+        
+        if not user:
+            # Create new user
+            user = PGUser(
+                google_id=userinfo.get("sub"),
+                email=userinfo.get("email"),
+                name=userinfo.get("name"),
+                picture=userinfo.get("picture")
+            )
+            db.add(user)
+        else:
+            # Update existing user
+            user.google_id = userinfo.get("sub")
+            user.name = userinfo.get("name")
+            user.picture = userinfo.get("picture")
+        
+        db.commit()
+        db.refresh(user)
         
         # Create JWT session token
         session_token = create_jwt(userinfo)
@@ -110,20 +129,17 @@ def get_me(request: Request, db: Session = Depends(get_db)):
     token = None
     
     # Try to get token from cookie first
-    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if SESSION_COOKIE_NAME in request.cookies:
+        token = request.cookies.get(SESSION_COOKIE_NAME)
     
     # If no cookie, try Authorization header
     if not token:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
+            token = auth_header.split(" ", 1)[1]
     
     if not token:
-        raise HTTPException(
-            status_code=401, 
-            detail="Not authenticated - no token found",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+        raise HTTPException(status_code=401, detail="Not authenticated")
     
     try:
         # Decode JWT token
@@ -137,10 +153,7 @@ def get_me(request: Request, db: Session = Depends(get_db)):
         email = user_data.get("email")
         
         if not google_id and not email:
-            raise HTTPException(
-                status_code=401, 
-                detail="Invalid token - missing user identifiers"
-            )
+            raise HTTPException(status_code=401, detail="Invalid token")
         
         # Query user from database
         query = db.query(PGUser)
@@ -154,10 +167,7 @@ def get_me(request: Request, db: Session = Depends(get_db)):
             user = query.filter(PGUser.email == email).first()
         
         if not user:
-            raise HTTPException(
-                status_code=404, 
-                detail="User not found in database"
-            )
+            raise HTTPException(status_code=404, detail="User not found")
         
         # Return user data
         return {
@@ -166,24 +176,9 @@ def get_me(request: Request, db: Session = Depends(get_db)):
         }
         
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=401, 
-            detail="Session expired - please login again",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(
-            status_code=401, 
-            detail=f"Invalid session - {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    except Exception as e:
-        # Log the error for debugging
-        print(f"Unexpected error in /me endpoint: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail="Internal server error"
-        )
+        raise HTTPException(status_code=401, detail="Session expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid session")
 
 @router.post("/logout")
 def logout(response: Response):
@@ -191,7 +186,9 @@ def logout(response: Response):
     response = JSONResponse(content={"message": "Logged out successfully"})
     response.delete_cookie(
         key=SESSION_COOKIE_NAME,
-        path="/"  # Must match the path used when setting the cookie
+        path="/",
+        samesite='none',
+        secure=True
     )
     return response
 
