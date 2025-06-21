@@ -172,20 +172,21 @@ def google_callback(
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=database_error")
         
         # Create JWT session token
-        session_token = create_jwt_token(user)
+        token = create_jwt_token(user)
         
-        # Create response with session cookie
-        response = RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard")
+        # This is the final step. The user is authenticated.
+        # Redirect them back to the frontend to complete the login flow.
+        frontend_url = settings.FRONTEND_URL 
+        response = RedirectResponse(url=f"{frontend_url}/login?success=true")
         
-        # Set secure session cookie
+        # Set the secure, HttpOnly cookie containing the JWT
         response.set_cookie(
             key=SESSION_COOKIE_NAME,
-            value=session_token,
+            value=token,
             httponly=True,
-            secure=True,  # Always True for production
-            samesite='lax',
-            max_age=JWT_EXPIRE_MINUTES * 60,
-            path="/"
+            samesite='none',
+            secure=True, 
+            expires=datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         )
         
         # Clear state cookie

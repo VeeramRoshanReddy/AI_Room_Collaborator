@@ -1,170 +1,69 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const UserContext = createContext();
 
-// Create axios instance with interceptors
-const api = axios.create();
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-// Request interceptor to add token to all requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle token expiration
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token is invalid or expired
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
+// Create a single, configured axios instance
+// This is crucial for sending HttpOnly cookies with every request
+const api = axios.create({
+  baseURL: API_BASE,
+  withCredentials: true, 
+});
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
-  // Check for token in localStorage on initial load
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    const savedUser = localStorage.getItem('user');
-    
-    if (token && savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-        setLoading(false);
-        // Verify token is still valid
-        fetchUser();
-      } catch (err) {
-        console.error('Error parsing saved user data:', err);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        setLoading(false);
+  // This function is the single source of truth for the user's session.
+  // It relies on the browser automatically sending the HttpOnly session cookie.
+  const verifyUserSession = useCallback(async () => {
+    try {
+      console.log('Verifying user session by calling /api/auth/me...');
+      const res = await api.get('/api/auth/me');
+      
+      if (res.data && res.data.user) {
+        setUser(res.data.user);
+        console.log('User session successfully verified:', res.data.user);
+      } else {
+        // The API responded, but didn't provide a user
+        setUser(null);
       }
-    } else {
+    } catch (err) {
+      // This will catch 401 Unauthorized errors if the cookie is missing or invalid
+      console.log('No active session found or session is expired.');
+      setUser(null);
+    } finally {
       setLoading(false);
     }
   }, []);
 
-  // Fetch user info from backend
-  const fetchUser = async () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await api.get(`${API_BASE}/api/auth/me`, { 
-        withCredentials: true 
-      });
-      
-      if (res.data.user) {
-        setUser(res.data.user);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-      }
-    } catch (err) {
-      console.error('Error fetching user:', err);
-      // Clear invalid token and user data
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Login function (can be called after successful login)
-  const login = (userData, token) => {
-    if (token) {
-      localStorage.setItem('authToken', token);
-    }
-    if (userData) {
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-    }
-  };
-
-  // Logout function
+  // On initial application load, we check the user's session.
+  useEffect(() => {
+    verifyUserSession();
+  }, [verifyUserSession]);
+  
+  // The logout function clears the session cookie on the backend
   const logout = async () => {
     try {
-      await api.post(`${API_BASE}/api/auth/logout`, {}, { 
-        withCredentials: true 
-      });
+      await api.post('/api/auth/logout');
     } catch (err) {
-      console.error('Error during logout:', err);
+      console.error('Logout request failed:', err);
     } finally {
-      // Clear all auth data
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
       setUser(null);
+      // Redirect to login page after state is cleared
       window.location.href = '/login';
     }
-  };
-
-  // Refresh user data
-  const refreshUser = () => {
-    fetchUser();
-  };
-
-  // Check for token in URL (after OAuth callback)
-  const handleOAuthCallback = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const userParam = urlParams.get('user');
-    
-    if (token) {
-      localStorage.setItem('authToken', token);
-      
-      if (userParam) {
-        try {
-          const userData = JSON.parse(decodeURIComponent(userParam));
-          login(userData, token);
-        } catch (err) {
-          console.error('Error parsing user data from URL:', err);
-          // Fetch user data with the token
-          fetchUser();
-        }
-      } else {
-        // Fetch user data with the token
-        fetchUser();
-      }
-      
-      // Clean up URL
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-      
-      return true;
-    }
-    return false;
   };
 
   const contextValue = {
     user,
     loading,
-    login,
     logout,
-    refreshUser,
-    handleOAuthCallback,
-    isAuthenticated: !!user && !!localStorage.getItem('authToken')
+    isAuthenticated: !!user,
+    // Provide a way to manually re-check the session if needed, for example after a successful callback.
+    refreshUser: verifyUserSession, 
   };
 
   return (
@@ -182,5 +81,5 @@ export const useUserContext = () => {
   return context;
 };
 
-// Export the configured axios instance for use in other components
+// Export the configured axios instance for use throughout the app
 export { api };

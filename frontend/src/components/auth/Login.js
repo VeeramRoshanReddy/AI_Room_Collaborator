@@ -237,16 +237,7 @@ const Login = () => {
 
   const handleGoogleLogin = () => {
     setIsLoading(true);
-    try {
-      console.log('Redirecting to Google login...');
-      const loginUrl = `${API_BASE}/api/auth/google/login`;
-      console.log('Login URL:', loginUrl);
-      window.location.href = loginUrl;
-    } catch (err) {
-      console.error('Login redirect failed:', err);
-      setIsLoading(false);
-      toast.error('Failed to redirect to Google login');
-    }
+    window.location.href = `${API_BASE}/api/auth/google/login`;
   };
 
   const getErrorMessage = (errorCode) => {
