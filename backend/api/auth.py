@@ -179,14 +179,14 @@ def google_callback(
         frontend_url = settings.FRONTEND_URL 
         response = RedirectResponse(url=f"{frontend_url}/login?success=true")
         
-        # Set the secure, HttpOnly cookie containing the JWT
+        # Set the secure, HttpOnly session cookie
         response.set_cookie(
             key=SESSION_COOKIE_NAME,
             value=token,
             httponly=True,
-            samesite='none',
-            secure=True, 
-            expires=datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            secure=True,      # MUST be True for cross-domain
+            samesite='none',  # MUST be 'none' for cross-domain
+            path="/"
         )
         
         # Clear state cookie
