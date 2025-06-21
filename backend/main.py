@@ -6,9 +6,6 @@ import uvicorn
 from api import auth, user, room, topic, notes, chat, quiz, audio
 from core.config import settings
 
-# Create all database tables
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(
     title="AI Learning Platform API",
     description="Backend API for AI-powered collaborative learning platform",
@@ -20,7 +17,7 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000","http://127.0.0.1:3000","https://ai-room-collaborator.vercel.app","https://ai-room-collaborator.onrender.com"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
