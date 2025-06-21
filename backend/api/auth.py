@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Request, Response, HTTPException, status, Depends
+# api/auth.py
+from fastapi import APIRouter, Request, HTTPException, status, Depends
 from fastapi.responses import RedirectResponse, JSONResponse
 from core.config import settings
 import requests
@@ -9,6 +10,7 @@ from urllib.parse import urlencode
 from models.postgresql.user import User as PGUser
 from sqlalchemy.orm import Session
 from core.database import get_db
+from middleware.auth_middleware import get_current_user, get_optional_user
 import logging
 
 # Set up logging
@@ -30,7 +32,7 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 @router.get("/google/login")
 def google_login():
     """Redirect user to Google OAuth consent screen"""
-    # Add state parameter for security
+    # Generate state parameter for CSRF protection
     state = secrets.token_urlsafe(32)
     
     params = {
@@ -45,13 +47,13 @@ def google_login():
     
     url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
     
-    # Store state in session/cookie for verification in callback
+    # Create redirect response with state cookie
     response = RedirectResponse(url)
     response.set_cookie(
         key="oauth_state",
         value=state,
         httponly=True,
-        secure=True,  # Set to True for production with HTTPS
+        secure=True,  # Always True for production
         samesite='lax',
         max_age=600  # 10 minutes
     )
@@ -68,7 +70,7 @@ def google_callback(
 ):
     """Handle Google OAuth callback and create user session"""
     
-    # Check for OAuth errors first
+    # Check for OAuth errors
     if error:
         logger.error(f"OAuth error from Google: {error}")
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=oauth_denied")
@@ -77,17 +79,15 @@ def google_callback(
         logger.error("Missing authorization code")
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=missing_code")
     
-    # Verify state parameter (CSRF protection)
+    # Verify state parameter for CSRF protection
     stored_state = request.cookies.get("oauth_state")
     if not stored_state or stored_state != state:
-        logger.warning("State parameter mismatch - proceeding anyway for development")
-        # In production, you might want to enforce this:
-        # logger.error("Invalid state parameter")
-        # return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=invalid_state")
+        logger.error("Invalid state parameter - possible CSRF attack")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=invalid_state")
     
     try:
-        # Exchange code for tokens
-        data = {
+        # Exchange authorization code for tokens
+        token_data = {
             "code": code,
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
@@ -95,249 +95,124 @@ def google_callback(
             "grant_type": "authorization_code"
         }
         
-        logger.info("Exchanging code for token...")
-        token_resp = requests.post(
+        logger.info("Exchanging authorization code for access token")
+        token_response = requests.post(
             GOOGLE_TOKEN_URL, 
-            data=data,
-            timeout=10,
+            data=token_data,
+            timeout=30,
             headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
         
-        if not token_resp.ok:
-            logger.error(f"Token exchange failed: {token_resp.status_code} - {token_resp.text}")
+        if not token_response.ok:
+            logger.error(f"Token exchange failed: {token_response.status_code} - {token_response.text}")
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=token_exchange_failed")
         
-        tokens = token_resp.json()
+        tokens = token_response.json()
         access_token = tokens.get("access_token")
         
         if not access_token:
-            logger.error("Missing access token in response")
+            logger.error("No access token in response")
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=missing_access_token")
         
-        # Get user info from Google
-        logger.info("Fetching user info from Google...")
-        userinfo_resp = requests.get(
+        # Get user information from Google
+        logger.info("Fetching user info from Google")
+        userinfo_response = requests.get(
             GOOGLE_USERINFO_URL, 
             headers={"Authorization": f"Bearer {access_token}"},
-            timeout=10
+            timeout=30
         )
         
-        if not userinfo_resp.ok:
-            logger.error(f"User info request failed: {userinfo_resp.status_code}")
+        if not userinfo_response.ok:
+            logger.error(f"Failed to fetch user info: {userinfo_response.status_code}")
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=userinfo_failed")
         
-        userinfo = userinfo_resp.json()
-        logger.info(f"Received user info: {userinfo}")
+        userinfo = userinfo_response.json()
         
-        # Validate required fields
-        if not userinfo.get("sub") or not userinfo.get("email"):
-            logger.error("Missing required user info fields")
+        # Validate required user information
+        google_id = userinfo.get("sub")
+        email = userinfo.get("email")
+        
+        if not google_id or not email:
+            logger.error("Incomplete user profile from Google")
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=incomplete_profile")
         
-        # Save or update user in database
+        # Create or update user in database
         try:
-            logger.info(f"Looking for user with Google ID: {userinfo.get('sub')} or email: {userinfo.get('email')}")
-            
             user = db.query(PGUser).filter(
-                (PGUser.google_id == userinfo.get("sub")) | 
-                (PGUser.email == userinfo.get("email"))
+                (PGUser.google_id == google_id) | (PGUser.email == email)
             ).first()
             
-            if not user:
+            if user:
+                # Update existing user
+                logger.info(f"Updating existing user: {email}")
+                user.google_id = google_id
+                user.name = userinfo.get("name", user.name)
+                user.picture = userinfo.get("picture", user.picture)
+                user.is_active = True
+            else:
                 # Create new user
-                logger.info("Creating new user...")
+                logger.info(f"Creating new user: {email}")
                 user = PGUser(
-                    google_id=userinfo.get("sub"),
-                    email=userinfo.get("email"),
+                    google_id=google_id,
+                    email=email,
                     name=userinfo.get("name", ""),
                     picture=userinfo.get("picture", ""),
                     is_active=True,
                     is_admin=False
                 )
                 db.add(user)
-                db.commit()
-                db.refresh(user)
-                logger.info(f"Created new user with ID: {user.id}")
-            else:
-                # Update existing user
-                logger.info(f"Updating existing user: {user.id}")
-                user.google_id = userinfo.get("sub")
-                user.name = userinfo.get("name", user.name)
-                user.picture = userinfo.get("picture", user.picture)
-                user.is_active = True
-                db.commit()
-                db.refresh(user)
-                logger.info(f"Updated user: {user.email}")
+            
+            db.commit()
+            db.refresh(user)
+            logger.info(f"User saved successfully: {user.email} (ID: {user.id})")
             
         except Exception as db_error:
             db.rollback()
             logger.error(f"Database error: {str(db_error)}")
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=database_error")
         
-        # Create JWT session token with user data from database
-        session_token = create_jwt(user)
-        logger.info(f"Created JWT token for user: {user.email}")
+        # Create JWT session token
+        session_token = create_jwt_token(user)
         
-        # Create response and set cookies
+        # Create response with session cookie
         response = RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard")
         
-        # Set session cookie
+        # Set secure session cookie
         response.set_cookie(
             key=SESSION_COOKIE_NAME,
             value=session_token,
             httponly=True,
+            secure=True,  # Always True for production
             samesite='lax',
-            secure=True,  # Set to True for production with HTTPS
             max_age=JWT_EXPIRE_MINUTES * 60,
             path="/"
         )
         
-        # Clear the state cookie
+        # Clear state cookie
         response.delete_cookie(
             key="oauth_state",
             path="/",
-            secure=True,  # Set to True for production with HTTPS
+            secure=True,
             samesite='lax'
         )
         
         logger.info(f"Authentication successful for user: {user.email}")
         return response
         
-    except requests.RequestException as req_error:
-        logger.error(f"Request error: {str(req_error)}")
+    except requests.RequestException as e:
+        logger.error(f"Network error during authentication: {str(e)}")
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=network_error")
     except Exception as e:
-        logger.error(f"Unexpected OAuth error: {str(e)}")
+        logger.error(f"Unexpected error during authentication: {str(e)}")
         return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=authentication_failed")
 
-@router.get("/debug")
-def debug_auth(request: Request):
-    """Debug endpoint to check authentication state"""
-    session_cookie = request.cookies.get(SESSION_COOKIE_NAME)
-    debug_info = {
-        "cookies": dict(request.cookies),
-        "headers": dict(request.headers),
-        "session_cookie_present": SESSION_COOKIE_NAME in request.cookies,
-        "auth_header_present": "Authorization" in request.headers,
-        "session_cookie_value": session_cookie[:50] + "..." if session_cookie else "Not present"
-    }
-    
-    # Try to decode the JWT if present
-    if session_cookie:
-        try:
-            payload = jwt.decode(session_cookie, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            debug_info["jwt_payload"] = payload
-            debug_info["jwt_valid"] = True
-        except Exception as e:
-            debug_info["jwt_error"] = str(e)
-            debug_info["jwt_valid"] = False
-    
-    return debug_info
-
 @router.get("/me")
-def get_me(request: Request, db: Session = Depends(get_db)):
-    """Get current authenticated user info from DB"""
-    
-    logger.info("=== /me endpoint called ===")
-    logger.info(f"Cookies received: {list(request.cookies.keys())}")
-    logger.info(f"Authorization header: {request.headers.get('Authorization', 'None')}")
-    
-    # Check both cookies and Authorization header
-    token = None
-    
-    # Try to get token from cookie first
-    if SESSION_COOKIE_NAME in request.cookies:
-        token = request.cookies.get(SESSION_COOKIE_NAME)
-        logger.info(f"Token found in cookie: {token[:20]}..." if token else "No token in cookie")
-    
-    # If no cookie, try Authorization header
-    if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1]
-            logger.info(f"Token found in header: {token[:20]}..." if token else "No token in header")
-    
-    if not token:
-        logger.error("No authentication token found")
-        raise HTTPException(
-            status_code=401, 
-            detail="Not authenticated - no token found",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    
-    try:
-        # Decode JWT token
-        logger.info("Decoding JWT token...")
-        try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            logger.info(f"JWT decoded successfully. Payload: {payload}")
-        except jwt.ExpiredSignatureError:
-            logger.error("JWT token expired")
-            raise HTTPException(
-                status_code=401, 
-                detail="Session expired - please login again",
-                headers={"WWW-Authenticate": "Bearer"}
-            )
-        except jwt.InvalidSignatureError:
-            logger.error("JWT invalid signature")
-            raise HTTPException(
-                status_code=401, 
-                detail="Invalid session signature",
-                headers={"WWW-Authenticate": "Bearer"}
-            )
-        except jwt.DecodeError as e:
-            logger.error(f"JWT decode error: {str(e)}")
-            raise HTTPException(
-                status_code=401, 
-                detail="Malformed session token",
-                headers={"WWW-Authenticate": "Bearer"}
-            )
-        
-        # Extract user ID from payload
-        user_id = payload.get("user_id")
-        if not user_id:
-            logger.error("No user_id in JWT payload")
-            raise HTTPException(
-                status_code=401, 
-                detail="Invalid token - missing user ID",
-                headers={"WWW-Authenticate": "Bearer"}
-            )
-        
-        # Query user from database using user_id
-        try:
-            logger.info(f"Querying user with ID: {user_id}")
-            user = db.query(PGUser).filter(PGUser.id == user_id).first()
-            
-            if not user:
-                logger.error(f"User not found in database with ID: {user_id}")
-                raise HTTPException(
-                    status_code=404, 
-                    detail="User not found - please login again"
-                )
-            
-            logger.info(f"User found: {user.email}")
-            
-            # Return user data
-            return {
-                "user": user.to_dict(),
-                "authenticated": True
-            }
-            
-        except HTTPException:
-            raise
-        except Exception as db_error:
-            logger.error(f"Database error in /me: {str(db_error)}")
-            raise HTTPException(status_code=500, detail="Database error")
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error in /me: {str(e)}")
-        raise HTTPException(
-            status_code=401, 
-            detail="Authentication failed",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+def get_current_user_info(current_user: PGUser = Depends(get_current_user)):
+    """Get current authenticated user information"""
+    return {
+        "user": current_user.to_dict(),
+        "authenticated": True
+    }
 
 @router.post("/logout")
 def logout():
@@ -346,17 +221,32 @@ def logout():
     response.delete_cookie(
         key=SESSION_COOKIE_NAME,
         path="/",
-        samesite='lax',
-        secure=True  # Set to True for production with HTTPS
+        secure=True,
+        samesite='lax'
     )
     return response
 
-def create_jwt(user: PGUser) -> str:
-    """Create JWT token with user information from database"""
+@router.get("/status")
+def auth_status(current_user: PGUser = Depends(get_optional_user)):
+    """Check authentication status (optional auth)"""
+    if current_user:
+        return {
+            "authenticated": True,
+            "user": {
+                "id": current_user.id,
+                "email": current_user.email,
+                "name": current_user.name
+            }
+        }
+    else:
+        return {"authenticated": False}
+
+def create_jwt_token(user: PGUser) -> str:
+    """Create JWT token with user information"""
     now = datetime.now(timezone.utc)
     
     payload = {
-        "user_id": user.id,  # Use database user ID as primary identifier
+        "user_id": user.id,
         "email": user.email,
         "name": user.name,
         "google_id": user.google_id,
@@ -365,5 +255,4 @@ def create_jwt(user: PGUser) -> str:
         "iss": "airoom-app"
     }
     
-    logger.info(f"Creating JWT with payload: {payload}")
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)

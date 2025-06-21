@@ -106,28 +106,13 @@ const ErrorMessage = styled.div`
   font-size: 14px;
 `;
 
-const DebugButton = styled.button`
-  background: #718096;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  margin-top: 16px;
-  &:hover {
-    background: #4a5568;
-  }
-`;
-
-// Fix the API_BASE URL construction
+// Construct API_BASE URL properly
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = React.useState(false);
-  const [debugInfo, setDebugInfo] = React.useState(null);
   
   // Show error if redirected back with error param
   const params = new URLSearchParams(location.search);
@@ -143,13 +128,9 @@ const Login = () => {
       console.log('Checking auth status...');
       console.log('API_BASE:', API_BASE);
       
-      // Construct URL properly to avoid :1 suffix issue
-      const authUrl = `${API_BASE}/api/auth/me`;
-      console.log('Making request to:', authUrl);
-      
-      const response = await fetch(authUrl, {
+      const response = await fetch(`${API_BASE}/api/auth/status`, {
         method: 'GET',
-        credentials: 'include', // Include cookies
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -157,15 +138,19 @@ const Login = () => {
       });
 
       console.log('Auth check response status:', response.status);
-      console.log('Auth check response headers:', Object.fromEntries(response.headers.entries()));
 
       if (response.ok) {
         const data = await response.json();
-        console.log('User already authenticated:', data);
-        navigate('/dashboard');
+        console.log('Auth status response:', data);
+        
+        if (data.authenticated) {
+          console.log('User already authenticated:', data.user);
+          navigate('/dashboard');
+        } else {
+          console.log('User not authenticated');
+        }
       } else {
-        const errorText = await response.text();
-        console.log('User not authenticated:', response.status, errorText);
+        console.log('Auth check failed with status:', response.status);
       }
     } catch (err) {
       console.error('Auth check failed:', err);
@@ -184,38 +169,6 @@ const Login = () => {
       console.error('Login redirect failed:', err);
       setIsLoading(false);
       toast.error('Failed to redirect to Google login');
-    }
-  };
-
-  const handleDebugAuth = async () => {
-    try {
-      console.log('Fetching debug info...');
-      const debugUrl = `${API_BASE}/api/auth/debug`;
-      console.log('Debug URL:', debugUrl);
-      
-      const response = await fetch(debugUrl, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
-      
-      console.log('Debug response status:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        setDebugInfo(data);
-        console.log('Debug info:', data);
-      } else {
-        const errorText = await response.text();
-        console.error('Debug request failed:', response.status, errorText);
-        toast.error('Debug request failed');
-      }
-    } catch (err) {
-      console.error('Debug request error:', err);
-      toast.error('Debug request error');
     }
   };
 
@@ -284,45 +237,6 @@ const Login = () => {
             <span>Smart Document Analysis</span>
           </FeatureItem>
         </FeaturesList>
-        
-        {/* Debug section - remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <>
-            <DebugButton onClick={handleDebugAuth}>
-              Debug Auth
-            </DebugButton>
-            {debugInfo && (
-              <div style={{ 
-                marginTop: '16px', 
-                padding: '12px', 
-                background: '#f7fafc', 
-                borderRadius: '6px',
-                fontSize: '12px',
-                textAlign: 'left',
-                fontFamily: 'monospace',
-                maxHeight: '300px',
-                overflow: 'auto'
-              }}>
-                <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
-              </div>
-            )}
-            
-            {/* Additional debug info */}
-            <div style={{ 
-              marginTop: '16px', 
-              padding: '8px', 
-              background: '#e2e8f0', 
-              borderRadius: '4px',
-              fontSize: '10px',
-              textAlign: 'left',
-              fontFamily: 'monospace'
-            }}>
-              <div>API_BASE: {API_BASE}</div>
-              <div>Current URL: {window.location.href}</div>
-              <div>Cookies: {document.cookie || 'None'}</div>
-            </div>
-          </>
-        )}
       </LoginCard>
     </LoginContainer>
   );
