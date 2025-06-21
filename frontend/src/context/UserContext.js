@@ -1,69 +1,75 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
-const UserContext = createContext();
-
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-// Create a single, configured axios instance
-// This is crucial for sending HttpOnly cookies with every request
+// 1. Create a configured axios instance
 const api = axios.create({
   baseURL: API_BASE,
-  withCredentials: true, 
 });
+
+// 2. Use an interceptor to inject the token into requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // This function is the single source of truth for the user's session.
-  // It relies on the browser automatically sending the HttpOnly session cookie.
-  const verifyUserSession = useCallback(async () => {
+  const fetchUser = async () => {
     try {
-      console.log('Verifying user session by calling /api/auth/me...');
-      const res = await api.get('/api/auth/me');
-      
-      if (res.data && res.data.user) {
-        setUser(res.data.user);
-        console.log('User session successfully verified:', res.data.user);
-      } else {
-        // The API responded, but didn't provide a user
-        setUser(null);
-      }
-    } catch (err) {
-      // This will catch 401 Unauthorized errors if the cookie is missing or invalid
-      console.log('No active session found or session is expired.');
+      console.log("Fetching user with token...");
+      const { data } = await api.get('/api/auth/me');
+      setUser(data.user);
+      console.log("User fetched successfully:", data.user);
+    } catch (error) {
+      console.error("Failed to fetch user. Token might be invalid.", error);
       setUser(null);
+      localStorage.removeItem('authToken'); // Clean up invalid token
     } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      fetchUser();
+    } else {
       setLoading(false);
     }
   }, []);
 
-  // On initial application load, we check the user's session.
-  useEffect(() => {
-    verifyUserSession();
-  }, [verifyUserSession]);
-  
-  // The logout function clears the session cookie on the backend
-  const logout = async () => {
-    try {
-      await api.post('/api/auth/logout');
-    } catch (err) {
-      console.error('Logout request failed:', err);
-    } finally {
-      setUser(null);
-      // Redirect to login page after state is cleared
-      window.location.href = '/login';
-    }
+  const login = (token) => {
+    console.log("Storing token and fetching user...");
+    localStorage.setItem('authToken', token);
+    // After storing the token, fetch the user data
+    fetchUser();
+  };
+
+  const logout = () => {
+    console.log("Logging out.");
+    localStorage.removeItem('authToken');
+    setUser(null);
+    window.location.href = '/login'; // Redirect to login
   };
 
   const contextValue = {
     user,
     loading,
-    logout,
     isAuthenticated: !!user,
-    // Provide a way to manually re-check the session if needed, for example after a successful callback.
-    refreshUser: verifyUserSession, 
+    login,
+    logout,
   };
 
   return (
@@ -74,12 +80,7 @@ export const UserProvider = ({ children }) => {
 };
 
 export const useUserContext = () => {
-  const context = useContext(UserContext);
-  if (!context) {
-    throw new Error('useUserContext must be used within a UserProvider');
-  }
-  return context;
+  return useContext(UserContext);
 };
 
-// Export the configured axios instance for use throughout the app
 export { api };

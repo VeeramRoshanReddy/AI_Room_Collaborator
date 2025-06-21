@@ -1,5 +1,5 @@
 # api/auth.py
-from fastapi import APIRouter, Request, HTTPException, status, Depends
+from fastapi import APIRouter, Request, HTTPException, status, Depends, Header
 from fastapi.responses import RedirectResponse, JSONResponse
 from core.config import settings
 import requests
@@ -10,13 +10,25 @@ from urllib.parse import urlencode
 from models.postgresql.user import User as PGUser
 from sqlalchemy.orm import Session
 from core.database import get_db
-from middleware.auth_middleware import get_current_user, get_optional_user
+from middleware.auth_middleware import get_optional_user
 import logging
+from jose import jwt, JWTError
+from typing import Optional
+from authlib.integrations.starlette_client import OAuth
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+oauth = OAuth()
+
+oauth.register(
+    name='google',
+    server_metadata_url=settings.GOOGLE_CONF_URL,
+    client_id=settings.GOOGLE_CLIENT_ID,
+    client_secret=settings.GOOGLE_CLIENT_SECRET,
+    client_kwargs={'scope': 'openid email profile'}
+)
 
 # JWT settings
 JWT_SECRET = settings.SECRET_KEY
@@ -29,203 +41,78 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
-@router.get("/google/login")
-def google_login():
-    """Redirect user to Google OAuth consent screen"""
-    # Generate state parameter for CSRF protection
-    state = secrets.token_urlsafe(32)
-    
-    params = {
-        "client_id": settings.GOOGLE_CLIENT_ID,
-        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-        "response_type": "code",
-        "scope": "openid email profile",
-        "access_type": "offline",
-        "prompt": "consent",
-        "state": state
-    }
-    
-    url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
-    
-    # Create redirect response with state cookie
-    response = RedirectResponse(url)
-    response.set_cookie(
-        key="oauth_state",
-        value=state,
-        httponly=True,
-        secure=True,  # Always True for production
-        samesite='lax',
-        max_age=600  # 10 minutes
-    )
-    
-    return response
+def create_jwt_token(user: PGUser) -> str:
+    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode = {"exp": expire, "sub": str(user.google_id)}
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+    return encoded_jwt
 
-@router.get("/google/callback")
-def google_callback(
-    request: Request, 
-    code: str = None, 
-    state: str = None,
-    error: str = None,
+async def get_current_user_from_token(
+    authorization: Optional[str] = Header(None), 
     db: Session = Depends(get_db)
 ):
-    """Handle Google OAuth callback and create user session"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Bearer token not provided")
     
-    # Check for OAuth errors
-    if error:
-        logger.error(f"OAuth error from Google: {error}")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=oauth_denied")
-    
-    if not code:
-        logger.error("Missing authorization code")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=missing_code")
-    
-    # Verify state parameter for CSRF protection
-    stored_state = request.cookies.get("oauth_state")
-    if not stored_state or stored_state != state:
-        logger.error("Invalid state parameter - possible CSRF attack")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=invalid_state")
-    
+    token = authorization.split(" ")[1]
+    credentials_exception = HTTPException(
+        status_code=401, detail="Could not validate credentials", headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
-        # Exchange authorization code for tokens
-        token_data = {
-            "code": code,
-            "client_id": settings.GOOGLE_CLIENT_ID,
-            "client_secret": settings.GOOGLE_CLIENT_SECRET,
-            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-            "grant_type": "authorization_code"
-        }
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        google_id: str = payload.get("sub")
+        if google_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
         
-        logger.info("Exchanging authorization code for access token")
-        token_response = requests.post(
-            GOOGLE_TOKEN_URL, 
-            data=token_data,
-            timeout=30,
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
+    user = db.query(PGUser).filter(PGUser.google_id == google_id).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+@router.get("/google/login")
+async def login_via_google(request: Request):
+    redirect_uri = f"{settings.API_URL}/api/auth/google/callback"
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+@router.get("/google/callback")
+async def auth_via_google(request: Request, db: Session = Depends(get_db)):
+    try:
+        token_data = await oauth.google.authorize_access_token(request)
+        user_info = token_data.get('userinfo')
         
-        if not token_response.ok:
-            logger.error(f"Token exchange failed: {token_response.status_code} - {token_response.text}")
-            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=token_exchange_failed")
-        
-        tokens = token_response.json()
-        access_token = tokens.get("access_token")
-        
-        if not access_token:
-            logger.error("No access token in response")
-            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=missing_access_token")
-        
-        # Get user information from Google
-        logger.info("Fetching user info from Google")
-        userinfo_response = requests.get(
-            GOOGLE_USERINFO_URL, 
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=30
-        )
-        
-        if not userinfo_response.ok:
-            logger.error(f"Failed to fetch user info: {userinfo_response.status_code}")
-            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=userinfo_failed")
-        
-        userinfo = userinfo_response.json()
-        
-        # Validate required user information
-        google_id = userinfo.get("sub")
-        email = userinfo.get("email")
-        
-        if not google_id or not email:
-            logger.error("Incomplete user profile from Google")
-            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=incomplete_profile")
-        
-        # Create or update user in database
-        try:
-            user = db.query(PGUser).filter(
-                (PGUser.google_id == google_id) | (PGUser.email == email)
-            ).first()
-            
-            if user:
-                # Update existing user
-                logger.info(f"Updating existing user: {email}")
-                user.google_id = google_id
-                user.name = userinfo.get("name", user.name)
-                user.picture = userinfo.get("picture", user.picture)
-                user.is_active = True
-            else:
-                # Create new user
-                logger.info(f"Creating new user: {email}")
-                user = PGUser(
-                    google_id=google_id,
-                    email=email,
-                    name=userinfo.get("name", ""),
-                    picture=userinfo.get("picture", ""),
-                    is_active=True,
-                    is_admin=False
-                )
-                db.add(user)
-            
+        if not user_info or not user_info.get('sub'):
+            raise HTTPException(status_code=400, detail="Invalid user info from Google")
+
+        user = db.query(PGUser).filter(PGUser.google_id == user_info['sub']).first()
+        if not user:
+            user = PGUser(
+                google_id=user_info['sub'], email=user_info['email'],
+                name=user_info['name'], picture=user_info['picture']
+            )
+            db.add(user)
             db.commit()
             db.refresh(user)
-            logger.info(f"User saved successfully: {user.email} (ID: {user.id})")
-            
-        except Exception as db_error:
-            db.rollback()
-            logger.error(f"Database error: {str(db_error)}")
-            return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=database_error")
-        
-        # Create JWT session token
-        token = create_jwt_token(user)
-        
-        # This is the final step. The user is authenticated.
-        # Redirect them back to the frontend to complete the login flow.
-        frontend_url = settings.FRONTEND_URL 
-        response = RedirectResponse(url=f"{frontend_url}/login?success=true")
-        
-        # Set the secure, HttpOnly session cookie
-        response.set_cookie(
-            key=SESSION_COOKIE_NAME,
-            value=token,
-            httponly=True,
-            secure=True,      # MUST be True for cross-domain
-            samesite='none',  # MUST be 'none' for cross-domain
-            path="/"
-        )
-        
-        # Clear state cookie
-        response.delete_cookie(
-            key="oauth_state",
-            path="/",
-            secure=True,
-            samesite='lax'
-        )
-        
-        logger.info(f"Authentication successful for user: {user.email}")
-        return response
-        
-    except requests.RequestException as e:
-        logger.error(f"Network error during authentication: {str(e)}")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=network_error")
+
+        session_token = create_jwt_token(user)
+        frontend_url = settings.FRONTEND_URL
+        return RedirectResponse(url=f"{frontend_url}/auth/callback?token={session_token}")
+
     except Exception as e:
-        logger.error(f"Unexpected error during authentication: {str(e)}")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=authentication_failed")
+        logger.error(f"Error in Google OAuth callback: {e}")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=auth_failed")
 
 @router.get("/me")
-def get_current_user_info(current_user: PGUser = Depends(get_current_user)):
-    """Get current authenticated user information"""
-    return {
-        "user": current_user.to_dict(),
-        "authenticated": True
-    }
+def get_me(current_user: PGUser = Depends(get_current_user_from_token)):
+    """Get current authenticated user info from token."""
+    return {"user": current_user}
 
 @router.post("/logout")
-def logout():
-    """Logout user by clearing session cookie"""
-    response = JSONResponse(content={"message": "Logged out successfully"})
-    response.delete_cookie(
-        key=SESSION_COOKIE_NAME,
-        path="/",
-        secure=True,
-        samesite='lax'
-    )
-    return response
+async def logout():
+    # On the frontend, the token will be deleted from localStorage.
+    # This endpoint is for any server-side session invalidation if needed in the future.
+    return {"message": "Logout successful"}
 
 @router.get("/status")
 def auth_status(current_user: PGUser = Depends(get_optional_user)):
@@ -241,19 +128,3 @@ def auth_status(current_user: PGUser = Depends(get_optional_user)):
         }
     else:
         return {"authenticated": False}
-
-def create_jwt_token(user: PGUser) -> str:
-    """Create JWT token with user information"""
-    now = datetime.now(timezone.utc)
-    
-    payload = {
-        "user_id": user.id,
-        "email": user.email,
-        "name": user.name,
-        "google_id": user.google_id,
-        "exp": now + timedelta(minutes=JWT_EXPIRE_MINUTES),
-        "iat": now,
-        "iss": "airoom-app"
-    }
-    
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)

@@ -11,6 +11,7 @@ import Login from './components/auth/Login';
 import Home from './components/personalwork/Home';
 import Rooms from './components/personalwork/Rooms';
 import PersonalWork from './components/personalwork/PersonalWork';
+import AuthCallback from './components/auth/AuthCallback';
 
 // Theme configuration
 const theme = {
@@ -158,6 +159,7 @@ function AppContent() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         
         {/* Protected routes */}
         <Route path="/dashboard" element={
