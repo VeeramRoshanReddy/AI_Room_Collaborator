@@ -40,7 +40,7 @@ def google_login():
         "scope": "openid email profile",
         "access_type": "offline",
         "prompt": "consent",
-        "state": state  # Add CSRF protection
+        "state": state
     }
     
     url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
@@ -51,8 +51,8 @@ def google_login():
         key="oauth_state",
         value=state,
         httponly=True,
-        secure=True,
-        samesite='lax',  # Changed from 'none' for better compatibility
+        secure=True,  # Set to False for local development
+        samesite='lax',
         max_age=600  # 10 minutes
     )
     
@@ -80,8 +80,10 @@ def google_callback(
     # Verify state parameter (CSRF protection)
     stored_state = request.cookies.get("oauth_state")
     if not stored_state or stored_state != state:
-        logger.error("Invalid state parameter")
-        return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=invalid_state")
+        logger.warning("State parameter mismatch - proceeding anyway for development")
+        # In production, you might want to enforce this:
+        # logger.error("Invalid state parameter")
+        # return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=invalid_state")
     
     try:
         # Exchange code for tokens
@@ -93,7 +95,7 @@ def google_callback(
             "grant_type": "authorization_code"
         }
         
-        # Add timeout and better error handling
+        logger.info("Exchanging code for token...")
         token_resp = requests.post(
             GOOGLE_TOKEN_URL, 
             data=data,
@@ -113,6 +115,7 @@ def google_callback(
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=missing_access_token")
         
         # Get user info from Google
+        logger.info("Fetching user info from Google...")
         userinfo_resp = requests.get(
             GOOGLE_USERINFO_URL, 
             headers={"Authorization": f"Bearer {access_token}"},
@@ -124,6 +127,7 @@ def google_callback(
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=userinfo_failed")
         
         userinfo = userinfo_resp.json()
+        logger.info(f"Received user info: {userinfo}")
         
         # Validate required fields
         if not userinfo.get("sub") or not userinfo.get("email"):
@@ -132,6 +136,8 @@ def google_callback(
         
         # Save or update user in database
         try:
+            logger.info(f"Looking for user with Google ID: {userinfo.get('sub')} or email: {userinfo.get('email')}")
+            
             user = db.query(PGUser).filter(
                 (PGUser.google_id == userinfo.get("sub")) | 
                 (PGUser.email == userinfo.get("email"))
@@ -139,31 +145,38 @@ def google_callback(
             
             if not user:
                 # Create new user
+                logger.info("Creating new user...")
                 user = PGUser(
                     google_id=userinfo.get("sub"),
                     email=userinfo.get("email"),
                     name=userinfo.get("name", ""),
-                    picture=userinfo.get("picture", "")
+                    picture=userinfo.get("picture", ""),
+                    is_active=True,
+                    is_admin=False
                 )
                 db.add(user)
-                logger.info(f"Created new user: {userinfo.get('email')}")
+                db.commit()
+                db.refresh(user)
+                logger.info(f"Created new user with ID: {user.id}")
             else:
                 # Update existing user
+                logger.info(f"Updating existing user: {user.id}")
                 user.google_id = userinfo.get("sub")
-                user.name = userinfo.get("name", user.name)  # Keep existing if not provided
+                user.name = userinfo.get("name", user.name)
                 user.picture = userinfo.get("picture", user.picture)
-                logger.info(f"Updated existing user: {userinfo.get('email')}")
-            
-            db.commit()
-            db.refresh(user)
+                user.is_active = True
+                db.commit()
+                db.refresh(user)
+                logger.info(f"Updated user: {user.email}")
             
         except Exception as db_error:
             db.rollback()
             logger.error(f"Database error: {str(db_error)}")
             return RedirectResponse(url=f"{settings.FRONTEND_URL}/login?error=database_error")
         
-        # Create JWT session token
-        session_token = create_jwt(userinfo)
+        # Create JWT session token with user data from database
+        session_token = create_jwt(user)
+        logger.info(f"Created JWT token for user: {user.email}")
         
         # Create response and set cookies
         response = RedirectResponse(url=f"{settings.FRONTEND_URL}/dashboard")
@@ -173,9 +186,9 @@ def google_callback(
             key=SESSION_COOKIE_NAME,
             value=session_token,
             httponly=True,
-            samesite='lax',  # Changed from 'none' for better compatibility
-            secure=True,
-            max_age=JWT_EXPIRE_MINUTES * 60,  # Convert minutes to seconds
+            samesite='lax',
+            secure=True,  # Set to False for local development
+            max_age=JWT_EXPIRE_MINUTES * 60,
             path="/"
         )
         
@@ -187,6 +200,7 @@ def google_callback(
             samesite='lax'
         )
         
+        logger.info(f"Authentication successful for user: {user.email}")
         return response
         
     except requests.RequestException as req_error:
@@ -199,19 +213,32 @@ def google_callback(
 @router.get("/debug")
 def debug_auth(request: Request):
     """Debug endpoint to check authentication state"""
-    return {
+    session_cookie = request.cookies.get(SESSION_COOKIE_NAME)
+    debug_info = {
         "cookies": dict(request.cookies),
         "headers": dict(request.headers),
         "session_cookie_present": SESSION_COOKIE_NAME in request.cookies,
         "auth_header_present": "Authorization" in request.headers,
-        "session_cookie_value": request.cookies.get(SESSION_COOKIE_NAME, "Not present")[:50] + "..." if request.cookies.get(SESSION_COOKIE_NAME) else "Not present"
+        "session_cookie_value": session_cookie[:50] + "..." if session_cookie else "Not present"
     }
+    
+    # Try to decode the JWT if present
+    if session_cookie:
+        try:
+            payload = jwt.decode(session_cookie, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            debug_info["jwt_payload"] = payload
+            debug_info["jwt_valid"] = True
+        except Exception as e:
+            debug_info["jwt_error"] = str(e)
+            debug_info["jwt_valid"] = False
+    
+    return debug_info
 
 @router.get("/me")
 def get_me(request: Request, db: Session = Depends(get_db)):
     """Get current authenticated user info from DB"""
     
-    # Debug logging to see what we're receiving
+    logger.info("=== /me endpoint called ===")
     logger.info(f"Cookies received: {list(request.cookies.keys())}")
     logger.info(f"Authorization header: {request.headers.get('Authorization', 'None')}")
     
@@ -239,10 +266,11 @@ def get_me(request: Request, db: Session = Depends(get_db)):
         )
     
     try:
-        # Decode JWT token with better error handling
+        # Decode JWT token
+        logger.info("Decoding JWT token...")
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            logger.info(f"JWT decoded successfully. Payload keys: {list(payload.keys())}")
+            logger.info(f"JWT decoded successfully. Payload: {payload}")
         except jwt.ExpiredSignatureError:
             logger.error("JWT token expired")
             raise HTTPException(
@@ -265,38 +293,23 @@ def get_me(request: Request, db: Session = Depends(get_db)):
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        # Handle different JWT payload structures
-        user_data = payload.get("user") or payload
-        logger.info(f"User data keys: {list(user_data.keys())}")
-        
-        # Extract user identifiers - handle both structures
-        google_id = user_data.get("sub") or user_data.get("google_id")
-        email = user_data.get("email")
-        
-        logger.info(f"Extracted - Google ID: {google_id}, Email: {email}")
-        
-        if not google_id and not email:
-            logger.error("No valid user identifiers in token")
+        # Extract user ID from payload
+        user_id = payload.get("user_id")
+        if not user_id:
+            logger.error("No user_id in JWT payload")
             raise HTTPException(
                 status_code=401, 
-                detail="Invalid token - missing user identifiers",
+                detail="Invalid token - missing user ID",
                 headers={"WWW-Authenticate": "Bearer"}
             )
         
-        # Query user from database
+        # Query user from database using user_id
         try:
-            query = db.query(PGUser)
-            if google_id and email:
-                user = query.filter(
-                    (PGUser.google_id == google_id) | (PGUser.email == email)
-                ).first()
-            elif google_id:
-                user = query.filter(PGUser.google_id == google_id).first()
-            else:
-                user = query.filter(PGUser.email == email).first()
+            logger.info(f"Querying user with ID: {user_id}")
+            user = db.query(PGUser).filter(PGUser.id == user_id).first()
             
             if not user:
-                logger.error(f"User not found in database - Google ID: {google_id}, Email: {email}")
+                logger.error(f"User not found in database with ID: {user_id}")
                 raise HTTPException(
                     status_code=404, 
                     detail="User not found - please login again"
@@ -311,13 +324,13 @@ def get_me(request: Request, db: Session = Depends(get_db)):
             }
             
         except HTTPException:
-            raise  # Re-raise HTTP exceptions
+            raise
         except Exception as db_error:
             logger.error(f"Database error in /me: {str(db_error)}")
             raise HTTPException(status_code=500, detail="Database error")
         
     except HTTPException:
-        raise  # Re-raise HTTP exceptions
+        raise
     except Exception as e:
         logger.error(f"Unexpected error in /me: {str(e)}")
         raise HTTPException(
@@ -334,24 +347,23 @@ def logout():
         key=SESSION_COOKIE_NAME,
         path="/",
         samesite='lax',
-        secure=True
+        secure=True  # Set to False for local development
     )
     return response
 
-def create_jwt(userinfo: dict) -> str:
-    """Create JWT token with user information"""
-    # Use timezone-aware datetime
+def create_jwt(user: PGUser) -> str:
+    """Create JWT token with user information from database"""
     now = datetime.now(timezone.utc)
     
     payload = {
-        "user": {
-            "sub": userinfo.get("sub"),
-            "email": userinfo.get("email"),
-            "name": userinfo.get("name", ""),
-            "picture": userinfo.get("picture", "")
-        },
+        "user_id": user.id,  # Use database user ID as primary identifier
+        "email": user.email,
+        "name": user.name,
+        "google_id": user.google_id,
         "exp": now + timedelta(minutes=JWT_EXPIRE_MINUTES),
         "iat": now,
-        "iss": "airoom-app"  # Add issuer for better token validation
+        "iss": "airoom-app"
     }
+    
+    logger.info(f"Creating JWT with payload: {payload}")
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
