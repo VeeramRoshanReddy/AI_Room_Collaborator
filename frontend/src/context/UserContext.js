@@ -13,25 +13,68 @@ export const UserProvider = ({ children }) => {
   const fetchUser = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/api/auth/me`, { withCredentials: true });
+      const res = await axios.get(`${API_BASE}/api/auth/me`, { 
+        withCredentials: true 
+      });
       setUser(res.data.user);
     } catch (err) {
+      // Only log error if it's not a 401 (unauthorized)
+      if (err.response?.status !== 401) {
+        console.error('Error fetching user:', err);
+      }
       setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
+  // Login function (can be called after successful login)
+  const login = (userData) => {
+    setUser(userData);
+  };
+
+  // Logout function
+  const logout = async () => {
+    try {
+      await axios.post(`${API_BASE}/api/auth/logout`, {}, { 
+        withCredentials: true 
+      });
+    } catch (err) {
+      console.error('Error during logout:', err);
+    } finally {
+      setUser(null);
+    }
+  };
+
+  // Refresh user data
+  const refreshUser = () => {
+    fetchUser();
+  };
+
   useEffect(() => {
     fetchUser();
-    // Optionally, add event listeners for login/logout if needed
-  }, []);
+  }, [API_BASE]);
+
+  const contextValue = {
+    user,
+    loading,
+    login,
+    logout,
+    refreshUser,
+    isAuthenticated: !!user
+  };
 
   return (
-    <UserContext.Provider value={{ user, loading, refreshUser: fetchUser }}>
+    <UserContext.Provider value={contextValue}>
       {children}
     </UserContext.Provider>
   );
 };
 
-export const useUserContext = () => useContext(UserContext); 
+export const useUserContext = () => {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error('useUserContext must be used within a UserProvider');
+  }
+  return context;
+};

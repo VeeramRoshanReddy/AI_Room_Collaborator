@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import styled, { ThemeProvider } from 'styled-components';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { UserProvider, useUserContext } from './context/UserContext';
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
 import Login from './components/auth/Login';
@@ -45,7 +46,7 @@ const AppContainer = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: #c0c0c0; /* A slightly darker grey */
+  background: #c0c0c0;
   color: ${props => props.theme.colors.text};
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   overflow: hidden;
@@ -68,6 +69,16 @@ const MainContent = styled.main`
   }
 `;
 
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: ${props => props.theme.colors.background};
+  font-size: 18px;
+  color: ${props => props.theme.colors.text};
+`;
+
 // Placeholder components
 const Dashboard = () => (
   <div style={{ padding: '20px' }}>
@@ -83,97 +94,82 @@ const Settings = () => (
   </div>
 );
 
-function App() {
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+// Main App Component that uses UserContext
+function AppContent() {
+  const { user, loading, logout } = useUserContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Helper for API base URL
-  const API_BASE = process.env.REACT_APP_API_URL;
+  const isAuthenticated = !!user;
 
-  // Check session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-          setIsAuthenticated(true);
-        } else {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (err) {
-        setUser(null);
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    checkSession();
-  }, [API_BASE]);
-
-  // Logout handler
+  // Handle logout
   const handleLogout = async () => {
-    try {
-      await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', credentials: 'include' });
-    } catch (err) {}
-    setUser(null);
-    setIsAuthenticated(false);
+    await logout();
     window.location.href = '/login';
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
-      <ThemeProvider theme={theme}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: theme.colors.background }}>
-          <div>Loading...</div>
-        </div>
-      </ThemeProvider>
+      <LoadingContainer>
+        <div>Loading...</div>
+      </LoadingContainer>
     );
   }
 
   return (
+    <AppContainer>
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+      {isAuthenticated ? (
+        <>
+          <Navbar 
+            user={user} 
+            onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
+            onLogout={handleLogout} 
+          />
+          <Sidebar 
+            isOpen={isSidebarOpen} 
+            onToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
+          />
+          <MainContent isSidebarOpen={isSidebarOpen}>
+            <Routes>
+              <Route path="/dashboard" element={<Home />} />
+              <Route path="/rooms" element={<Rooms />} />
+              <Route path="/personalwork" element={<PersonalWork />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </MainContent>
+        </>
+      ) : (
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      )}
+    </AppContainer>
+  );
+}
+
+// Root App Component with Providers
+function App() {
+  return (
     <ThemeProvider theme={theme}>
       <Router>
-        <AppContainer>
-          <ToastContainer
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
-          {isAuthenticated ? (
-            <>
-              <Navbar user={user} onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)} onLogout={handleLogout} />
-              <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-              <MainContent isSidebarOpen={isSidebarOpen}>
-                <Routes>
-                  <Route path="/dashboard" element={<Home />} />
-                  <Route path="/rooms" element={<Rooms />} />
-                  <Route path="/personalwork" element={<PersonalWork />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                </Routes>
-              </MainContent>
-            </>
-          ) : (
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/" element={<Navigate to="/login" replace />} />
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
-          )}
-        </AppContainer>
+        <UserProvider>
+          <AppContent />
+        </UserProvider>
       </Router>
     </ThemeProvider>
   );

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { FaGraduationCap } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useUserContext } from '../../context/UserContext';
 
 const LoginContainer = styled.div`
   min-height: 100vh;
@@ -114,49 +115,39 @@ const Login = () => {
   const location = useLocation();
   const [isLoading, setIsLoading] = React.useState(false);
   
+  // Use UserContext
+  const { user, loading, isAuthenticated, refreshUser } = useUserContext();
+  
   // Show error if redirected back with error param
   const params = new URLSearchParams(location.search);
   const error = params.get('error');
+  const success = params.get('success');
 
   useEffect(() => {
-    // Check if user is already authenticated
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      console.log('Checking auth status...');
-      console.log('API_BASE:', API_BASE);
-      
-      const response = await fetch(`${API_BASE}/api/auth/status`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      });
-
-      console.log('Auth check response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Auth status response:', data);
-        
-        if (data.authenticated) {
-          console.log('User already authenticated:', data.user);
-          navigate('/dashboard');
-        } else {
-          console.log('User not authenticated');
-        }
-      } else {
-        console.log('Auth check failed with status:', response.status);
-      }
-    } catch (err) {
-      console.error('Auth check failed:', err);
-      // Don't show error toast for initial auth check failure
+    // If user is already authenticated (from context), redirect to dashboard
+    if (!loading && isAuthenticated) {
+      console.log('User already authenticated from context:', user);
+      navigate('/dashboard');
+      return;
     }
-  };
+
+    // Check for successful login callback
+    if (success === 'true') {
+      console.log('Login success detected, refreshing user data...');
+      // Refresh user data after successful OAuth callback
+      refreshUser();
+      // Remove success param from URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [loading, isAuthenticated, user, navigate, success, refreshUser]);
+
+  // Redirect to dashboard once user data is loaded after successful login
+  useEffect(() => {
+    if (!loading && isAuthenticated && success === 'true') {
+      navigate('/dashboard');
+    }
+  }, [loading, isAuthenticated, navigate, success]);
 
   const handleGoogleLogin = () => {
     setIsLoading(true);
@@ -189,6 +180,21 @@ const Login = () => {
     return errorMessages[errorCode] || 'Google login failed. Please try again.';
   };
 
+  // Show loading if context is still loading
+  if (loading) {
+    return (
+      <LoginContainer>
+        <LoginCard
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div>Loading...</div>
+        </LoginCard>
+      </LoginContainer>
+    );
+  }
+
   return (
     <LoginContainer>
       <LoginCard
@@ -209,7 +215,7 @@ const Login = () => {
         )}
         
         <GoogleButtonContainer>
-          <GoogleButton onClick={handleGoogleLogin} disabled={isLoading}>
+          <GoogleButton onClick={handleGoogleLogin} disabled={isLoading || loading}>
             <img 
               src="/google_g_logo.png" 
               alt="Google Logo" 
