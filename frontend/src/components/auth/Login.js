@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { FaGraduationCap } from 'react-icons/fa';
@@ -70,6 +70,10 @@ const GoogleButton = styled.button`
   &:hover {
     background: #2563eb;
   }
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
 `;
 
 const FeaturesList = styled.div`
@@ -92,17 +96,117 @@ const FeatureItem = styled.div`
   }
 `;
 
-const API_BASE = process.env.REACT_APP_API_URL;
+const ErrorMessage = styled.div`
+  background: #fee;
+  color: #c53030;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  border: 1px solid #fed7d7;
+  font-size: 14px;
+`;
+
+const DebugButton = styled.button`
+  background: #718096;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 16px;
+  &:hover {
+    background: #4a5568;
+  }
+`;
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [debugInfo, setDebugInfo] = React.useState(null);
+  
   // Show error if redirected back with error param
   const params = new URLSearchParams(location.search);
   const error = params.get('error');
 
+  useEffect(() => {
+    // Check if user is already authenticated
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/me`, {
+        method: 'GET',
+        credentials: 'include', // Include cookies
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('User already authenticated:', data);
+        navigate('/dashboard');
+      } else {
+        console.log('User not authenticated:', response.status);
+      }
+    } catch (err) {
+      console.log('Auth check failed:', err);
+    }
+  };
+
   const handleGoogleLogin = () => {
-    window.location.href = `${API_BASE}/api/auth/google/login`;
+    setIsLoading(true);
+    try {
+      window.location.href = `${API_BASE}/api/auth/google/login`;
+    } catch (err) {
+      console.error('Login redirect failed:', err);
+      setIsLoading(false);
+      toast.error('Failed to redirect to Google login');
+    }
+  };
+
+  const handleDebugAuth = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/debug`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setDebugInfo(data);
+        console.log('Debug info:', data);
+      } else {
+        console.error('Debug request failed:', response.status);
+      }
+    } catch (err) {
+      console.error('Debug request error:', err);
+    }
+  };
+
+  const getErrorMessage = (errorCode) => {
+    const errorMessages = {
+      missing_code: 'Google login failed: Missing authorization code.',
+      token_exchange_failed: 'Google login failed: Could not exchange code for token.',
+      missing_access_token: 'Google login failed: Missing access token.',
+      userinfo_failed: 'Google login failed: Could not fetch user info.',
+      incomplete_profile: 'Google login failed: Incomplete profile information.',
+      database_error: 'Login failed: Database error occurred.',
+      network_error: 'Login failed: Network error occurred.',
+      authentication_failed: 'Authentication failed. Please try again.',
+      oauth_denied: 'Google login was cancelled or denied.',
+      invalid_state: 'Login failed: Security validation failed.'
+    };
+    
+    return errorMessages[errorCode] || 'Google login failed. Please try again.';
   };
 
   return (
@@ -117,21 +221,24 @@ const Login = () => {
         </Logo>
         <Title>AI Learning Platform</Title>
         <Subtitle>Your collaborative space for enhanced learning</Subtitle>
+        
         {error && (
-          <div style={{ color: 'red', marginBottom: 16 }}>
-            {error === 'missing_code' && 'Google login failed: Missing code.'}
-            {error === 'token_exchange_failed' && 'Google login failed: Could not exchange code for token.'}
-            {error === 'missing_access_token' && 'Google login failed: Missing access token.'}
-            {error === 'userinfo_failed' && 'Google login failed: Could not fetch user info.'}
-            {!['missing_code','token_exchange_failed','missing_access_token','userinfo_failed'].includes(error) && 'Google login failed.'}
-          </div>
+          <ErrorMessage>
+            {getErrorMessage(error)}
+          </ErrorMessage>
         )}
+        
         <GoogleButtonContainer>
-          <GoogleButton onClick={handleGoogleLogin}>
-            <img src="/google_g_logo.png" alt="Google Logo" style={{ width: 24, height: 24 }} />
-            Sign in with Google
+          <GoogleButton onClick={handleGoogleLogin} disabled={isLoading}>
+            <img 
+              src="/google_g_logo.png" 
+              alt="Google Logo" 
+              style={{ width: 24, height: 24 }} 
+            />
+            {isLoading ? 'Redirecting...' : 'Sign in with Google'}
           </GoogleButton>
         </GoogleButtonContainer>
+        
         <FeaturesList>
           <FeatureItem>
             <FaGraduationCap />
@@ -150,9 +257,31 @@ const Login = () => {
             <span>Smart Document Analysis</span>
           </FeatureItem>
         </FeaturesList>
+        
+        {/* Debug section - remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <>
+            <DebugButton onClick={handleDebugAuth}>
+              Debug Auth
+            </DebugButton>
+            {debugInfo && (
+              <div style={{ 
+                marginTop: '16px', 
+                padding: '12px', 
+                background: '#f7fafc', 
+                borderRadius: '6px',
+                fontSize: '12px',
+                textAlign: 'left',
+                fontFamily: 'monospace'
+              }}>
+                <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+              </div>
+            )}
+          </>
+        )}
       </LoginCard>
     </LoginContainer>
   );
 };
 
-export default Login; 
+export default Login;
