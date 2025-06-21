@@ -120,6 +120,7 @@ const DebugButton = styled.button`
   }
 `;
 
+// Fix the API_BASE URL construction
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const Login = () => {
@@ -139,30 +140,46 @@ const Login = () => {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/me`, {
+      console.log('Checking auth status...');
+      console.log('API_BASE:', API_BASE);
+      
+      // Construct URL properly to avoid :1 suffix issue
+      const authUrl = `${API_BASE}/api/auth/me`;
+      console.log('Making request to:', authUrl);
+      
+      const response = await fetch(authUrl, {
         method: 'GET',
         credentials: 'include', // Include cookies
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
       });
+
+      console.log('Auth check response status:', response.status);
+      console.log('Auth check response headers:', Object.fromEntries(response.headers.entries()));
 
       if (response.ok) {
         const data = await response.json();
         console.log('User already authenticated:', data);
         navigate('/dashboard');
       } else {
-        console.log('User not authenticated:', response.status);
+        const errorText = await response.text();
+        console.log('User not authenticated:', response.status, errorText);
       }
     } catch (err) {
-      console.log('Auth check failed:', err);
+      console.error('Auth check failed:', err);
+      // Don't show error toast for initial auth check failure
     }
   };
 
   const handleGoogleLogin = () => {
     setIsLoading(true);
     try {
-      window.location.href = `${API_BASE}/api/auth/google/login`;
+      console.log('Redirecting to Google login...');
+      const loginUrl = `${API_BASE}/api/auth/google/login`;
+      console.log('Login URL:', loginUrl);
+      window.location.href = loginUrl;
     } catch (err) {
       console.error('Login redirect failed:', err);
       setIsLoading(false);
@@ -172,23 +189,33 @@ const Login = () => {
 
   const handleDebugAuth = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/auth/debug`, {
+      console.log('Fetching debug info...');
+      const debugUrl = `${API_BASE}/api/auth/debug`;
+      console.log('Debug URL:', debugUrl);
+      
+      const response = await fetch(debugUrl, {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
       });
+      
+      console.log('Debug response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
         setDebugInfo(data);
         console.log('Debug info:', data);
       } else {
-        console.error('Debug request failed:', response.status);
+        const errorText = await response.text();
+        console.error('Debug request failed:', response.status, errorText);
+        toast.error('Debug request failed');
       }
     } catch (err) {
       console.error('Debug request error:', err);
+      toast.error('Debug request error');
     }
   };
 
@@ -272,11 +299,28 @@ const Login = () => {
                 borderRadius: '6px',
                 fontSize: '12px',
                 textAlign: 'left',
-                fontFamily: 'monospace'
+                fontFamily: 'monospace',
+                maxHeight: '300px',
+                overflow: 'auto'
               }}>
                 <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
               </div>
             )}
+            
+            {/* Additional debug info */}
+            <div style={{ 
+              marginTop: '16px', 
+              padding: '8px', 
+              background: '#e2e8f0', 
+              borderRadius: '4px',
+              fontSize: '10px',
+              textAlign: 'left',
+              fontFamily: 'monospace'
+            }}>
+              <div>API_BASE: {API_BASE}</div>
+              <div>Current URL: {window.location.href}</div>
+              <div>Cookies: {document.cookie || 'None'}</div>
+            </div>
           </>
         )}
       </LoginCard>

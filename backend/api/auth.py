@@ -51,7 +51,7 @@ def google_login():
         key="oauth_state",
         value=state,
         httponly=True,
-        secure=True,  # Set to False for local development
+        secure=True,  # Set to True for production with HTTPS
         samesite='lax',
         max_age=600  # 10 minutes
     )
@@ -187,7 +187,7 @@ def google_callback(
             value=session_token,
             httponly=True,
             samesite='lax',
-            secure=True,  # Set to False for local development
+            secure=True,  # Set to True for production with HTTPS
             max_age=JWT_EXPIRE_MINUTES * 60,
             path="/"
         )
@@ -196,7 +196,7 @@ def google_callback(
         response.delete_cookie(
             key="oauth_state",
             path="/",
-            secure=True,
+            secure=True,  # Set to True for production with HTTPS
             samesite='lax'
         )
         
@@ -347,7 +347,7 @@ def logout():
         key=SESSION_COOKIE_NAME,
         path="/",
         samesite='lax',
-        secure=True  # Set to False for local development
+        secure=True  # Set to True for production with HTTPS
     )
     return response
 
