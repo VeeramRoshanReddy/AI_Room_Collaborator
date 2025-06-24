@@ -8,6 +8,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 cryptography==43.0.3
 pycryptodome==3.21.0
+authlib
 
 # Configuration and utilities  
 python-dotenv==1.0.1
