@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "version": 2,
   "builds": [
     {
@@ -20,4 +21,9 @@
     "REACT_APP_SUPABASE_ANON_KEY": "@react_app_supabase_anon_key",
     "REACT_APP_API_URL": "@react_app_api_url"
   }
+=======
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://ai-room-collaborator.onrender.com/api/$1" }
+  ]
+>>>>>>> 64226f0 (Included Supabase Auth)
 } 

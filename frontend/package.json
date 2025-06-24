@@ -20,7 +20,8 @@
     "react-toastify": "^10.0.6",
     "socket.io-client": "^4.7.4",
     "styled-components": "^6.1.19",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "@supabase/supabase-js": "^2.39.7"
   },
   "scripts": {
     "start": "react-scripts start",

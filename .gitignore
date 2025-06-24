@@ -166,6 +166,8 @@ ui-debug.log
 # Node/React
 frontend/node_modules/
 frontend/build/
+frontend/dist/
+*.tgz
 
 # Python
 backend/.venv/
@@ -180,15 +182,83 @@ backend/coverage/
 backend/dist/
 backend/*.egg-info/
 
-# System
-.DS_Store
-*.log
-*.sqlite3
+# Environment Variables
+.env.*
 
-# IDEs
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build/Dist
+build/
+dist/
+*/build/
+*/dist/
+
+# Coverage
+coverage/
+*.lcov
+.nyc_output
+
+# IDEs and editors
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Misc
-.env
-.env.* 
+# OS Generated Files
+.DS_Store
+Thumbs.db
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Miscellaneous
+tmp/
+temp/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.node_repl_history
+jspm_packages/
+.eslintcache
+.yarn-integrity
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+.vercel/
+
+# Database/Secrets
+*.db
+*.sqlite
+*.sqlite3
+*.pem
+*.key
+*.crt
+*.bak
+*.backup
+
+# Public/Static Output
+public/
+
+# Archive/Backup
+*.zip
+*.tar.gz
+*.rar
+
+# Local/Temp
+.local
+
+# Remove duplicate or unnecessary entries below this line 

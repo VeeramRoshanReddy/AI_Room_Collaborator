@@ -8,6 +8,8 @@ from core.database import get_db
 from core.config import settings
 from models.postgresql.user import User as PGUser
 import logging
+import requests
+from jose import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -146,3 +148,28 @@ def verify_admin_user(current_user: PGUser = Depends(get_current_user)) -> PGUse
         )
     
     return current_user
+
+def get_supabase_jwk():
+    jwks_url = f"{settings.SUPABASE_URL}/auth/v1/keys"
+    resp = requests.get(jwks_url)
+    resp.raise_for_status()
+    return resp.json()["keys"]
+
+def verify_supabase_jwt(token: str):
+    jwks = get_supabase_jwk()
+    header = jwt.get_unverified_header(token)
+    key = next((k for k in jwks if k["kid"] == header["kid"]), None)
+    if not key:
+        raise HTTPException(status_code=401, detail="Invalid Supabase JWT")
+    return jwt.decode(token, key, algorithms=["RS256"], audience=None, options={"verify_aud": False})
+
+async def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No auth token")
+    token = auth_header.split(" ")[1]
+    try:
+        payload = verify_supabase_jwt(token)
+        return payload  # contains user info
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Invalid token")
