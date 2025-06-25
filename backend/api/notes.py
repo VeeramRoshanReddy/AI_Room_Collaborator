@@ -253,13 +253,19 @@ async def query_document(
 
 @router.get("/notes")
 async def get_user_notes(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Get all notes for the current user."""
     try:
-        notes = db.query(PGNote).filter(PGNote.created_by == user.id).all()
-        return {"notes": [n.to_dict() for n in notes]}
+        mongo_db = get_mongo_db()
+        if mongo_db is None:
+            raise HTTPException(status_code=500, detail="MongoDB connection not available")
+        notes_cursor = mongo_db.notes.find({"user_id": user.id})
+        notes = []
+        async for note in notes_cursor:
+            note["_id"] = str(note["_id"])
+            notes.append(note)
+        return {"notes": notes}
     except Exception as e:
         logger.error(f"Error fetching user notes: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch notes: {str(e)}")
+        return {"notes": [], "detail": f"Failed to fetch notes: {str(e)}"}
 
 @router.delete("/note/{file_id}")
 async def delete_note(file_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):

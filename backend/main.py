@@ -176,6 +176,10 @@ async def startup_event():
 async def shutdown_event():
     logger.info("AI Learning Platform API shutting down...")
 
+@app.api_route('/{full_path:path}', methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def catch_all_global(full_path: str, request: Request):
+    return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Not found", "path": f"/{full_path}"})
+
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
