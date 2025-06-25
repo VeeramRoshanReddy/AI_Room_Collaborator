@@ -617,13 +617,11 @@ const Rooms = () => {
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
     const newMessage = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 1, text: chatInput, isUser: true, sender: user?.name, avatar: user?.avatar, time: new Date().toLocaleTimeString() };
-    
     setRoomChatMessages(prev => ({
       ...prev,
       [selectedTopic.title]: [...(prev[selectedTopic.title] || []), newMessage]
     }));
     setChatInput('');
-
     if (chatInput.toLowerCase().includes('@chatbot')) {
       setTimeout(() => {
         const aiResponse = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 2, text: "AI: I'm here to help your group!", isUser: false, sender: 'AI', avatar: '/ai_logo.png', time: new Date().toLocaleTimeString() };
@@ -633,8 +631,10 @@ const Rooms = () => {
         }));
       }, 1000);
     }
-
-    const ws = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.id}`);
+    // Construct WebSocket URL dynamically
+    const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
+    const wsUrl = backendUrl.replace(/^http/, 'ws') + `/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.id}`;
+    const ws = new WebSocket(wsUrl);
     ws.send(JSON.stringify({ type: chatInput.startsWith('@chatbot') ? 'ai_request' : 'chat', content: chatInput }));
   };
   // Leave room
