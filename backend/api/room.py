@@ -11,13 +11,20 @@ import uuid
 router = APIRouter()
 supabase_service = SupabaseService()
 
+try:
+    import jwt
+except ImportError:
+    # jwt is required for authentication. Please install with 'pip install PyJWT'
+    jwt = None
+
 # Helper: get current user from session cookie
 async def get_current_user(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("airoom_session")
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     # Decode JWT (reuse logic from auth)
-    import jwt
+    if jwt is None:
+        raise ImportError("PyJWT is required for authentication. Please install with 'pip install PyJWT'")
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id = payload["user"]["sub"]
@@ -53,8 +60,10 @@ async def join_room(data: Dict[str, Any], user: User = Depends(get_current_user)
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    # TODO: Check password (implement password storage/validation)
-    # For now, assume password is correct
+    # Password validation (assume room.password exists, else skip)
+    # TODO: Implement password storage and validation in Room model
+    # if hasattr(room, 'password') and room.password != password:
+    #     raise HTTPException(status_code=403, detail="Incorrect room password")
     # Add user as member (pending approval logic can be added)
     db.execute(room_members.insert().values(room_id=room_id, user_id=user.id))
     db.commit()
@@ -113,6 +122,7 @@ async def delete_room(data: Dict[str, Any], user: User = Depends(get_current_use
     db.execute(room_admins.delete().where(room_admins.c.room_id == room_id))
     db.query(Room).filter(Room.id == room_id).delete()
     db.commit()
+    # TODO: Cascade delete chat logs and topics in MongoDB for this room
     return {"message": "Room deleted", "room_id": room_id}
 
 @router.get("/list")

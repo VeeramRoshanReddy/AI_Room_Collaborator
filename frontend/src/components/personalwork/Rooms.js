@@ -511,7 +511,7 @@ const fetchRooms = async (setRooms, setLoading, setError) => {
   setLoading(true);
   setError(null);
   try {
-    const res = await fetch(`${API_BASE}/room/list`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/api/room/list`, { credentials: 'include' });
     if (!res.ok) throw new Error('Failed to fetch rooms');
     const data = await res.json();
     setRooms(data.rooms || []);
@@ -526,7 +526,7 @@ const fetchTopics = async (roomId, setSelectedRoom, setLoading, setError) => {
   setLoading(true);
   setError(null);
   try {
-    const res = await fetch(`${API_BASE}/topic/list/${roomId}`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/api/topic/list/${roomId}`, { credentials: 'include' });
     if (!res.ok) throw new Error('Failed to fetch topics');
     const data = await res.json();
     setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
@@ -669,7 +669,7 @@ const Rooms = () => {
       }, 1000);
     }
 
-    const ws = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.email}`);
+    const ws = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.id}`);
     ws.send(JSON.stringify({ type: chatInput.startsWith('@chatbot') ? 'ai_request' : 'chat', content: chatInput }));
   };
   // Leave room
