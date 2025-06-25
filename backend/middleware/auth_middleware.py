@@ -235,3 +235,13 @@ def get_optional_user(
         return get_current_user(request, credentials, db)
     except HTTPException:
         return None
+
+def verify_admin_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> PGUser:
+    user = get_current_user(request, credentials, db)
+    if not getattr(user, 'is_admin', False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+    return user
