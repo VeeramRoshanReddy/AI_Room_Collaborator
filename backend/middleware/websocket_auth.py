@@ -22,7 +22,10 @@ def get_supabase_jwks():
     """Fetch Supabase JWT signing keys"""
     try:
         jwks_url = f"{settings.SUPABASE_URL}/auth/v1/keys"
-        resp = requests.get(jwks_url, timeout=5)
+        headers = {"apikey": settings.SUPABASE_ANON_KEY}
+        logger.info(f"Fetching Supabase JWKS from {jwks_url} with apikey header")
+        resp = requests.get(jwks_url, headers=headers, timeout=5)
+        logger.info(f"JWKS fetch response status: {resp.status_code}")
         resp.raise_for_status()
         return resp.json()["keys"]
     except Exception as e:
