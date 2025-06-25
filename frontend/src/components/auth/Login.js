@@ -300,17 +300,6 @@ const Login = () => {
         )}
         
         <GoogleButtonContainer>
-          <GoogleButton onClick={handleGoogleLogin} disabled={isLoading || loading}>
-            <img 
-              src="/google_g_logo.png" 
-              alt="Google Logo" 
-              style={{ width: 24, height: 24 }} 
-            />
-            {isLoading ? 'Redirecting...' : 'Sign in with Google'}
-          </GoogleButton>
-        </GoogleButtonContainer>
-        
-        <GoogleButtonContainer>
           <GoogleButton type="button" onClick={signInWithGoogle}>
             <svg width="20" height="20" viewBox="0 0 48 48"><g><path fill="#4285F4" d="M24 9.5c3.54 0 6.7 1.22 9.19 3.22l6.85-6.85C35.64 2.36 30.13 0 24 0 14.82 0 6.73 5.48 2.69 13.44l7.98 6.2C12.13 13.09 17.62 9.5 24 9.5z"/><path fill="#34A853" d="M46.1 24.5c0-1.64-.15-3.22-.42-4.74H24v9.04h12.42c-.54 2.9-2.18 5.36-4.64 7.04l7.18 5.6C43.98 37.36 46.1 31.36 46.1 24.5z"/><path fill="#FBBC05" d="M10.67 28.04c-1.01-2.99-1.01-6.09 0-9.08l-7.98-6.2C.99 16.36 0 20.05 0 24c0 3.95.99 7.64 2.69 11.24l7.98-6.2z"/><path fill="#EA4335" d="M24 48c6.13 0 11.64-2.03 15.64-5.52l-7.18-5.6c-2.01 1.35-4.59 2.12-8.46 2.12-6.38 0-11.87-3.59-14.33-8.74l-7.98 6.2C6.73 42.52 14.82 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></g></svg>
             Sign in with Google
