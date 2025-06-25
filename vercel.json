@@ -18,10 +18,5 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "env": {
-    "REACT_APP_SUPABASE_URL": "@REACT_APP_SUPABASE_URL",
-    "REACT_APP_SUPABASE_ANON_KEY": "@REACT_APP_SUPABASE_ANON_KEY",
-    "REACT_APP_API_URL": "@REACT_APP_API_URL"
-  }
+  ]
 }
