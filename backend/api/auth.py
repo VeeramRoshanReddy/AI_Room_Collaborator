@@ -48,7 +48,7 @@ def auth_status(current_user = Depends(get_optional_user)):
 
 @router.post("/login")
 async def login(response: Response):
-    """Demo login endpoint - creates a session cookie"""
+    """Demo login endpoint - creates a session cookie and returns JWT token"""
     # Dummy user for demonstration; replace with real auth logic
     user = {"id": "demo-user-id", "email": "demo@example.com"}
     jwt_token = jwt.encode(
@@ -64,4 +64,4 @@ async def login(response: Response):
         secure=True,
         path="/"
     )
-    return {"message": "Login successful", "user": user}
+    return {"message": "Login successful", "user": user, "token": jwt_token}

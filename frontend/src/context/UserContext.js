@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
+import jwt_decode from 'jwt-decode';
 
 export const UserContext = createContext();
 
@@ -10,39 +11,32 @@ export const UserProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // On mount, check for existing Supabase session
-    const getSession = async () => {
+    // On mount, check for existing token in localStorage
+    const token = localStorage.getItem('airoom_token');
+    if (token) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
-      } catch (error) {
-        console.error('Error getting session:', error);
-        setError('Failed to get session');
-      } finally {
-        setLoading(false);
+        const decoded = jwt_decode(token);
+        setUser(decoded.user);
+        setSession({ user: decoded.user });
+      } catch (e) {
+        localStorage.removeItem('airoom_token');
       }
-    };
-    getSession();
-
-    // Listen for auth state changes
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => {
-      listener?.subscription.unsubscribe();
-    };
+    }
+    setLoading(false);
   }, []);
 
   // Add makeAuthenticatedRequest helper
   const makeAuthenticatedRequest = async (url, options = {}) => {
     const baseUrl = process.env.REACT_APP_API_URL || '';
     const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+    const token = localStorage.getItem('airoom_token');
+    const headers = {
+      ...(options.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
     const opts = {
       ...options,
+      headers,
       credentials: 'include',
     };
     const response = await fetch(fullUrl, opts);
@@ -57,9 +51,10 @@ export const UserProvider = ({ children }) => {
   const handleLogout = async () => {
     setLoading(true);
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut?.();
       setUser(null);
       setSession(null);
+      localStorage.removeItem('airoom_token');
       window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
@@ -80,8 +75,16 @@ export const UserProvider = ({ children }) => {
       });
       if (!res.ok) throw new Error('Login failed');
       const data = await res.json();
-      setUser(data.user);
-      setSession({ user: data.user });
+      // Store token in localStorage
+      if (data.token) {
+        localStorage.setItem('airoom_token', data.token);
+        const decoded = jwt_decode(data.token);
+        setUser(decoded.user);
+        setSession({ user: decoded.user });
+      } else if (data.user) {
+        setUser(data.user);
+        setSession({ user: data.user });
+      }
     } catch (err) {
       setError(err.message || 'Login error');
     } finally {
