@@ -1335,14 +1335,15 @@ const PersonalWork = () => {
                       )}
                     </NoteActions>
                   </NoteCard>
-                ))}
-              </NotesGrid>
-            </NotesView>
-          ) : (
-            <DocumentView>
-              {/* ...existing DocumentView code... */}
-            </DocumentView>
-          )}
+                ))
+              )}
+            </NotesGrid>
+          </NotesView>
+        ) : (
+          <DocumentView>
+            {/* ...existing DocumentView code... */}
+          </DocumentView>
+        )}
       </PersonalWorkContainer>
     </>
   );
