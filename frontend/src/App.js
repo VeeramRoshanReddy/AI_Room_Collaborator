@@ -97,13 +97,8 @@ const Settings = () => (
 
 // Layout component for authenticated routes
 const AuthenticatedApp = ({ children }) => {
-  const { user, logout } = useUserContext();
+  const { user, handleLogout } = useUserContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  // Handle logout
-  const handleLogout = async () => {
-    await logout();
-  };
 
   return (
     <AuthenticatedLayout>
