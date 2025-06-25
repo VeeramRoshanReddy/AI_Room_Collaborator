@@ -1,5 +1,5 @@
 # middleware/websocket_auth.py
-from fastapi import WebSocket, WebSocketException, status, Query
+from fastapi import WebSocket, WebSocketException, status, Query, Request, Depends, HTTPException
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.config import settings
@@ -195,3 +195,47 @@ async def get_websocket_user(websocket: WebSocket, db: Session) -> PGUser:
     except Exception as e:
         logger.error(f"WebSocket authentication error: {str(e)}")
         raise WebSocketAuthenticationError(reason="Authentication failed")
+
+# FastAPI dependency for API routes (cookie or header JWT)
+def get_jwt_from_request(request: Request):
+    # Try Authorization header first
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header.split(" ", 1)[1]
+    # Try cookie
+    token = request.cookies.get("airoom_session")
+    if token:
+        return token
+    return None
+
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    token = get_jwt_from_request(request)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_data = payload.get("user", {})
+        user_id = user_data.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        user = db.query(PGUser).filter(PGUser.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
+
+def get_optional_user(request: Request, db: Session = Depends(get_db)):
+    token = get_jwt_from_request(request)
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_data = payload.get("user", {})
+        user_id = user_data.get("sub")
+        if not user_id:
+            return None
+        user = db.query(PGUser).filter(PGUser.id == user_id).first()
+        return user
+    except Exception:
+        return None

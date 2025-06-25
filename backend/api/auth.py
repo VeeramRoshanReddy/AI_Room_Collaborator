@@ -1,6 +1,6 @@
 # api/auth.py
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from middleware.auth_middleware import get_current_user, get_optional_user
+from backend.middleware.auth_middleware import get_current_user, get_optional_user
 from sqlalchemy.orm import Session
 from core.database import get_db
 from models.postgresql.user import User as PGUser
