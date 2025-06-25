@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
 import os
@@ -334,3 +334,7 @@ async def health_check():
         "active_websocket_rooms": len(manager.active_connections),
         "total_websocket_connections": sum(len(connections) for connections in manager.active_connections.values())
     }
+
+@router.api_route('/{full_path:path}', methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def catch_all_notes(full_path: str, request: Request):
+    return JSONResponse(status_code=status.HTTP_405_METHOD_NOT_ALLOWED, content={"detail": "Method not allowed", "path": f"/api/notes/{full_path}"})

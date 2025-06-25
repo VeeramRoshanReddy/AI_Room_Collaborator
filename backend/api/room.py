@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, status
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from core.database import get_db
@@ -164,4 +164,8 @@ async def list_user_rooms(user: PGUser = Depends(get_current_user), db: Session 
     except HTTPException as e:
         raise e
     except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": f"Failed to list rooms: {str(e)}"}) 
+        return JSONResponse(status_code=500, content={"rooms": [], "detail": f"Failed to list rooms: {str(e)}"})
+
+@router.api_route('/{full_path:path}', methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def catch_all_room(full_path: str, request: Request):
+    return JSONResponse(status_code=status.HTTP_405_METHOD_NOT_ALLOWED, content={"detail": "Method not allowed", "path": f"/api/room/{full_path}"}) 
