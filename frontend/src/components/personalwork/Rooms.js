@@ -529,7 +529,6 @@ const Rooms = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [rooms, setRooms] = useState([]); // API-driven
-  const [pending, setPending] = useState([]); // To be API-driven in future
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   // Chat state
@@ -1022,16 +1021,6 @@ const Rooms = () => {
               <RoomActions>
                 <ActionButton onClick={() => handleEnterRoom(room)}><FaSignInAlt /> Enter Room</ActionButton>
               </RoomActions>
-            </RoomBox>
-          ))}
-        </RoomList>
-        <SectionTitle>Pending Rooms</SectionTitle>
-        <RoomList>
-          {pending.map(room => (
-            <RoomBox key={room.id}>
-              <div style={{fontWeight:700,marginBottom:6}}><FaClock style={{marginRight: 8}} />{room.name}</div>
-              <RoomMeta>ID: {room.id}</RoomMeta>
-              <RoomMeta>Status: Pending Approval</RoomMeta>
             </RoomBox>
           ))}
         </RoomList>

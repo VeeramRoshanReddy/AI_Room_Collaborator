@@ -1288,6 +1288,35 @@ const PersonalWork = () => {
         </div>
       )}
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
+      {showCreateNoteForm && (
+        <FormOverlay onClick={() => setShowCreateNoteForm(false)}>
+          <FormBox onClick={e => e.stopPropagation()}>
+            <FormTitle>Create New Note</FormTitle>
+            <FormInput
+              placeholder="Note Title"
+              value={newNoteTitle}
+              onChange={e => setNewNoteTitle(e.target.value)}
+            />
+            <textarea
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '1px solid #e0e7ef',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                color: '#1e293b',
+                minHeight: '100px',
+                resize: 'vertical',
+                fontFamily: 'inherit'
+              }}
+              placeholder="Note Description (Optional)"
+              value={newNoteDescription}
+              onChange={e => setNewNoteDescription(e.target.value)}
+            />
+            <FormButton onClick={handleCreateNote}>Create Note</FormButton>
+          </FormBox>
+        </FormOverlay>
+      )}
       <PersonalWorkContainer>
         {!selectedNote ? (
           <NotesView>
