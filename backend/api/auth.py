@@ -13,7 +13,10 @@ def get_me(current_user = Depends(get_current_user)):
         "user": {
             "id": current_user.id,
             "email": current_user.email,
+            "name": current_user.name,
+            "picture": current_user.picture,
             "supabase_id": getattr(current_user, 'supabase_id', None),
+            "google_id": getattr(current_user, 'google_id', None),
             "is_active": current_user.is_active,
             "created_at": current_user.created_at.isoformat() if hasattr(current_user, 'created_at') else None
         }
@@ -39,7 +42,10 @@ def auth_status(current_user = Depends(get_optional_user)):
             "user": {
                 "id": current_user.id,
                 "email": current_user.email,
+                "name": current_user.name,
+                "picture": current_user.picture,
                 "supabase_id": getattr(current_user, 'supabase_id', None),
+                "google_id": getattr(current_user, 'google_id', None),
                 "is_active": current_user.is_active
             }
         }
@@ -48,7 +54,7 @@ def auth_status(current_user = Depends(get_optional_user)):
 
 @router.post("/login")
 async def login(response: Response):
-    """Demo login endpoint - creates a session cookie and returns JWT token"""
+    """Demo login endpoint - creates a session cookie"""
     # Dummy user for demonstration; replace with real auth logic
     user = {"id": "demo-user-id", "email": "demo@example.com"}
     jwt_token = jwt.encode(
@@ -64,4 +70,4 @@ async def login(response: Response):
         secure=True,
         path="/"
     )
-    return {"message": "Login successful", "user": user, "token": jwt_token}
+    return {"message": "Login successful", "user": user}

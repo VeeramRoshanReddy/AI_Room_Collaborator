@@ -942,7 +942,7 @@ function getCookie(name) {
 }
 
 const PersonalWork = () => {
-  const { user, makeAuthenticatedRequest } = useUserContext();
+  const { user, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
@@ -979,8 +979,8 @@ const PersonalWork = () => {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
   useEffect(() => {
-    if (user) fetchNotes();
-  }, [user]);
+    if (isAuthenticated && user) fetchNotes();
+  }, [isAuthenticated, user]);
 
   // WebSocket for real-time note updates
   useEffect(() => {
@@ -1318,6 +1318,10 @@ const PersonalWork = () => {
       setIsAudioDownloading(false);
     }, 1000);
   };
+
+  if (!isAuthenticated) {
+    return <div style={{textAlign:'center',marginTop:'40px'}}><h2>Please log in to access your personal work.</h2></div>;
+  }
 
   return (
     <>

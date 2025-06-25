@@ -512,7 +512,7 @@ function getCookie(name) {
 }
 
 const Rooms = () => {
-  const { user, makeAuthenticatedRequest } = useUserContext();
+  const { user, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
   const navigate = useNavigate();
   const [view, setView] = useState('rooms'); // rooms | topics | chat
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -801,10 +801,15 @@ const Rooms = () => {
   };
 
   useEffect(() => {
-    fetchRooms(setRooms, setLoading, setError);
-  }, []);
+    if (isAuthenticated) {
+      fetchRooms(setRooms, setLoading, setError);
+    }
+  }, [isAuthenticated]);
 
   // Main render
+  if (!isAuthenticated) {
+    return <CenteredContent><SectionTitle>Please log in to access rooms.</SectionTitle></CenteredContent>;
+  }
   if (loading) {
     return <CenteredContent><SectionTitle>Loading rooms...</SectionTitle></CenteredContent>;
   }
