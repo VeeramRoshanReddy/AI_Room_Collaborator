@@ -12,10 +12,16 @@ export const UserProvider = ({ children }) => {
   useEffect(() => {
     // On mount, check for existing Supabase session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+      } catch (error) {
+        console.error('Error getting session:', error);
+        setError('Failed to get session');
+      } finally {
+        setLoading(false);
+      }
     };
     getSession();
 
@@ -23,6 +29,7 @@ export const UserProvider = ({ children }) => {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     return () => {
@@ -30,17 +37,39 @@ export const UserProvider = ({ children }) => {
     };
   }, []);
 
+  // Add makeAuthenticatedRequest helper
+  const makeAuthenticatedRequest = async (url, options = {}) => {
+    const baseUrl = process.env.REACT_APP_API_URL || '';
+    const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+    const opts = {
+      ...options,
+      credentials: 'include',
+    };
+    const response = await fetch(fullUrl, opts);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Request failed');
+    }
+    return response;
+  };
+
   // Logout function for Supabase Auth
   const handleLogout = async () => {
     setLoading(true);
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setLoading(false);
-    window.location.href = '/login';
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      setError('Failed to logout');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Add handleLogin for demo login
+  // Demo login function (for testing)
   const handleLogin = async () => {
     setLoading(true);
     setError(null);
@@ -69,6 +98,7 @@ export const UserProvider = ({ children }) => {
     setSession,
     handleLogout,
     handleLogin,
+    makeAuthenticatedRequest,
   };
 
   return (

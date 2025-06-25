@@ -504,41 +504,8 @@ const DeleteChatButton = styled.button`
   }
 `;
 
-// Helper for API base URL
-const API_BASE = process.env.REACT_APP_API_URL;
-
-const fetchRooms = async (setRooms, setLoading, setError) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const res = await fetch(`${API_BASE}/api/room/list`, { credentials: 'include' });
-    if (!res.ok) throw new Error('Failed to fetch rooms');
-    const data = await res.json();
-    setRooms(data.rooms || []);
-  } catch (err) {
-    setError(err.message || 'Error fetching rooms');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const fetchTopics = async (roomId, setSelectedRoom, setLoading, setError) => {
-  setLoading(true);
-  setError(null);
-  try {
-    const res = await fetch(`${API_BASE}/api/topic/list/${roomId}`, { credentials: 'include' });
-    if (!res.ok) throw new Error('Failed to fetch topics');
-    const data = await res.json();
-    setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
-  } catch (err) {
-    setError(err.message || 'Error fetching topics');
-  } finally {
-    setLoading(false);
-  }
-};
-
 const Rooms = () => {
-  const { user } = useUserContext();
+  const { user, makeAuthenticatedRequest } = useUserContext();
   const navigate = useNavigate();
   const [view, setView] = useState('rooms'); // rooms | topics | chat
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -612,10 +579,9 @@ const Rooms = () => {
     setError(null);
     try {
       const password = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
-      const res = await fetch(`${API_BASE}/room/create`, {
+      const res = await makeAuthenticatedRequest('/api/room/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ name: newRoomName, password }),
       });
       if (!res.ok) throw new Error('Failed to create room');
@@ -632,10 +598,9 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/room/join`, {
+      const res = await makeAuthenticatedRequest('/room/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ room_id: joinRoomId, password: joinRoomPass }),
       });
       if (!res.ok) throw new Error('Failed to join room');
@@ -677,10 +642,9 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/room/leave`, {
+      const res = await makeAuthenticatedRequest('/room/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ room_id: roomId }),
       });
       if (!res.ok) throw new Error('Failed to leave room');
@@ -698,10 +662,9 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/room/delete`, {
+      const res = await makeAuthenticatedRequest('/room/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ room_id: roomId }),
       });
       if (!res.ok) throw new Error('Failed to delete room');
@@ -720,10 +683,9 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/topic/create`, {
+      const res = await makeAuthenticatedRequest('/topic/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ room_id: selectedRoom.id, title: newTopicTitle, description: newTopicDesc }),
       });
       if (!res.ok) throw new Error('Failed to create topic');
@@ -742,10 +704,9 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/topic/delete`, {
+      const res = await makeAuthenticatedRequest('/topic/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ topic_id: topic.id }),
       });
       if (!res.ok) throw new Error('Failed to delete topic');
@@ -796,11 +757,39 @@ const Rooms = () => {
 
   const handleDeleteChat = async () => {
     if (window.confirm('Are you sure you want to delete this chat conversation?')) {
-      await fetch(`${API_BASE}/chat/history/${selectedRoom.id}/${selectedTopic.id}`, { method: 'DELETE', credentials: 'include' });
+      await makeAuthenticatedRequest('/chat/history/${selectedRoom.id}/${selectedTopic.id}', { method: 'DELETE' });
       setRoomChatMessages(prev => ({
         ...prev,
         [selectedTopic.title]: []
       }));
+    }
+  };
+
+  const fetchRooms = async (setRooms, setLoading, setError) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await makeAuthenticatedRequest('/api/room/list');
+      const data = await res.json();
+      setRooms(data.rooms || []);
+    } catch (err) {
+      setError(err.message || 'Error fetching rooms');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTopics = async (roomId, setSelectedRoom, setLoading, setError) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await makeAuthenticatedRequest('/api/topic/list/${roomId}');
+      const data = await res.json();
+      setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
+    } catch (err) {
+      setError(err.message || 'Error fetching topics');
+    } finally {
+      setLoading(false);
     }
   };
 

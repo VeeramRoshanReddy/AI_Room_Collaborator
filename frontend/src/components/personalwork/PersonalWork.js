@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownload, FaQuestionCircle, FaPlus, FaTimes, FaEllipsisV, FaChevronLeft, FaPause, FaVolumeUp } from 'react-icons/fa';
 import { useUserContext } from '../../context/UserContext';
-import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -936,7 +935,7 @@ const SpeedSubmenu = styled.div`
 `;
 
 const PersonalWork = () => {
-  const { user } = useUserContext();
+  const { user, makeAuthenticatedRequest } = useUserContext();
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
@@ -1027,8 +1026,9 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`${API_BASE}/api/notes/notes`, { withCredentials: true });
-      setNotes(res.data.notes);
+      const res = await makeAuthenticatedRequest('/api/notes/notes');
+      const data = await res.json();
+      setNotes(data.notes);
     } catch (err) {
       setError('Failed to load notes');
     } finally {
@@ -1043,7 +1043,10 @@ const PersonalWork = () => {
       const file = event.target.files[0];
       const formData = new FormData();
       formData.append('file', file);
-      await axios.post(`${API_BASE}/api/notes/upload`, formData, { withCredentials: true });
+      const res = await makeAuthenticatedRequest('/api/notes/upload', {
+        method: 'POST',
+        body: formData,
+      });
       await fetchNotes();
       toast.success('File uploaded successfully');
     } catch (err) {
@@ -1057,8 +1060,13 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API_BASE}/api/notes/query`, { file_id: selectedNote.id, question }, { withCredentials: true });
-      setChatHistory([...chatHistory, { question, answer: res.data.answer }]);
+      const res = await makeAuthenticatedRequest('/api/notes/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_id: selectedNote.id, question }),
+      });
+      const data = await res.json();
+      setChatHistory([...chatHistory, { question, answer: data.answer }]);
     } catch (err) {
       setError('Failed to get answer');
     } finally {
@@ -1070,8 +1078,11 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API_BASE}/api/notes/audio/${selectedNote.id}`, {}, { withCredentials: true });
-      setAudioData(res.data);
+      const res = await makeAuthenticatedRequest(`/api/notes/audio/${selectedNote.id}`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      setAudioData(data);
     } catch (err) {
       setError('Failed to generate audio');
     } finally {
@@ -1083,8 +1094,11 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API_BASE}/api/notes/quiz/${selectedNote.id}`, {}, { withCredentials: true });
-      setQuizData(res.data);
+      const res = await makeAuthenticatedRequest(`/api/notes/quiz/${selectedNote.id}`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      setQuizData(data);
     } catch (err) {
       setError('Failed to generate quiz');
     } finally {
@@ -1096,7 +1110,9 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      await axios.delete(`${API_BASE}/api/notes/note/${id}`, { withCredentials: true });
+      await makeAuthenticatedRequest(`/api/notes/note/${id}`, {
+        method: 'DELETE',
+      });
       await fetchNotes();
       if (selectedNote && selectedNote.id === id) setSelectedNote(null);
       toast.success('Note deleted successfully');
@@ -1250,10 +1266,14 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.post(`${API_BASE}/api/notes/create`, {
-        title: newNoteTitle,
-        description: newNoteDescription
-      }, { withCredentials: true });
+      const res = await makeAuthenticatedRequest('/api/notes/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newNoteTitle,
+          description: newNoteDescription
+        }),
+      });
       await fetchNotes();
       setNewNoteTitle('');
       setNewNoteDescription('');

@@ -14,6 +14,7 @@ class User(Base):
     name = Column(String, nullable=False)
     picture = Column(String)  # Google profile picture URL
     google_id = Column(String, unique=True, index=True)  # Google OAuth ID
+    supabase_id = Column(String, unique=True, nullable=True, index=True)  # Supabase Auth ID
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -30,8 +31,9 @@ class User(Base):
             "name": self.name,
             "picture": self.picture,
             "google_id": self.google_id,
+            "supabase_id": self.supabase_id,
             "is_active": self.is_active,
             "is_admin": self.is_admin,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
-        } 
+        }
