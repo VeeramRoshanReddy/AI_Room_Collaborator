@@ -40,6 +40,26 @@ export const UserProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  // Add handleLogin for demo login
+  const handleLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Login failed');
+      const data = await res.json();
+      setUser(data.user);
+      setSession({ user: data.user });
+    } catch (err) {
+      setError(err.message || 'Login error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const contextValue = {
     user,
     session,
@@ -48,6 +68,7 @@ export const UserProvider = ({ children }) => {
     setUser,
     setSession,
     handleLogout,
+    handleLogin,
   };
 
   return (
