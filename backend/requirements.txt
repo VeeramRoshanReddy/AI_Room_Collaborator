@@ -9,6 +9,7 @@ passlib[bcrypt]==1.7.4
 cryptography==43.0.3
 pycryptodome==3.21.0
 authlib
+requests
 
 # Configuration and utilities  
 python-dotenv==1.0.1
