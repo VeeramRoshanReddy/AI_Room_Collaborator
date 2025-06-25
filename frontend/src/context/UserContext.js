@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { supabase } from '../utils/supabaseClient';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -20,13 +21,33 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-const UserContext = createContext();
+export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // On mount, check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth state changes
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   const fetchUser = async () => {
     try {
@@ -75,6 +96,7 @@ export const UserProvider = ({ children }) => {
 
   const contextValue = {
     user,
+    session,
     token,
     loading,
     error,
@@ -82,6 +104,7 @@ export const UserProvider = ({ children }) => {
     handleRegister,
     handleLogout,
     setUser,
+    setSession,
   };
 
   return (
