@@ -148,6 +148,82 @@ async def list_user_rooms(user: PGUser = Depends(get_current_user), db: Session 
     except Exception as e:
         return JSONResponse(status_code=500, content={"rooms": [], "detail": f"Failed to list rooms: {str(e)}"})
 
+@router.post("/make-admin")
+async def make_admin(data: Dict[str, Any], user: PGUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Make a user an admin of a room"""
+    try:
+        room_id = data.get("room_id")
+        user_email = data.get("user_email")
+        
+        if not room_id or not user_email:
+            raise HTTPException(status_code=400, detail="Room ID and user email required")
+        
+        # Check if current user is admin
+        is_admin = db.execute(room_admins.select().where((room_admins.c.room_id == room_id) & (room_admins.c.user_id == user.id))).rowcount > 0
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Only admins can promote users")
+        
+        # Find the user to promote
+        user_to_promote = db.query(PGUser).filter(PGUser.email == user_email).first()
+        if not user_to_promote:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if user is already an admin
+        is_already_admin = db.execute(room_admins.select().where((room_admins.c.room_id == room_id) & (room_admins.c.user_id == user_to_promote.id))).rowcount > 0
+        if is_already_admin:
+            raise HTTPException(status_code=400, detail="User is already an admin")
+        
+        # Add user to admins
+        db.execute(room_admins.insert().values(room_id=room_id, user_id=user_to_promote.id))
+        db.commit()
+        
+        return {"message": "User promoted to admin", "user_email": user_email}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": f"Failed to promote user: {str(e)}"})
+
+@router.delete("/remove-user")
+async def remove_user(data: Dict[str, Any], user: PGUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Remove a user from a room"""
+    try:
+        room_id = data.get("room_id")
+        user_email = data.get("user_email")
+        
+        if not room_id or not user_email:
+            raise HTTPException(status_code=400, detail="Room ID and user email required")
+        
+        # Check if current user is admin
+        is_admin = db.execute(room_admins.select().where((room_admins.c.room_id == room_id) & (room_admins.c.user_id == user.id))).rowcount > 0
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Only admins can remove users")
+        
+        # Find the user to remove
+        user_to_remove = db.query(PGUser).filter(PGUser.email == user_email).first()
+        if not user_to_remove:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if user is trying to remove themselves
+        if user_to_remove.id == user.id:
+            raise HTTPException(status_code=400, detail="You cannot remove yourself")
+        
+        # Check if user is the only admin
+        admin_count = db.execute(room_admins.select().where(room_admins.c.room_id == room_id)).rowcount
+        is_user_admin = db.execute(room_admins.select().where((room_admins.c.room_id == room_id) & (room_admins.c.user_id == user_to_remove.id))).rowcount > 0
+        if is_user_admin and admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Cannot remove the only admin")
+        
+        # Remove user from both members and admins
+        db.execute(room_members.delete().where((room_members.c.room_id == room_id) & (room_members.c.user_id == user_to_remove.id)))
+        db.execute(room_admins.delete().where((room_admins.c.room_id == room_id) & (room_admins.c.user_id == user_to_remove.id)))
+        db.commit()
+        
+        return {"message": "User removed from room", "user_email": user_email}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": f"Failed to remove user: {str(e)}"})
+
 @router.api_route('/{full_path:path}', methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 async def catch_all_room(full_path: str, request: Request):
     return JSONResponse(status_code=status.HTTP_405_METHOD_NOT_ALLOWED, content={"detail": "Method not allowed", "path": f"/api/room/{full_path}"}) 

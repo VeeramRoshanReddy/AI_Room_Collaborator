@@ -9,12 +9,15 @@ from core.database import get_db, get_mongo_db
 from services.ai_service import ai_service
 from services.encryption_service import encryption_service, get_topic_encryption_key
 from core.config import settings
-from models.postgresql.room import Room, room_members
+from models.postgresql.room import Room, room_members, room_admins
 from models.postgresql.topic import Topic
 from models.postgresql.user import User
 from models.mongodb.chat_log import ChatLog, ChatMessage
 from middleware.websocket_auth import get_websocket_user, WebSocketAuthenticationError
+from middleware.auth_middleware import get_current_user
 import uuid
+from fastapi.responses import JSONResponse
+from fastapi import status
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -563,16 +566,47 @@ async def get_chat_history(room_id: str, topic_id: str, limit: int = 50):
         logger.error(f"Error getting chat history: {e}")
         raise HTTPException(status_code=500, detail="Failed to get chat history")
 
-@router.delete("/history/{room_id}/{topic_id}")
-async def clear_chat_history(room_id: str, topic_id: str):
-    """Clear chat history for a room"""
+@router.delete("/delete")
+async def delete_chat(data: Dict[str, Any], user: Any = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Delete chat messages for a specific room and topic"""
     try:
+        room_id = data.get("room_id")
+        topic_title = data.get("topic_title")
+        
+        if not room_id or not topic_title:
+            raise HTTPException(status_code=400, detail="Room ID and topic title required")
+        
+        # Check if user is admin of the room
+        is_admin = db.execute(room_admins.select().where((room_admins.c.room_id == room_id) & (room_admins.c.user_id == user.id))).rowcount > 0
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Only admins can delete chat conversations")
+        
+        # Get topic ID from topic title
+        topic = db.query(Topic).filter(Topic.room_id == room_id, Topic.title == topic_title).first()
+        if not topic:
+            raise HTTPException(status_code=404, detail="Topic not found")
+        
         mongo_db = get_mongo_db()
         if mongo_db is None:
             raise HTTPException(status_code=500, detail="MongoDB connection not available")
         
-        await mongo_db.chat_logs.delete_one({"room_id": room_id, "topic_id": topic_id})
-        return {"message": "Chat history cleared", "room_id": room_id, "topic_id": topic_id}
+        # Delete chat messages for this topic
+        result = await mongo_db.chat_logs.delete_one({
+            "room_id": room_id,
+            "topic_id": topic.id
+        })
+        
+        if result.deleted_count > 0:
+            return {"message": "Chat conversation deleted successfully", "room_id": room_id, "topic_title": topic_title}
+        else:
+            return {"message": "No chat messages found to delete", "room_id": room_id, "topic_title": topic_title}
+            
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        logger.error(f"Error clearing chat history: {e}")
-        raise HTTPException(status_code=500, detail="Failed to clear chat history") 
+        logger.error(f"Error deleting chat: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete chat: {str(e)}")
+
+@router.api_route('/{full_path:path}', methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def catch_all_chat(full_path: str, request: Request):
+    return JSONResponse(status_code=status.HTTP_405_METHOD_NOT_ALLOWED, content={"detail": "Method not allowed", "path": f"/api/chat/{full_path}"}) 
