@@ -2,13 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  FaHome,
-  FaUsers,
-  FaBook,
-  FaChevronLeft,
-  FaChevronRight
-} from 'react-icons/fa';
+import { FaHome, FaUsers, FaBook } from 'react-icons/fa';
 
 const SidebarContainer = styled(motion.div)`
   background: linear-gradient(180deg, rgba(29,78,216,0.9) 0%, rgba(37,99,235,0.9) 100%, #fff 10%);

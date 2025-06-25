@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaPlus, FaSignInAlt, FaUsers, FaClock, FaArrowLeft, FaCommentDots, FaUserShield, FaUser, FaCrown, FaTimes, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 const NoScrollWrapper = styled.div`
@@ -84,27 +84,6 @@ const SidebarToggle = styled.button`
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
   cursor: pointer;
   z-index: 20;
-`;
-
-const MemberList = styled.div`
-  flex: 0 0 20%;
-  background: #f1f5fd;
-  border-radius: 0 14px 14px 0;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.06);
-  padding: 24px 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 120px;
-  max-width: 220px;
-  height: 100%;
-  margin: 0;
-`;
-
-const MemberTitle = styled.div`
-  font-weight: 700;
-  color: #2563eb;
-  margin-bottom: 12px;
 `;
 
 const MemberName = styled.div`
@@ -217,16 +196,6 @@ const ActionButton = styled.button`
   transition: background 0.2s;
   &:hover {
     background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
-  }
-`;
-
-const LeaveRoomButton = styled(ActionButton)`
-  background: none; /* Remove background gradient */
-  color: #FFD700; /* Yellow text */
-  border: 1px solid #FFD700; /* Yellow border */
-  &:hover {
-    color: #FFF; /* White text on hover */
-    background: #FFD700; /* Yellow background on hover */
   }
 `;
 
