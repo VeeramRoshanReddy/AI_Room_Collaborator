@@ -786,6 +786,13 @@ const Rooms = () => {
     setError(null);
     try {
       const res = await makeAuthenticatedRequest('/api/room/list');
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // Received HTML or other non-JSON (likely an error page)
+        const text = await res.text();
+        setError('Server error: Received non-JSON response.');
+        return;
+      }
       const data = await res.json();
       setRooms(data.rooms || []);
     } catch (err) {
