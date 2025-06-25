@@ -199,6 +199,8 @@ async def delete_note(file_id: str, user: User = Depends(get_current_user), db: 
     db.commit()
     # Delete AI/quiz/audio logs in MongoDB
     mongo_db = get_mongo_db()
+    if mongo_db is None:
+        raise HTTPException(status_code=500, detail="MongoDB connection not available")
     await mongo_db.ai_responses.delete_many({"document_id": file_id})
     await mongo_db.quiz_responses.delete_many({"document_id": file_id})
     await mongo_db.audio_responses.delete_many({"document_id": file_id})
@@ -212,4 +214,23 @@ async def health_check():
         "service": "notes",
         "timestamp": datetime.now().isoformat(),
         "encryption_enabled": settings.CHAT_ENCRYPTION_ENABLED
-    } 
+    }
+
+@router.post("/create")
+async def create_text_note(data: Dict[str, Any], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Create a new text note (not file upload)."""
+    title = data.get("title")
+    description = data.get("description", "")
+    if not title:
+        raise HTTPException(status_code=400, detail="Note title required")
+    note_id = str(uuid.uuid4())
+    note = PGNote(
+        id=note_id,
+        title=title,
+        description=description,
+        created_by=user.id,
+        created_at=datetime.utcnow()
+    )
+    db.add(note)
+    db.commit()
+    return {"note": note.to_dict(), "message": "Note created"} 

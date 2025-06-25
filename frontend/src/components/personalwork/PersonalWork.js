@@ -1245,18 +1245,25 @@ const PersonalWork = () => {
     });
   };
 
-  const handleCreateNote = () => {
+  const handleCreateNote = async () => {
     if (!newNoteTitle.trim()) return;
-    const newNote = {
-      id: notes.length + 1,
-      title: newNoteTitle,
-      description: newNoteDescription,
-      date: new Date().toISOString().slice(0, 10)
-    };
-    setNotes(prev => [...prev, newNote]);
-    setNewNoteTitle('');
-    setNewNoteDescription('');
-    setShowCreateNoteForm(false);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.post(`${API_BASE}/api/notes/create`, {
+        title: newNoteTitle,
+        description: newNoteDescription
+      }, { withCredentials: true });
+      await fetchNotes();
+      setNewNoteTitle('');
+      setNewNoteDescription('');
+      setShowCreateNoteForm(false);
+      toast.success('Note created successfully');
+    } catch (err) {
+      setError('Failed to create note');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBackToNotes = () => {
@@ -1322,7 +1329,7 @@ const PersonalWork = () => {
                   <NoteCard key={note.id}>
                     <NoteTitle>{note.title}</NoteTitle>
                     <NoteDescription>{note.description}</NoteDescription>
-                    <NoteDate>Created on: {note.date}</NoteDate>
+                    <NoteDate>Created on: {note.created_at ? note.created_at.slice(0, 10) : note.date}</NoteDate>
                     <EnterNoteButton onClick={() => setSelectedNote(note)}>
                       Enter Note
                     </EnterNoteButton>
@@ -1509,7 +1516,7 @@ const PersonalWork = () => {
                       <CompactAudioPlayerContainer>
                         <audio
                           ref={audioRef}
-                          src="/path/to/your/simulated-audio.mp3"
+                          src={audioData?.url || ''}
                           preload="metadata"
                         />
 
