@@ -1034,40 +1034,198 @@ const Rooms = () => {
 
   // Delete topic with confirmation
   const handleDeleteTopic = async (topic) => {
-    if (!window.confirm(`Are you sure you want to delete the topic "${topic.title}"?`)) {
+    if (!user) {
+      toast.error('You must be logged in to delete topics');
       return;
     }
-    
-    setDeletingTopic(true);
-    setError(null);
-    
+
+    if (!isAdmin(selectedRoom) && topic.createdBy !== user.name) {
+      setShowAuthError(true);
+      return;
+    }
+
     try {
-      const res = await makeAuthenticatedRequest('/api/topic/delete', {
+      setLoading(true);
+      const token = getAuthToken(session);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/topic/delete`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic_id: topic.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          room_id: selectedRoom.id,
+          topic_title: topic.title
+        })
       });
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to delete topic');
+
+      if (response.ok) {
+        toast.success('Topic deleted successfully');
+        // Remove topic from local state
+        setSelectedRoom(prev => ({
+          ...prev,
+          topics: prev.topics.filter(t => t.title !== topic.title)
+        }));
+        // Clear chat messages for this topic
+        setRoomChatMessages(prev => {
+          const newMessages = { ...prev };
+          delete newMessages[topic.title];
+          return newMessages;
+        });
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.detail || 'Failed to delete topic');
       }
-      
-      // Remove topic from state
-      setSelectedRoom(prev => prev ? {
-        ...prev,
-        topics: prev.topics.filter(t => t.id !== topic.id)
-      } : prev);
-      
-      setShowTopicMenu(null);
-      toast.success('Topic deleted successfully');
-      
-    } catch (err) {
-      const errorMessage = err.message || 'Error deleting topic';
-      setError(errorMessage);
-      toast.error(errorMessage);
+    } catch (error) {
+      console.error('Error deleting topic:', error);
+      toast.error('Failed to delete topic');
     } finally {
-      setDeletingTopic(false);
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    if (!user || !selectedTopic) {
+      toast.error('No topic selected for chat deletion');
+      return;
+    }
+
+    if (!isAdmin(selectedRoom)) {
+      toast.error('Only admins can delete chat conversations');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const token = getAuthToken(session);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/chat/delete`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          room_id: selectedRoom.id,
+          topic_title: selectedTopic.title
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Chat conversation deleted successfully');
+        // Clear chat messages for this topic
+        setRoomChatMessages(prev => {
+          const newMessages = { ...prev };
+          delete newMessages[selectedTopic.title];
+          return newMessages;
+        });
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.detail || 'Failed to delete chat conversation');
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+      toast.error('Failed to delete chat conversation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMakeAdmin = async (userToPromote) => {
+    if (!user || !selectedRoom) {
+      toast.error('No room selected');
+      return;
+    }
+
+    if (!isAdmin(selectedRoom)) {
+      toast.error('Only admins can promote users');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const token = getAuthToken(session);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/room/make-admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          room_id: selectedRoom.id,
+          user_email: userToPromote.email
+        })
+      });
+
+      if (response.ok) {
+        toast.success(`${userToPromote.name} is now an admin`);
+        // Update local state
+        setSelectedRoom(prev => ({
+          ...prev,
+          admins: [...prev.admins, userToPromote],
+          members: prev.members.filter(m => m.email !== userToPromote.email)
+        }));
+        setMemberAction({ show: false, user: null, anchor: null });
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.detail || 'Failed to promote user');
+      }
+    } catch (error) {
+      console.error('Error promoting user:', error);
+      toast.error('Failed to promote user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveUser = async (userToRemove) => {
+    if (!user || !selectedRoom) {
+      toast.error('No room selected');
+      return;
+    }
+
+    if (!isAdmin(selectedRoom)) {
+      toast.error('Only admins can remove users');
+      return;
+    }
+
+    if (userToRemove.email === user.email) {
+      toast.error('You cannot remove yourself');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const token = getAuthToken(session);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/room/remove-user`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          room_id: selectedRoom.id,
+          user_email: userToRemove.email
+        })
+      });
+
+      if (response.ok) {
+        toast.success(`${userToRemove.name} has been removed from the room`);
+        // Update local state
+        setSelectedRoom(prev => ({
+          ...prev,
+          admins: prev.admins.filter(a => a.email !== userToRemove.email),
+          members: prev.members.filter(m => m.email !== userToRemove.email)
+        }));
+        setMemberAction({ show: false, user: null, anchor: null });
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.detail || 'Failed to remove user');
+      }
+    } catch (error) {
+      console.error('Error removing user:', error);
+      toast.error('Failed to remove user');
+    } finally {
+      setLoading(false);
     }
   };
 
