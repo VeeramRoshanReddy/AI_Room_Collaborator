@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { useUserContext } from '../../context/UserContext';
 
 const NoScrollWrapper = styled.div`
   height: 100%;
@@ -537,6 +538,7 @@ const fetchTopics = async (roomId, setSelectedRoom, setLoading, setError) => {
 };
 
 const Rooms = () => {
+  const { user } = useUserContext();
   const navigate = useNavigate();
   const [view, setView] = useState('rooms'); // rooms | topics | chat
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -563,8 +565,6 @@ const Rooms = () => {
   const [adminLeavePrompt, setAdminLeavePrompt] = useState(false); // For admin leave room prompt
   const [leavingRoomId, setLeavingRoomId] = useState(null); // To store the room ID when admin tries to leave
   const [roomChatMessages, setRoomChatMessages] = useState({}); // Stores chat messages for each topic
-  // Simulate current user
-  const currentUser = { name: 'Alice', email: 'alice@gmail.com', avatar: 'https://randomuser.me/api/portraits/women/1.jpg' };
   const [newRoomName, setNewRoomName] = useState('');
   const [joinRoomId, setJoinRoomId] = useState('');
   const [joinRoomPass, setJoinRoomPass] = useState('');
@@ -573,7 +573,7 @@ const Rooms = () => {
   const memberList = selectedRoom ? [...selectedRoom.members].sort() : [];
 
   // Helper: check if current user is admin in a room
-  const isAdmin = (room) => room.admins.some(a => a.email === currentUser.email);
+  const isAdmin = (room) => room.admins.some(a => a.email === user?.email);
 
   // Helper: get sorted admins and members
   const getSortedAdmins = (room) => [...room.admins].sort((a, b) => a.name.localeCompare(b.name));
@@ -651,7 +651,7 @@ const Rooms = () => {
   // Chat send
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
-    const newMessage = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 1, text: chatInput, isUser: true, sender: currentUser.name, avatar: currentUser.avatar, time: new Date().toLocaleTimeString() };
+    const newMessage = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 1, text: chatInput, isUser: true, sender: user?.name, avatar: user?.avatar, time: new Date().toLocaleTimeString() };
     
     setRoomChatMessages(prev => ({
       ...prev,
@@ -669,7 +669,7 @@ const Rooms = () => {
       }, 1000);
     }
 
-    const ws = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${currentUser.email}`);
+    const ws = new WebSocket(`${API_BASE.replace(/^http/, 'ws')}/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.email}`);
     ws.send(JSON.stringify({ type: chatInput.startsWith('@chatbot') ? 'ai_request' : 'chat', content: chatInput }));
   };
   // Leave room
@@ -914,7 +914,7 @@ const Rooms = () => {
                   <ThreeDotsIcon onClick={(e) => { e.stopPropagation(); setShowTopicMenu(topic.title); }}><FaEllipsisV /></ThreeDotsIcon>
                   {showTopicMenu === topic.title && (
                     <DropdownMenu>
-                      {(isAdmin(selectedRoom) || topic.createdBy === currentUser.name) && (
+                      {(isAdmin(selectedRoom) || topic.createdBy === user?.name) && (
                         <DropdownMenuItem className="delete" onClick={() => handleDeleteTopic(topic)}><FaTrash /> Delete Topic</DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => setShowTopicMenu(null)}><FaTimes /> Cancel</DropdownMenuItem>
