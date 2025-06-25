@@ -963,20 +963,28 @@ const getAuthToken = (session) => {
 // Function to establish WebSocket connection for notes
 const connectWebSocket = (user, session, fetchNotes, toast) => {
   const token = getAuthToken(session);
-  if (!token || !user?.id) {
-    console.error('No authentication token or user ID available for WebSocket');
-    return null;
-  }
-  // Determine WebSocket URL based on environment
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsHost = process.env.REACT_APP_API_URL 
     ? process.env.REACT_APP_API_URL.replace(/^https?:\/\//, '')
     : window.location.host;
   const wsUrl = `${wsProtocol}//${wsHost}/api/notes/ws/${user.id}?token=${encodeURIComponent(token)}`;
-  console.log('Connecting to WebSocket:', wsUrl);
+  console.log('[WebSocket] Attempting connection:', wsUrl, 'Token:', token);
+  if (!token || !user?.id) {
+    toast.error('No authentication token or user ID for WebSocket');
+    console.error('[WebSocket] No authentication token or user ID for WebSocket');
+    return null;
+  }
   const ws = new window.WebSocket(wsUrl);
   ws.onopen = () => {
-    console.log('WebSocket connected successfully');
+    console.log('[WebSocket] Connected successfully:', wsUrl);
+  };
+  ws.onclose = (event) => {
+    toast.error(`WebSocket closed: ${event.reason || event.code}`);
+    console.error('[WebSocket] Closed:', event);
+  };
+  ws.onerror = (err) => {
+    toast.error('WebSocket error');
+    console.error('[WebSocket] Error:', err);
   };
   ws.onmessage = (event) => {
     try {
@@ -986,10 +994,9 @@ const connectWebSocket = (user, session, fetchNotes, toast) => {
         toast.info('Notes updated in real-time');
       }
     } catch (e) {
-      console.error('WebSocket message parse error:', e);
+      console.error('[WebSocket] Message parse error:', e);
     }
   };
-  ws.onerror = () => toast.error('WebSocket error');
   return ws;
 };
 

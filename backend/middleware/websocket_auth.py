@@ -87,30 +87,25 @@ def verify_demo_jwt(token: str) -> dict:
 
 def extract_token_from_websocket(websocket: WebSocket) -> Tuple[Optional[str], str]:
     """Extract token from WebSocket connection"""
-    
     # Try Authorization header first (for Supabase tokens)
     auth_header = websocket.headers.get("authorization") or websocket.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ", 1)[1]
-        logger.debug("Token found in WebSocket Authorization header (Supabase)")
+        logger.info(f"[WebSocket] Token found in Authorization header (Supabase): {token[:12]}...{token[-12:]}")
         return token, "supabase"
-    
     # Try query parameters
     query_string = websocket.url.query if websocket.url.query else ""
     query_params = parse_qs(query_string)
-    
     # Check for token in query params (Supabase)
     if "token" in query_params and query_params["token"]:
         token = query_params["token"][0]
-        logger.debug("Token found in WebSocket query params (Supabase)")
+        logger.info(f"[WebSocket] Token found in query params (Supabase): {token[:12]}...{token[-12:]}")
         return token, "supabase"
-    
     # Check for cookie token in query params (demo - since WebSocket doesn't support cookies directly)
     if "cookie_token" in query_params and query_params["cookie_token"]:
         token = query_params["cookie_token"][0]
-        logger.debug("Cookie token found in WebSocket query params (demo)")
+        logger.info(f"[WebSocket] Cookie token found in query params (demo): {token[:12]}...{token[-12:]}")
         return token, "demo"
-    
     # Try cookies (some browsers/clients might support this)
     cookie_header = websocket.headers.get("cookie") or websocket.headers.get("Cookie")
     if cookie_header:
@@ -120,13 +115,11 @@ def extract_token_from_websocket(websocket: WebSocket) -> Tuple[Optional[str], s
             if '=' in cookie:
                 key, value = cookie.split('=', 1)
                 cookies[key.strip()] = value.strip()
-        
         if "airoom_session" in cookies:
             token = cookies["airoom_session"]
-            logger.debug("Token found in WebSocket cookie (demo)")
+            logger.info(f"[WebSocket] Token found in cookie (demo): {token[:12]}...{token[-12:]}")
             return token, "demo"
-    
-    logger.debug("No token found in WebSocket connection")
+    logger.info("[WebSocket] No token found in WebSocket connection")
     return None, "none"
 
 async def get_websocket_user(websocket: WebSocket, db: Session) -> PGUser:
@@ -134,27 +127,22 @@ async def get_websocket_user(websocket: WebSocket, db: Session) -> PGUser:
     Get authenticated user from WebSocket connection
     Supports both Supabase JWT and demo JWT authentication
     """
-    
     # Extract token from WebSocket
     token, token_type = extract_token_from_websocket(websocket)
+    logger.info(f"[WebSocket] Extracted token type: {token_type}, token: {token[:12]+'...'+token[-12:] if token else None}")
     if not token:
-        logger.warning("No authentication token provided in WebSocket")
+        logger.warning("[WebSocket] No authentication token provided in WebSocket")
         raise WebSocketAuthenticationError(reason="Authentication required")
-    
     try:
         if token_type == "supabase":
-            # Handle Supabase JWT
             payload = verify_supabase_jwt(token)
             user_id = payload.get("sub")
             user_email = payload.get("email")
-            
+            logger.info(f"[WebSocket] Supabase JWT payload: user_id={user_id}, email={user_email}")
             if not user_id:
                 raise WebSocketAuthenticationError(reason="Invalid token - missing user ID")
-            
-            # For Supabase, create or get user from database
             user = db.query(PGUser).filter(PGUser.supabase_id == user_id).first()
             if not user:
-                # Create new user if doesn't exist
                 user_name = payload.get("user_metadata", {}).get("full_name") or payload.get("email", "").split("@")[0]
                 user = PGUser(
                     supabase_id=user_id,
@@ -166,37 +154,30 @@ async def get_websocket_user(websocket: WebSocket, db: Session) -> PGUser:
                 db.add(user)
                 db.commit()
                 db.refresh(user)
-                logger.info(f"Created new user from Supabase: {user_email}")
-            
+                logger.info(f"[WebSocket] Created new user from Supabase: {user_email}")
         elif token_type == "demo":
-            # Handle demo JWT
             payload = verify_demo_jwt(token)
             user_data = payload.get("user", {})
             user_id = user_data.get("sub")
-            
+            logger.info(f"[WebSocket] Demo JWT payload: user_id={user_id}")
             if not user_id:
                 raise WebSocketAuthenticationError(reason="Invalid token - missing user ID")
-            
-            # For demo, get user from database
             user = db.query(PGUser).filter(PGUser.id == user_id).first()
             if not user:
-                logger.warning(f"Demo user not found in database: {user_id}")
+                logger.warning(f"[WebSocket] Demo user not found in database: {user_id}")
                 raise WebSocketAuthenticationError(reason="User not found")
-        
         else:
+            logger.warning(f"[WebSocket] Invalid token type: {token_type}")
             raise WebSocketAuthenticationError(reason="Invalid token type")
-        
         if not user.is_active:
-            logger.warning(f"Inactive user attempted WebSocket access: {user.email}")
+            logger.warning(f"[WebSocket] Inactive user attempted WebSocket access: {user.email}")
             raise WebSocketAuthenticationError(reason="Account is inactive")
-        
-        logger.debug(f"WebSocket authentication successful for user: {user.email}")
+        logger.info(f"[WebSocket] WebSocket authentication successful for user: {user.email}")
         return user
-        
     except WebSocketAuthenticationError:
         raise
     except Exception as e:
-        logger.error(f"WebSocket authentication error: {str(e)}")
+        logger.error(f"[WebSocket] WebSocket authentication error: {str(e)}")
         raise WebSocketAuthenticationError(reason="Authentication failed")
 
 # Dependency function for WebSocket routes
