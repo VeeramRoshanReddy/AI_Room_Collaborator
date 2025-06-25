@@ -1343,9 +1343,9 @@ const PersonalWork = () => {
               {/* ...existing DocumentView code... */}
             </DocumentView>
           )}
-        </PersonalWorkContainer>
-      </>
-    );
+      </PersonalWorkContainer>
+    </>
+  );
 }
 
 export default PersonalWork;
