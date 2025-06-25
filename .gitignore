@@ -262,3 +262,9 @@ public/
 .local
 
 # Remove duplicate or unnecessary entries below this line 
+.env
+.env.*
+frontend/.env
+frontend/.env.*
+backend/.env
+backend/.env.* 
