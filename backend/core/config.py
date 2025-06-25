@@ -12,11 +12,19 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")  # From .env
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    FRONTEND_URL: str = "https://ai-room-collaborator.vercel.app"
+    FRONTEND_URL: str = "https://room-connect-eight.vercel.app"
     
     # CORS Settings - Hardcoded values
-    ALLOWED_ORIGINS: List[str] = ["https://ai-room-collaborator.vercel.app"]
-    ALLOWED_HOSTS: List[str] = ["ai-room-collaborator.vercel.app"]
+    ALLOWED_ORIGINS: List[str] = [
+        "https://room-connect-eight.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ]
+    ALLOWED_HOSTS: List[str] = [
+        "ai-room-collaborator.onrender.com",
+        "localhost",
+        "127.0.0.1"
+    ]
     
     # Database Settings - From .env
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")  # From .env
