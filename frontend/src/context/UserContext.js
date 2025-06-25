@@ -25,16 +25,20 @@ const UserContext = createContext();
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(null);
+  const [error, setError] = useState(null);
 
   const fetchUser = async () => {
     try {
       console.log("Fetching user with token...");
       const { data } = await api.get('/api/auth/me');
       setUser(data.user);
+      setToken(data.token);
       console.log("User fetched successfully:", data.user);
     } catch (error) {
       console.error("Failed to fetch user. Token might be invalid.", error);
       setUser(null);
+      setToken(null);
       localStorage.removeItem('authToken'); // Clean up invalid token
     } finally {
       setLoading(false);
@@ -50,26 +54,34 @@ export const UserProvider = ({ children }) => {
     }
   }, []);
 
-  const login = (token) => {
+  const handleLogin = (token) => {
     console.log("Storing token and fetching user...");
     localStorage.setItem('authToken', token);
     // After storing the token, fetch the user data
     fetchUser();
   };
 
-  const logout = () => {
+  const handleRegister = (token) => {
+    // Implementation for registering a new user
+  };
+
+  const handleLogout = () => {
     console.log("Logging out.");
     localStorage.removeItem('authToken');
     setUser(null);
+    setToken(null);
     window.location.href = '/login'; // Redirect to login
   };
 
   const contextValue = {
     user,
+    token,
     loading,
-    isAuthenticated: !!user,
-    login,
-    logout,
+    error,
+    handleLogin,
+    handleRegister,
+    handleLogout,
+    setUser,
   };
 
   return (

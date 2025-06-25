@@ -242,7 +242,12 @@ const Login = () => {
   };
 
   const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://room-connect-eight.vercel.app/auth/callback'
+      }
+    });
   };
 
   const getErrorMessage = (errorCode) => {
