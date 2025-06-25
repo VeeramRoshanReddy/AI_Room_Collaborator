@@ -1227,13 +1227,29 @@ const PersonalWork = () => {
           description: newNoteDescription
         }),
       });
-      await fetchNotes();
-      setNewNoteTitle('');
-      setNewNoteDescription('');
-      setShowCreateNoteForm(false);
-      toast.success('Note created successfully');
+      const data = await res.json();
+      if (data.note) {
+        setNotes(prev => [
+          {
+            id: data.note._id || data.note.id,
+            title: data.note.title,
+            description: data.note.content,
+            created_at: data.note.created_at,
+          },
+          ...prev
+        ]);
+        setShowCreateNoteForm(false);
+        setNewNoteTitle('');
+        setNewNoteDescription('');
+        toast.success('Note created successfully');
+        fetchNotes(); // Ensure UI is in sync
+      } else {
+        setError('Failed to create note');
+        toast.error('Failed to create note');
+      }
     } catch (err) {
       setError('Failed to create note');
+      toast.error('Failed to create note');
     } finally {
       setLoading(false);
     }

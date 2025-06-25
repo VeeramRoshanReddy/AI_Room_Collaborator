@@ -293,31 +293,32 @@ async def delete_note(file_id: str, user: User = Depends(get_current_user), db: 
 
 @router.post("/create")
 async def create_text_note(
-    data: Dict[str, Any], 
-    user: User = Depends(get_current_user), 
+    data: Dict[str, Any],
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new text note (not file upload)."""
     try:
         title = data.get("title")
         description = data.get("description", "")
-        
         if not title:
             raise HTTPException(status_code=400, detail="Note title required")
-        
-        note_id = str(uuid.uuid4())
-        note = PGNote(
-            id=note_id,
-            title=title,
-            description=description,
-            created_by=user.id,
-            created_at=datetime.utcnow()
-        )
-        db.add(note)
-        db.commit()
-        
-        return {"note": note.to_dict(), "message": "Note created"}
-    
+        note_doc = {
+            "title": title,
+            "content": description,
+            "user_id": user.id,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "tags": [],
+            "is_public": False,
+            "is_archived": False,
+        }
+        mongo_db = get_mongo_db()
+        if mongo_db is None:
+            raise HTTPException(status_code=500, detail="MongoDB connection not available")
+        result = await mongo_db.notes.insert_one(note_doc)
+        note_doc["_id"] = str(result.inserted_id)
+        return {"note": note_doc, "message": "Note created"}
     except Exception as e:
         logger.error(f"Error creating note: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create note: {str(e)}")
