@@ -511,8 +511,17 @@ function getCookie(name) {
   if (parts.length === 2) return parts.pop().split(';').shift();
 }
 
+// Helper to get authentication token for WebSocket
+const getAuthToken = (session) => {
+  if (session?.access_token) return session.access_token;
+  const storedToken = localStorage.getItem('airoom_supabase_token');
+  if (storedToken) return storedToken;
+  const cookieToken = document.cookie.split('; ').find(row => row.startsWith('airoom_session='))?.split('=')[1];
+  return cookieToken;
+};
+
 const Rooms = () => {
-  const { user, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
+  const { user, session, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
   const navigate = useNavigate();
   const [view, setView] = useState('rooms'); // rooms | topics | chat
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -640,8 +649,8 @@ const Rooms = () => {
     }
     // Construct WebSocket URL dynamically with JWT token
     const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
-    const token = getCookie('airoom_session');
-    const wsUrl = backendUrl.replace(/^http/, 'ws') + `/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.id}` + (token ? `?token=${token}` : '');
+    const token = getAuthToken(session);
+    const wsUrl = backendUrl.replace(/^http/, 'ws') + `/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.id}` + (token ? `?token=${encodeURIComponent(token)}` : '');
     const ws = new WebSocket(wsUrl);
     ws.send(JSON.stringify({ type: chatInput.startsWith('@chatbot') ? 'ai_request' : 'chat', content: chatInput }));
   };

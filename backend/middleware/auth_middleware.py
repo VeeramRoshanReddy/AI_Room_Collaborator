@@ -1,5 +1,6 @@
-# middleware/websocket_auth.py
-from fastapi import WebSocket, WebSocketException, status, Query, Request, Depends, HTTPException
+# middleware/auth_middleware.py
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.config import settings
@@ -10,13 +11,11 @@ from jose.exceptions import JWTError, ExpiredSignatureError
 import logging
 import requests
 from typing import Optional
-from urllib.parse import parse_qs
 
 logger = logging.getLogger(__name__)
 
-class WebSocketAuthenticationError(WebSocketException):
-    def __init__(self, code: int = status.WS_1008_POLICY_VIOLATION, reason: str = "Authentication failed"):
-        super().__init__(code=code, reason=reason)
+# HTTP Bearer token scheme for Supabase
+security = HTTPBearer(auto_error=False)
 
 def get_supabase_jwks():
     """Fetch Supabase JWT signing keys"""
@@ -27,7 +26,10 @@ def get_supabase_jwks():
         return resp.json()["keys"]
     except Exception as e:
         logger.error(f"Failed to fetch Supabase JWKS: {str(e)}")
-        raise WebSocketAuthenticationError(reason="Failed to validate token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Failed to validate token"
+        )
 
 def verify_supabase_jwt(token: str) -> dict:
     """Verify and decode Supabase JWT token"""
@@ -37,14 +39,20 @@ def verify_supabase_jwt(token: str) -> dict:
         kid = header.get("kid")
         
         if not kid:
-            raise WebSocketAuthenticationError(reason="Invalid token format")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token format"
+            )
         
         # Get JWKS and find the matching key
         jwks = get_supabase_jwks()
         key = next((k for k in jwks if k["kid"] == kid), None)
         
         if not key:
-            raise WebSocketAuthenticationError(reason="Invalid token signature")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token signature"
+            )
         
         # Decode and verify the token
         payload = jose_jwt.decode(
@@ -59,13 +67,22 @@ def verify_supabase_jwt(token: str) -> dict:
         
     except ExpiredSignatureError:
         logger.warning("Supabase JWT token expired")
-        raise WebSocketAuthenticationError(reason="Session expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired"
+        )
     except JWTError as e:
         logger.warning(f"Supabase JWT validation error: {str(e)}")
-        raise WebSocketAuthenticationError(reason="Invalid session token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session token"
+        )
     except Exception as e:
         logger.error(f"Supabase JWT verification error: {str(e)}")
-        raise WebSocketAuthenticationError(reason="Token validation failed")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token validation failed"
+        )
 
 def verify_demo_jwt(token: str) -> dict:
     """Verify and decode demo JWT token"""
@@ -74,69 +91,60 @@ def verify_demo_jwt(token: str) -> dict:
         return payload
     except jwt.ExpiredSignatureError:
         logger.warning("Demo JWT token expired")
-        raise WebSocketAuthenticationError(reason="Session expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired"
+        )
     except jwt.InvalidSignatureError:
         logger.warning("Demo JWT invalid signature")
-        raise WebSocketAuthenticationError(reason="Invalid session signature")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session signature"
+        )
     except jwt.DecodeError:
         logger.warning("Demo JWT decode error")
-        raise WebSocketAuthenticationError(reason="Malformed session token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Malformed session token"
+        )
     except Exception as e:
         logger.error(f"Demo JWT decode error: {str(e)}")
-        raise WebSocketAuthenticationError(reason="Token validation failed")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token validation failed"
+        )
 
-def extract_token_from_websocket(websocket: WebSocket) -> tuple[Optional[str], str]:
-    """Extract token from WebSocket connection"""
-    
-    # Try Authorization header first
-    auth_header = websocket.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ", 1)[1]
-        logger.debug("Token found in WebSocket Authorization header (Supabase)")
-        return token, "supabase"
-    
-    # Try query parameters
-    query_params = parse_qs(websocket.url.query)
-    
-    # Check for token in query params
-    if "token" in query_params:
-        token = query_params["token"][0]
-        logger.debug("Token found in WebSocket query params (Supabase)")
-        return token, "supabase"
-    
-    # Check for cookie token in query params (since WebSocket doesn't support cookies directly)
-    if "cookie_token" in query_params:
-        token = query_params["cookie_token"][0]
-        logger.debug("Cookie token found in WebSocket query params (demo)")
-        return token, "demo"
-    
-    # Try cookies (some browsers/clients might support this)
-    cookie_header = websocket.headers.get("Cookie")
-    if cookie_header:
-        cookies = {}
-        for cookie in cookie_header.split(';'):
-            if '=' in cookie:
-                key, value = cookie.strip().split('=', 1)
-                cookies[key] = value
-        
-        if "airoom_session" in cookies:
-            token = cookies["airoom_session"]
-            logger.debug("Token found in WebSocket cookie (demo)")
-            return token, "demo"
-    
-    return None, "none"
-
-async def get_websocket_user(websocket: WebSocket, db: Session) -> PGUser:
+def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> PGUser:
     """
-    Get authenticated user from WebSocket connection
-    Supports both Supabase JWT and demo JWT authentication
+    Get current authenticated user from JWT token
+    Supports both Supabase JWT (Bearer token) and demo JWT (cookie)
     """
+    token = None
+    token_type = None
     
-    # Extract token from WebSocket
-    token, token_type = extract_token_from_websocket(websocket)
+    # Try Authorization header first (Supabase)
+    if credentials:
+        token = credentials.credentials
+        token_type = "supabase"
+        logger.debug("Token found in Authorization header (Supabase)")
+    
+    # Try cookie if no Bearer token (demo)
     if not token:
-        logger.warning("No authentication token provided in WebSocket")
-        raise WebSocketAuthenticationError(reason="Authentication required")
+        token = request.cookies.get("airoom_session")
+        if token:
+            token_type = "demo"
+            logger.debug("Token found in cookie (demo)")
+    
+    if not token:
+        logger.warning("No authentication token provided")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
     
     try:
         if token_type == "supabase":
@@ -146,7 +154,10 @@ async def get_websocket_user(websocket: WebSocket, db: Session) -> PGUser:
             user_email = payload.get("email")
             
             if not user_id:
-                raise WebSocketAuthenticationError(reason="Invalid token - missing user ID")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token - missing user ID"
+                )
             
             # For Supabase, create or get user from database
             user = db.query(PGUser).filter(PGUser.supabase_id == user_id).first()
@@ -172,70 +183,55 @@ async def get_websocket_user(websocket: WebSocket, db: Session) -> PGUser:
             user_id = user_data.get("sub")
             
             if not user_id:
-                raise WebSocketAuthenticationError(reason="Invalid token - missing user ID")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token - missing user ID"
+                )
             
             # For demo, get user from database
             user = db.query(PGUser).filter(PGUser.id == user_id).first()
             if not user:
                 logger.warning(f"Demo user not found in database: {user_id}")
-                raise WebSocketAuthenticationError(reason="User not found")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found"
+                )
         
         else:
-            raise WebSocketAuthenticationError(reason="Invalid token type")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type"
+            )
         
         if not user.is_active:
-            logger.warning(f"Inactive user attempted WebSocket access: {user.email}")
-            raise WebSocketAuthenticationError(reason="Account is inactive")
+            logger.warning(f"Inactive user attempted access: {user.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account is inactive"
+            )
         
-        logger.debug(f"WebSocket authentication successful for user: {user.email}")
+        logger.debug(f"Authentication successful for user: {user.email}")
         return user
         
-    except WebSocketAuthenticationError:
+    except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"WebSocket authentication error: {str(e)}")
-        raise WebSocketAuthenticationError(reason="Authentication failed")
+        logger.error(f"Authentication error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed"
+        )
 
-# FastAPI dependency for API routes (cookie or header JWT)
-def get_jwt_from_request(request: Request):
-    # Try Authorization header first
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        return auth_header.split(" ", 1)[1]
-    # Try cookie
-    token = request.cookies.get("airoom_session")
-    if token:
-        return token
-    return None
-
-def get_current_user(request: Request, db: Session = Depends(get_db)):
-    token = get_jwt_from_request(request)
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+def get_optional_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> Optional[PGUser]:
+    """
+    Get current user if authenticated, otherwise return None
+    Used for optional authentication endpoints
+    """
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_data = payload.get("user", {})
-        user_id = user_data.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-        user = db.query(PGUser).filter(PGUser.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        return user
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
-
-def get_optional_user(request: Request, db: Session = Depends(get_db)):
-    token = get_jwt_from_request(request)
-    if not token:
-        return None
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_data = payload.get("user", {})
-        user_id = user_data.get("sub")
-        if not user_id:
-            return None
-        user = db.query(PGUser).filter(PGUser.id == user_id).first()
-        return user
-    except Exception:
+        return get_current_user(request, credentials, db)
+    except HTTPException:
         return None
