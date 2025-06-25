@@ -504,6 +504,13 @@ const DeleteChatButton = styled.button`
   }
 `;
 
+// Helper to get cookie value
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
 const Rooms = () => {
   const { user, makeAuthenticatedRequest } = useUserContext();
   const navigate = useNavigate();
@@ -598,7 +605,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest('/room/join', {
+      const res = await makeAuthenticatedRequest('/api/room/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: joinRoomId, password: joinRoomPass }),
@@ -631,9 +638,10 @@ const Rooms = () => {
         }));
       }, 1000);
     }
-    // Construct WebSocket URL dynamically
+    // Construct WebSocket URL dynamically with JWT token
     const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
-    const wsUrl = backendUrl.replace(/^http/, 'ws') + `/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.id}`;
+    const token = getCookie('airoom_session');
+    const wsUrl = backendUrl.replace(/^http/, 'ws') + `/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.id}` + (token ? `?token=${token}` : '');
     const ws = new WebSocket(wsUrl);
     ws.send(JSON.stringify({ type: chatInput.startsWith('@chatbot') ? 'ai_request' : 'chat', content: chatInput }));
   };
@@ -642,7 +650,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest('/room/leave', {
+      const res = await makeAuthenticatedRequest('/api/room/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: roomId }),
@@ -662,7 +670,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest('/room/delete', {
+      const res = await makeAuthenticatedRequest('/api/room/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: roomId }),
@@ -683,7 +691,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest('/topic/create', {
+      const res = await makeAuthenticatedRequest('/api/topic/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: selectedRoom.id, title: newTopicTitle, description: newTopicDesc }),
@@ -700,11 +708,10 @@ const Rooms = () => {
   };
   // Delete topic
   const handleDeleteTopic = async (topic) => {
-    // Only allow if admin or topic creator (backend enforces this too)
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest('/topic/delete', {
+      const res = await makeAuthenticatedRequest('/api/topic/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic_id: topic.id }),
@@ -757,7 +764,7 @@ const Rooms = () => {
 
   const handleDeleteChat = async () => {
     if (window.confirm('Are you sure you want to delete this chat conversation?')) {
-      await makeAuthenticatedRequest('/chat/history/${selectedRoom.id}/${selectedTopic.id}', { method: 'DELETE' });
+      await makeAuthenticatedRequest(`/api/chat/history/${selectedRoom.id}/${selectedTopic.id}`, { method: 'DELETE' });
       setRoomChatMessages(prev => ({
         ...prev,
         [selectedTopic.title]: []
@@ -783,7 +790,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest('/api/topic/list/${roomId}');
+      const res = await makeAuthenticatedRequest(`/api/topic/list/${roomId}`);
       const data = await res.json();
       setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
     } catch (err) {

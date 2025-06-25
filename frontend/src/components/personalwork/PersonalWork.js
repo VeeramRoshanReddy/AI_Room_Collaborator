@@ -934,6 +934,13 @@ const SpeedSubmenu = styled.div`
   border: 1px solid #e2e8f0;
 `;
 
+// Helper to get cookie value
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
 const PersonalWork = () => {
   const { user, makeAuthenticatedRequest } = useUserContext();
   const [notes, setNotes] = useState([]);
@@ -971,9 +978,6 @@ const PersonalWork = () => {
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
-  // Helper for API base URL
-  const API_BASE = process.env.REACT_APP_API_URL;
-
   useEffect(() => {
     if (user) fetchNotes();
   }, [user]);
@@ -981,7 +985,10 @@ const PersonalWork = () => {
   // WebSocket for real-time note updates
   useEffect(() => {
     if (!user) return;
-    const ws = new window.WebSocket(`${API_BASE.replace(/^http/, 'ws')}/api/notes/ws/${user.id}`);
+    const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
+    const token = getCookie('airoom_session');
+    const wsUrl = backendUrl.replace(/^http/, 'ws') + `/api/notes/ws/${user.id}` + (token ? `?token=${token}` : '');
+    const ws = new window.WebSocket(wsUrl);
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'note_update' || data.type === 'note_delete') {

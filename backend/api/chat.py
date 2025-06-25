@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
+from fastapi import APIRouter, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request, Query
 from typing import List, Dict, Any, Optional
 import json
 import logging
@@ -96,7 +96,26 @@ def is_room_member(db: Session, room_id: str, user_id: str) -> bool:
     return db.execute(room_members.select().where((room_members.c.room_id == room_id) & (room_members.c.user_id == user_id))).rowcount > 0
 
 @router.websocket("/ws/{room_id}/{topic_id}/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, db: Session = Depends(get_db)):
+async def websocket_endpoint(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, db: Session = Depends(get_db), token: str = Query(None)):
+    # Hardened authentication: require JWT token as query param
+    import jwt
+    from core.config import settings
+    if not token:
+        await websocket.close(code=4003)
+        return
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        token_user_id = payload["user"]["sub"]
+        if token_user_id != user_id:
+            await websocket.close(code=4003)
+            return
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            await websocket.close(code=4003)
+            return
+    except Exception:
+        await websocket.close(code=4003)
+        return
     # Membership check
     if not is_room_member(db, room_id, user_id):
         await websocket.close(code=4001)

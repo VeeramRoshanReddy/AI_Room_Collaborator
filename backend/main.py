@@ -37,24 +37,14 @@ app = FastAPI(
 # CORS middleware - configured for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=[
-        "Accept",
-        "Accept-Language",
-        "Content-Language",
-        "Content-Type",
-        "Authorization",
-        "X-Requested-With",
-        "X-CSRF-Token",
-        "Cookie",
-        "Set-Cookie",
-        "Cache-Control",
-        "Pragma"
+    allow_origins=[
+        "https://room-connect-eight.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
     ],
-    expose_headers=["Set-Cookie"],
-    max_age=86400,  # 24 hours
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 # Trusted host middleware for security
@@ -139,14 +129,19 @@ async def api_health_check():
 # Handle preflight OPTIONS requests
 @app.options("/{path:path}")
 async def options_handler(request: Request):
-    return JSONResponse(
-        content={"message": "OK"},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        }
-    )
+    origin = request.headers.get("origin")
+    allowed_origins = [
+        "https://room-connect-eight.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ]
+    headers = {
+        "Access-Control-Allow-Origin": origin if origin in allowed_origins else "*",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Allow-Credentials": "true"
+    }
+    return JSONResponse(content={"message": "OK"}, headers=headers)
 
 # Startup event
 @app.on_event("startup")
