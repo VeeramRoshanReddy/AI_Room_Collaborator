@@ -1,34 +1,22 @@
-# middleware/auth_middleware.py
-from fastapi import HTTPException, Request, status, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt
-from typing import Optional
+# middleware/websocket_auth.py
+from fastapi import WebSocket, WebSocketException, status, Query
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.config import settings
 from models.postgresql.user import User as PGUser
-import logging
-import requests
+import jwt
 from jose import jwt as jose_jwt
 from jose.exceptions import JWTError, ExpiredSignatureError
+import logging
+import requests
+from typing import Optional
+from urllib.parse import parse_qs
 
 logger = logging.getLogger(__name__)
 
-# Security scheme
-security = HTTPBearer(auto_error=False)
-
-# JWT settings
-JWT_SECRET = settings.SECRET_KEY
-JWT_ALGORITHM = settings.ALGORITHM
-SESSION_COOKIE_NAME = "airoom_session"
-
-class AuthenticationError(HTTPException):
-    def __init__(self, detail: str = "Authentication failed"):
-        super().__init__(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=detail,
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+class WebSocketAuthenticationError(WebSocketException):
+    def __init__(self, code: int = status.WS_1008_POLICY_VIOLATION, reason: str = "Authentication failed"):
+        super().__init__(code=code, reason=reason)
 
 def get_supabase_jwks():
     """Fetch Supabase JWT signing keys"""
@@ -39,7 +27,7 @@ def get_supabase_jwks():
         return resp.json()["keys"]
     except Exception as e:
         logger.error(f"Failed to fetch Supabase JWKS: {str(e)}")
-        raise AuthenticationError("Failed to validate token")
+        raise WebSocketAuthenticationError(reason="Failed to validate token")
 
 def verify_supabase_jwt(token: str) -> dict:
     """Verify and decode Supabase JWT token"""
@@ -49,14 +37,14 @@ def verify_supabase_jwt(token: str) -> dict:
         kid = header.get("kid")
         
         if not kid:
-            raise AuthenticationError("Invalid token format")
+            raise WebSocketAuthenticationError(reason="Invalid token format")
         
         # Get JWKS and find the matching key
         jwks = get_supabase_jwks()
         key = next((k for k in jwks if k["kid"] == kid), None)
         
         if not key:
-            raise AuthenticationError("Invalid token signature")
+            raise WebSocketAuthenticationError(reason="Invalid token signature")
         
         # Decode and verify the token
         payload = jose_jwt.decode(
@@ -71,71 +59,94 @@ def verify_supabase_jwt(token: str) -> dict:
         
     except ExpiredSignatureError:
         logger.warning("Supabase JWT token expired")
-        raise AuthenticationError("Session expired - please login again")
+        raise WebSocketAuthenticationError(reason="Session expired")
     except JWTError as e:
         logger.warning(f"Supabase JWT validation error: {str(e)}")
-        raise AuthenticationError("Invalid session token")
+        raise WebSocketAuthenticationError(reason="Invalid session token")
     except Exception as e:
         logger.error(f"Supabase JWT verification error: {str(e)}")
-        raise AuthenticationError("Token validation failed")
+        raise WebSocketAuthenticationError(reason="Token validation failed")
 
 def verify_demo_jwt(token: str) -> dict:
-    """Verify and decode demo JWT token (cookie-based)"""
+    """Verify and decode demo JWT token"""
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
         logger.warning("Demo JWT token expired")
-        raise AuthenticationError("Session expired - please login again")
+        raise WebSocketAuthenticationError(reason="Session expired")
     except jwt.InvalidSignatureError:
         logger.warning("Demo JWT invalid signature")
-        raise AuthenticationError("Invalid session signature")
+        raise WebSocketAuthenticationError(reason="Invalid session signature")
     except jwt.DecodeError:
         logger.warning("Demo JWT decode error")
-        raise AuthenticationError("Malformed session token")
+        raise WebSocketAuthenticationError(reason="Malformed session token")
     except Exception as e:
         logger.error(f"Demo JWT decode error: {str(e)}")
-        raise AuthenticationError("Token validation failed")
+        raise WebSocketAuthenticationError(reason="Token validation failed")
 
-def extract_token_from_request(request: Request) -> tuple[Optional[str], str]:
-    """Extract token from request and return (token, token_type)"""
+def extract_token_from_websocket(websocket: WebSocket) -> tuple[Optional[str], str]:
+    """Extract token from WebSocket connection"""
     
-    # Try Authorization header first (Supabase)
-    auth_header = request.headers.get("Authorization")
+    # Try Authorization header first
+    auth_header = websocket.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ", 1)[1]
-        logger.debug("Token found in Authorization header (Supabase)")
+        logger.debug("Token found in WebSocket Authorization header (Supabase)")
         return token, "supabase"
     
-    # Try cookie (demo login)
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if token:
-        logger.debug("Token found in cookie (demo)")
+    # Try query parameters
+    query_params = parse_qs(websocket.url.query)
+    
+    # Check for token in query params
+    if "token" in query_params:
+        token = query_params["token"][0]
+        logger.debug("Token found in WebSocket query params (Supabase)")
+        return token, "supabase"
+    
+    # Check for cookie token in query params (since WebSocket doesn't support cookies directly)
+    if "cookie_token" in query_params:
+        token = query_params["cookie_token"][0]
+        logger.debug("Cookie token found in WebSocket query params (demo)")
         return token, "demo"
+    
+    # Try cookies (some browsers/clients might support this)
+    cookie_header = websocket.headers.get("Cookie")
+    if cookie_header:
+        cookies = {}
+        for cookie in cookie_header.split(';'):
+            if '=' in cookie:
+                key, value = cookie.strip().split('=', 1)
+                cookies[key] = value
+        
+        if "airoom_session" in cookies:
+            token = cookies["airoom_session"]
+            logger.debug("Token found in WebSocket cookie (demo)")
+            return token, "demo"
     
     return None, "none"
 
-def get_current_user(request: Request, db: Session = Depends(get_db)):
+async def get_websocket_user(websocket: WebSocket, db: Session) -> PGUser:
     """
-    Dependency to get current authenticated user
-    Supports both Supabase JWT (Bearer token) and demo JWT (cookie)
+    Get authenticated user from WebSocket connection
+    Supports both Supabase JWT and demo JWT authentication
     """
     
-    # Extract token from request
-    token, token_type = extract_token_from_request(request)
+    # Extract token from WebSocket
+    token, token_type = extract_token_from_websocket(websocket)
     if not token:
-        logger.warning("No authentication token provided")
-        raise AuthenticationError("Authentication required")
+        logger.warning("No authentication token provided in WebSocket")
+        raise WebSocketAuthenticationError(reason="Authentication required")
     
     try:
         if token_type == "supabase":
             # Handle Supabase JWT
             payload = verify_supabase_jwt(token)
-            user_id = payload.get("sub")  # Supabase uses 'sub' for user ID
+            user_id = payload.get("sub")
             user_email = payload.get("email")
             
             if not user_id:
-                raise AuthenticationError("Invalid token - missing user ID")
+                raise WebSocketAuthenticationError(reason="Invalid token - missing user ID")
             
             # For Supabase, create or get user from database
             user = db.query(PGUser).filter(PGUser.supabase_id == user_id).first()
@@ -161,51 +172,26 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
             user_id = user_data.get("sub")
             
             if not user_id:
-                raise AuthenticationError("Invalid token - missing user ID")
+                raise WebSocketAuthenticationError(reason="Invalid token - missing user ID")
             
             # For demo, get user from database
             user = db.query(PGUser).filter(PGUser.id == user_id).first()
             if not user:
                 logger.warning(f"Demo user not found in database: {user_id}")
-                raise AuthenticationError("User not found - please login again")
+                raise WebSocketAuthenticationError(reason="User not found")
         
         else:
-            raise AuthenticationError("Invalid token type")
+            raise WebSocketAuthenticationError(reason="Invalid token type")
         
         if not user.is_active:
-            logger.warning(f"Inactive user attempted access: {user.email}")
-            raise AuthenticationError("Account is inactive")
+            logger.warning(f"Inactive user attempted WebSocket access: {user.email}")
+            raise WebSocketAuthenticationError(reason="Account is inactive")
         
-        logger.debug(f"Authentication successful for user: {user.email}")
+        logger.debug(f"WebSocket authentication successful for user: {user.email}")
         return user
         
-    except AuthenticationError:
+    except WebSocketAuthenticationError:
         raise
     except Exception as e:
-        logger.error(f"Authentication error: {str(e)}")
-        raise AuthenticationError("Authentication failed")
-
-def get_optional_user(request: Request, db: Session = Depends(get_db)) -> Optional[PGUser]:
-    """
-    Dependency to get current user if authenticated (optional authentication)
-    Returns None if user is not authenticated, doesn't raise errors
-    """
-    
-    try:
-        return get_current_user(request, db)
-    except Exception as e:
-        logger.debug(f"Optional authentication failed: {str(e)}")
-        return None
-
-def verify_admin_user(current_user: PGUser = Depends(get_current_user)) -> PGUser:
-    """
-    Dependency to verify current user is admin
-    """
-    if not current_user.is_admin:
-        logger.warning(f"Non-admin user attempted admin access: {current_user.email}")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    
-    return current_user
+        logger.error(f"WebSocket authentication error: {str(e)}")
+        raise WebSocketAuthenticationError(reason="Authentication failed")

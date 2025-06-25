@@ -157,7 +157,24 @@ export const UserProvider = ({ children }) => {
       }
 
       if (!response.ok) {
-        throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+        // Check if response is HTML instead of JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          console.error('Received HTML response instead of JSON. Server might be returning an error page.');
+          throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}`);
+        }
+        
+        // Try to get JSON error message
+        let errorMessage = `Request failed: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (jsonError) {
+          // If we can't parse the error as JSON, use the default message
+          console.error('Could not parse error response as JSON:', jsonError);
+        }
+        
+        throw new Error(errorMessage);
       }
 
       return response;
@@ -192,12 +209,33 @@ export const UserProvider = ({ children }) => {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
         method: 'POST',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
-      if (!res.ok) throw new Error('Login failed');
+      
+      if (!res.ok) {
+        // Check if response is HTML instead of JSON
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          throw new Error('Server returned HTML instead of JSON. Check server configuration.');
+        }
+        
+        let errorMessage = 'Login failed';
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (jsonError) {
+          errorMessage = `Login failed: ${res.status} ${res.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+      
       const data = await res.json();
       setUser(data.user);
       setSession({ user: data.user });
     } catch (err) {
+      console.error('Login error:', err);
       setError(err.message || 'Login error');
     } finally {
       setLoading(false);

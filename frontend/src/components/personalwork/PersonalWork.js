@@ -941,8 +941,60 @@ function getCookie(name) {
   if (parts.length === 2) return parts.pop().split(';').shift();
 }
 
+// Helper to get authentication token for WebSocket
+const getAuthToken = (session) => {
+  // Try to get Supabase token first
+  if (session?.access_token) {
+    return session.access_token;
+  }
+  // Fallback to localStorage
+  const storedToken = localStorage.getItem('airoom_supabase_token');
+  if (storedToken) {
+    return storedToken;
+  }
+  // Fallback to cookie token (for demo auth)
+  const cookieToken = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('airoom_session='))
+    ?.split('=')[1];
+  return cookieToken;
+};
+
+// Function to establish WebSocket connection for notes
+const connectWebSocket = (user, session, fetchNotes, toast) => {
+  const token = getAuthToken(session);
+  if (!token || !user?.id) {
+    console.error('No authentication token or user ID available for WebSocket');
+    return null;
+  }
+  // Determine WebSocket URL based on environment
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsHost = process.env.REACT_APP_API_URL 
+    ? process.env.REACT_APP_API_URL.replace(/^https?:\/\//, '')
+    : window.location.host;
+  const wsUrl = `${wsProtocol}//${wsHost}/api/notes/ws/${user.id}?token=${encodeURIComponent(token)}`;
+  console.log('Connecting to WebSocket:', wsUrl);
+  const ws = new window.WebSocket(wsUrl);
+  ws.onopen = () => {
+    console.log('WebSocket connected successfully');
+  };
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.type === 'note_update' || data.type === 'note_delete') {
+        fetchNotes();
+        toast.info('Notes updated in real-time');
+      }
+    } catch (e) {
+      console.error('WebSocket message parse error:', e);
+    }
+  };
+  ws.onerror = () => toast.error('WebSocket error');
+  return ws;
+};
+
 const PersonalWork = () => {
-  const { user, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
+  const { user, session, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
@@ -984,21 +1036,10 @@ const PersonalWork = () => {
 
   // WebSocket for real-time note updates
   useEffect(() => {
-    if (!user) return;
-    const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
-    const token = getCookie('airoom_session');
-    const wsUrl = backendUrl.replace(/^http/, 'ws') + `/api/notes/ws/${user.id}` + (token ? `?token=${token}` : '');
-    const ws = new window.WebSocket(wsUrl);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'note_update' || data.type === 'note_delete') {
-        fetchNotes();
-        toast.info('Notes updated in real-time');
-      }
-    };
-    ws.onerror = () => toast.error('WebSocket error');
-    return () => ws.close();
-  }, [user]);
+    if (!isAuthenticated || !user) return;
+    const ws = connectWebSocket(user, session, fetchNotes, toast);
+    return () => ws && ws.close();
+  }, [isAuthenticated, user, session]);
 
   // Reset all state when switching notes
   useEffect(() => {
