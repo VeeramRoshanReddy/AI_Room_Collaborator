@@ -10,33 +10,16 @@ import json
 from sqlalchemy.orm import Session
 from core.database import get_db, get_mongo_db
 from core.config import settings
-from models.postgresql.user import User
-from models.mongodb.note import Note as PGNote
 from models.mongodb.note import Note as MongoNote
 from models.mongodb.ai_response import AIResponse, QuizResponse, AudioResponse
 from services.rag_service import rag_service
 from services.ai_service import ai_service
 from services.encryption_service import encryption_service
 from middleware.websocket_auth import get_websocket_user, WebSocketAuthenticationError
+from middleware.auth_middleware import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# Helper: get current user from session cookie
-async def get_current_user(request: Request, db: Session = Depends(get_db)):
-    token = request.cookies.get("airoom_session")
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    import jwt
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id = payload["user"]["sub"]
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid session")
 
 # Pydantic models
 class DocumentUpload(BaseModel):
@@ -122,7 +105,7 @@ manager = ConnectionManager()
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
+    user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Upload and process a document for RAG-based QA"""
@@ -162,17 +145,6 @@ async def upload_document(
             user_id=user.id
         )
         
-        # Store note metadata in PostgreSQL
-        note = PGNote(
-            id=file_id,
-            title=file.filename,
-            description="",
-            created_by=user.id,
-            created_at=datetime.utcnow()
-        )
-        db.add(note)
-        db.commit()
-        
         # Store document info
         document_info = {
             "file_id": file_id,
@@ -210,15 +182,17 @@ async def upload_document(
 async def query_document(
     file_id: str, 
     question: str, 
-    user: User = Depends(get_current_user), 
+    user: Any = Depends(get_current_user), 
     db: Session = Depends(get_db)
 ):
     """Query a document with a question using RAG. Only answers based on file content."""
     try:
-        note = db.query(PGNote).filter(PGNote.id == file_id, PGNote.created_by == user.id).first()
+        mongo_db = get_mongo_db()
+        if mongo_db is None:
+            raise HTTPException(status_code=500, detail="MongoDB connection not available")
+        note = await mongo_db.notes.find_one({"_id": file_id, "user_id": user.id})
         if not note:
             raise HTTPException(status_code=404, detail="Document not found or access denied")
-        
         start_time = datetime.now()
         rag_response = await rag_service.query_document(
             file_id=file_id,
@@ -226,7 +200,6 @@ async def query_document(
             user_id=user.id
         )
         processing_time = (datetime.now() - start_time).total_seconds()
-        
         # If RAG cannot answer, reply 'Out of scope'
         if not rag_response["answer"] or rag_response["answer"].strip().lower() == "out of scope":
             return {
@@ -237,7 +210,6 @@ async def query_document(
                 "confidence": 0.0, 
                 "processing_time": processing_time
             }
-        
         return {
             "answer": rag_response["answer"],
             "context_chunks": rag_response["context_chunks"],
@@ -246,13 +218,12 @@ async def query_document(
             "confidence": min(1.0, len(rag_response["context_chunks"]) / 3.0),
             "processing_time": processing_time
         }
-    
     except Exception as e:
         logger.error(f"Error querying document: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to query document: {str(e)}")
 
 @router.get("/notes")
-async def get_user_notes(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_user_notes(user: Any = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         mongo_db = get_mongo_db()
         if mongo_db is None:
@@ -268,31 +239,24 @@ async def get_user_notes(user: User = Depends(get_current_user), db: Session = D
         return {"notes": [], "detail": f"Failed to fetch notes: {str(e)}"}
 
 @router.delete("/note/{file_id}")
-async def delete_note(file_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def delete_note(file_id: str, user: Any = Depends(get_current_user), db: Session = Depends(get_db)):
     """Delete a note and all associated AI/quiz/audio logs."""
     try:
-        note = db.query(PGNote).filter(PGNote.id == file_id, PGNote.created_by == user.id).first()
-        if not note:
-            raise HTTPException(status_code=404, detail="Note not found or access denied")
-        
-        db.delete(note)
-        db.commit()
-        
-        # Delete AI/quiz/audio logs in MongoDB
         mongo_db = get_mongo_db()
         if mongo_db is None:
             raise HTTPException(status_code=500, detail="MongoDB connection not available")
-        
+        note = await mongo_db.notes.find_one({"_id": file_id, "user_id": user.id})
+        if not note:
+            raise HTTPException(status_code=404, detail="Note not found or access denied")
+        await mongo_db.notes.delete_one({"_id": file_id, "user_id": user.id})
+        # Delete AI/quiz/audio logs in MongoDB
         await mongo_db.ai_responses.delete_many({"document_id": file_id})
         await mongo_db.quiz_responses.delete_many({"document_id": file_id})
         await mongo_db.audio_responses.delete_many({"document_id": file_id})
-        
         # Clean up from in-memory storage
         if file_id in documents:
             del documents[file_id]
-        
         return {"message": "Note and all associated data deleted", "file_id": file_id}
-    
     except Exception as e:
         logger.error(f"Error deleting note: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete note: {str(e)}")
@@ -300,7 +264,7 @@ async def delete_note(file_id: str, user: User = Depends(get_current_user), db: 
 @router.post("/create")
 async def create_text_note(
     data: Dict[str, Any],
-    user: User = Depends(get_current_user),
+    user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new text note (not file upload)."""

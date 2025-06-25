@@ -971,108 +971,263 @@ const PersonalWork = () => {
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
+  // Loading states for specific operations
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [creatingNote, setCreatingNote] = useState(false);
+  const [deletingNote, setDeletingNote] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [fetchingNotes, setFetchingNotes] = useState(false);
+
+  const audio = useRef(null);
+
   useEffect(() => {
     if (isAuthenticated && user) fetchNotes();
   }, [isAuthenticated, user]);
 
   const fetchNotes = async () => {
-    setLoading(true);
+    setFetchingNotes(true);
     setError(null);
     try {
       const res = await makeAuthenticatedRequest('/api/notes/notes');
       const data = await res.json();
-      setNotes(data.notes);
+      setNotes(data.notes || []);
     } catch (err) {
-      setError('Failed to load notes');
+      const errorMessage = err.message || 'Error fetching notes';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setFetchingNotes(false);
     }
   };
 
   const handleFileUpload = async (event) => {
-    setLoading(true);
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setUploadingFile(true);
     setError(null);
+
+    // Optimistic update
+    const optimisticDocument = {
+      id: `temp_${Date.now()}`,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      status: 'uploading'
+    };
+    setUploadedDocument(optimisticDocument);
+
     try {
-      const file = event.target.files[0];
       const formData = new FormData();
       formData.append('file', file);
+
       const res = await makeAuthenticatedRequest('/api/notes/upload', {
         method: 'POST',
         body: formData,
+        headers: {
+          // Don't set Content-Type for FormData
+        },
       });
-      await fetchNotes();
-      toast.success('File uploaded successfully');
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to upload file');
+      }
+
+      const data = await res.json();
+      
+      // Replace optimistic document with real document
+      setUploadedDocument({
+        id: data.file_id,
+        name: data.file_name,
+        status: 'uploaded',
+        chunks: data.chunks_processed
+      });
+
+      toast.success('Document uploaded successfully!');
+      
     } catch (err) {
-      setError('Failed to upload file');
+      // Rollback optimistic update
+      setUploadedDocument(null);
+      const errorMessage = err.message || 'Error uploading file';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setUploadingFile(false);
     }
   };
 
   const handleSendMessage = async (question) => {
-    setLoading(true);
+    if (!question.trim() || !uploadedDocument) return;
+
+    setSendingMessage(true);
     setError(null);
+
+    // Optimistic update
+    const optimisticMessage = {
+      id: Date.now(),
+      text: question,
+      isUser: true,
+      sender: user?.name,
+      time: new Date().toLocaleTimeString()
+    };
+
+    const originalMessages = [...messages];
+    setMessages(prev => [...prev, optimisticMessage]);
+
     try {
       const res = await makeAuthenticatedRequest('/api/notes/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_id: selectedNote.id, question }),
+        body: JSON.stringify({
+          file_id: uploadedDocument.id,
+          question: question
+        }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to get response');
+      }
+
       const data = await res.json();
-      setChatHistory([...chatHistory, { question, answer: data.answer }]);
+      
+      // Add AI response
+      const aiMessage = {
+        id: Date.now() + 1,
+        text: data.answer,
+        isUser: false,
+        sender: 'AI',
+        time: new Date().toLocaleTimeString()
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+      setInputMessage('');
+
     } catch (err) {
-      setError('Failed to get answer');
+      // Rollback optimistic update
+      setMessages(originalMessages);
+      const errorMessage = err.message || 'Error sending message';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setSendingMessage(false);
     }
   };
 
   const handleGenerateAudio = async () => {
-    setLoading(true);
+    if (!uploadedDocument) {
+      toast.error('Please upload a document first');
+      return;
+    }
+
+    setGeneratingAudio(true);
     setError(null);
+
     try {
-      const res = await makeAuthenticatedRequest(`/api/notes/audio/${selectedNote.id}`, {
+      const res = await makeAuthenticatedRequest('/api/audio/generate', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document_id: uploadedDocument.id,
+          text: "Generate audio summary of the uploaded document"
+        }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to generate audio');
+      }
+
       const data = await res.json();
-      setAudioData(data);
+      setAudioGenerated(true);
+      toast.success('Audio generated successfully!');
+
     } catch (err) {
-      setError('Failed to generate audio');
+      const errorMessage = err.message || 'Error generating audio';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setGeneratingAudio(false);
     }
   };
 
   const handleGenerateQuiz = async () => {
-    setLoading(true);
+    if (!uploadedDocument) {
+      toast.error('Please upload a document first');
+      return;
+    }
+
+    setGeneratingQuiz(true);
     setError(null);
+
     try {
-      const res = await makeAuthenticatedRequest(`/api/notes/quiz/${selectedNote.id}`, {
+      const res = await makeAuthenticatedRequest('/api/quiz/generate', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          document_id: uploadedDocument.id,
+          difficulty: 'medium',
+          num_questions: 5
+        }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to generate quiz');
+      }
+
       const data = await res.json();
-      setQuizData(data);
+      setCurrentQuiz(data.quiz);
+      setQuizStarted(true);
+      setQuizIndex(0);
+      setQuizScore(0);
+      setQuizCompleted(false);
+      toast.success('Quiz generated successfully!');
+
     } catch (err) {
-      setError('Failed to generate quiz');
+      const errorMessage = err.message || 'Error generating quiz';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setGeneratingQuiz(false);
     }
   };
 
   const handleDeleteNote = async (id) => {
-    setLoading(true);
+    if (!window.confirm('Are you sure you want to delete this note?')) {
+      return;
+    }
+
+    setDeletingNote(true);
     setError(null);
+
+    // Optimistic update
+    const originalNotes = [...notes];
+    setNotes(prev => prev.filter(note => note.id !== id));
+
     try {
-      await makeAuthenticatedRequest(`/api/notes/note/${id}`, {
+      const res = await makeAuthenticatedRequest(`/api/notes/note/${id}`, {
         method: 'DELETE',
       });
-      await fetchNotes();
-      if (selectedNote && selectedNote.id === id) setSelectedNote(null);
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to delete note');
+      }
+
       toast.success('Note deleted successfully');
+
     } catch (err) {
-      setError('Failed to delete note');
+      // Rollback optimistic update
+      setNotes(originalNotes);
+      const errorMessage = err.message || 'Error deleting note';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setDeletingNote(false);
     }
   };
 
@@ -1215,9 +1370,26 @@ const PersonalWork = () => {
   };
 
   const handleCreateNote = async () => {
-    if (!newNoteTitle.trim()) return;
-    setLoading(true);
+    if (!newNoteTitle.trim()) {
+      toast.error('Note title is required');
+      return;
+    }
+
+    setCreatingNote(true);
     setError(null);
+
+    // Optimistic update
+    const optimisticNote = {
+      id: `temp_${Date.now()}`,
+      title: newNoteTitle,
+      description: newNoteDescription,
+      created_at: new Date().toISOString(),
+      date: new Date().toLocaleDateString()
+    };
+
+    const originalNotes = [...notes];
+    setNotes(prev => [optimisticNote, ...prev]);
+
     try {
       const res = await makeAuthenticatedRequest('/api/notes/create', {
         method: 'POST',
@@ -1227,31 +1399,35 @@ const PersonalWork = () => {
           description: newNoteDescription
         }),
       });
-      const data = await res.json();
-      if (data.note) {
-        setNotes(prev => [
-          {
-            id: data.note._id || data.note.id,
-            title: data.note.title,
-            description: data.note.content,
-            created_at: data.note.created_at,
-          },
-          ...prev
-        ]);
-        setShowCreateNoteForm(false);
-        setNewNoteTitle('');
-        setNewNoteDescription('');
-        toast.success('Note created successfully');
-        fetchNotes(); // Ensure UI is in sync
-      } else {
-        setError('Failed to create note');
-        toast.error('Failed to create note');
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to create note');
       }
+
+      const data = await res.json();
+      
+      // Replace optimistic note with real note
+      setNotes(prev => prev.map(note => 
+        note.id === optimisticNote.id ? {
+          ...note,
+          id: data.note._id || data.note.id
+        } : note
+      ));
+
+      setShowCreateNoteForm(false);
+      setNewNoteTitle('');
+      setNewNoteDescription('');
+      toast.success('Note created successfully!');
+
     } catch (err) {
-      setError('Failed to create note');
-      toast.error('Failed to create note');
+      // Rollback optimistic update
+      setNotes(originalNotes);
+      const errorMessage = err.message || 'Error creating note';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
-      setLoading(false);
+      setCreatingNote(false);
     }
   };
 

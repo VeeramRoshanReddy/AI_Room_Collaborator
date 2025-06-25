@@ -19,24 +19,6 @@ except ImportError:
     # jwt is required for authentication. Please install with 'pip install PyJWT'
     jwt = None
 
-# Helper: get current user from session cookie
-async def get_current_user(request: Request, db: Session = Depends(get_db)):
-    token = request.cookies.get("airoom_session")
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    # Decode JWT (reuse logic from auth)
-    if jwt is None:
-        raise ImportError("PyJWT is required for authentication. Please install with 'pip install PyJWT'")
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id = payload["user"]["sub"]
-        user = db.query(PGUser).filter(PGUser.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid session")
-
 @router.post("/create")
 async def create_room(data: Dict[str, Any], user: PGUser = Depends(get_current_user), db: Session = Depends(get_db)):
     try:

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useUserContext } from '../../context/UserContext';
+import { toast } from 'react-toastify';
 
 const NoScrollWrapper = styled.div`
   height: 100%;
@@ -531,6 +532,7 @@ const Rooms = () => {
   const [rooms, setRooms] = useState([]); // API-driven
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
   // Chat state
   const [chatMessages, setChatMessages] = useState([
     { id: 1, text: 'Welcome to the topic group chat!', isUser: false }
@@ -540,16 +542,32 @@ const Rooms = () => {
   const [memberAction, setMemberAction] = useState({ show: false, user: null, anchor: null });
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicDesc, setNewTopicDesc] = useState('');
-  const [showRoomMenu, setShowRoomMenu] = useState(null); // To control which room's menu is open
-  const [showTopicMenu, setShowTopicMenu] = useState(null); // To control which topic's menu is open
-  const [showCreateTopicForm, setShowCreateTopicForm] = useState(false); // To control topic creation modal
-  const [showAuthError, setShowAuthError] = useState(false); // For authorization error message
-  const [adminLeavePrompt, setAdminLeavePrompt] = useState(false); // For admin leave room prompt
-  const [leavingRoomId, setLeavingRoomId] = useState(null); // To store the room ID when admin tries to leave
-  const [roomChatMessages, setRoomChatMessages] = useState({}); // Stores chat messages for each topic
+  const [showRoomMenu, setShowRoomMenu] = useState(null);
+  const [showTopicMenu, setShowTopicMenu] = useState(null);
+  const [showCreateTopicForm, setShowCreateTopicForm] = useState(false);
+  const [showAuthError, setShowAuthError] = useState(false);
+  const [adminLeavePrompt, setAdminLeavePrompt] = useState(false);
+  const [leavingRoomId, setLeavingRoomId] = useState(null);
+  const [roomChatMessages, setRoomChatMessages] = useState({});
   const [newRoomName, setNewRoomName] = useState('');
   const [joinRoomId, setJoinRoomId] = useState('');
   const [joinRoomPass, setJoinRoomPass] = useState('');
+
+  // Loading states for specific operations
+  const [creatingRoom, setCreatingRoom] = useState(false);
+  const [joiningRoom, setJoiningRoom] = useState(false);
+  const [leavingRoom, setLeavingRoom] = useState(false);
+  const [deletingRoom, setDeletingRoom] = useState(false);
+  const [creatingTopic, setCreatingTopic] = useState(false);
+  const [deletingTopic, setDeletingTopic] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  // WebSocket state
+  const [websocket, setWebsocket] = useState(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsReconnecting, setWsReconnecting] = useState(false);
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
 
   // Alphabetical member list
   const memberList = selectedRoom ? [...selectedRoom.members].sort() : [];
@@ -561,37 +579,196 @@ const Rooms = () => {
   const getSortedAdmins = (room) => [...room.admins].sort((a, b) => a.name.localeCompare(b.name));
   const getSortedMembers = (room) => [...room.members].sort((a, b) => a.name.localeCompare(b.name));
 
-  // Handlers
+  // WebSocket management
+  const connectWebSocket = (roomId, topicId) => {
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
+    const token = getAuthToken(session);
+    
+    if (!token) {
+      toast.error('Authentication token not available');
+      return;
+    }
+
+    const wsUrl = `${backendUrl.replace(/^http/, 'ws')}/api/chat/ws/${roomId}/${topicId}?token=${encodeURIComponent(token)}`;
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('WebSocket connected');
+      setWsConnected(true);
+      setWsReconnecting(false);
+      toast.success('Connected to chat');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleWebSocketMessage(data);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    ws.onclose = (event) => {
+      console.log('WebSocket disconnected:', event.code, event.reason);
+      setWsConnected(false);
+      
+      if (event.code !== 1000 && !wsReconnecting) {
+        // Attempt to reconnect
+        setWsReconnecting(true);
+        toast.warning('Connection lost. Reconnecting...');
+        
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (selectedRoom && selectedTopic) {
+            connectWebSocket(selectedRoom.id, selectedTopic.id);
+          }
+        }, 3000);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      toast.error('WebSocket connection error');
+    };
+
+    setWebsocket(ws);
+  };
+
+  const handleWebSocketMessage = (data) => {
+    switch (data.type) {
+      case 'connection_established':
+        console.log('WebSocket connection established');
+        break;
+      case 'chat_message':
+        // Handle incoming chat message
+        const newMessage = {
+          id: Date.now(),
+          text: data.data.content,
+          isUser: false,
+          sender: data.data.user_name || 'User',
+          time: new Date().toLocaleTimeString()
+        };
+        setRoomChatMessages(prev => ({
+          ...prev,
+          [selectedTopic.title]: [...(prev[selectedTopic.title] || []), newMessage]
+        }));
+        break;
+      case 'user_joined':
+        toast.info(`${data.data.user_name} joined the chat`);
+        break;
+      case 'user_left':
+        toast.info(`${data.data.user_name} left the chat`);
+        break;
+      case 'error':
+        toast.error(data.data.message || 'An error occurred');
+        break;
+      case 'pong':
+        // Handle ping/pong for keepalive
+        break;
+      default:
+        console.log('Unknown WebSocket message type:', data.type);
+    }
+  };
+
+  const sendWebSocketMessage = (message, type = 'chat') => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: type,
+        content: message
+      }));
+    } else {
+      toast.error('Not connected to chat');
+    }
+  };
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Handlers with improved error handling and loading states
   const handleEnterRoom = (room) => {
     setSelectedRoom(room);
     setView('topics');
     fetchTopics(room.id, setSelectedRoom, setLoading, setError);
   };
+
   const handleBackToRooms = () => {
     setSelectedRoom(null);
     setView('rooms');
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
   };
+
   const handleBackToTopics = () => {
     setSelectedTopic(null);
     setView('topics');
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
   };
+
   const handleTopicClick = (topic) => {
     setSelectedTopic(topic);
     setView('chat');
-    // Load chat messages for this topic, or initialize if new
+    
+    // Initialize chat messages if not exists
     if (!roomChatMessages[topic.title]) {
       setRoomChatMessages(prev => ({
         ...prev,
-        [topic.title]: [{ id: 1, text: `Welcome to the topic: ${topic.title}!`, isUser: false, sender: 'AI', avatar: '/ai_logo.png', time: new Date().toLocaleTimeString() }]
+        [topic.title]: [{ 
+          id: 1, 
+          text: `Welcome to the topic: ${topic.title}!`, 
+          isUser: false, 
+          sender: 'AI', 
+          avatar: '/ai_logo.png', 
+          time: new Date().toLocaleTimeString() 
+        }]
       }));
     }
-    setChatInput(''); // Clear input on topic change
+    
+    setChatInput('');
+    
+    // Connect to WebSocket
+    connectWebSocket(selectedRoom.id, topic.id);
   };
-  // Create room
+
+  // Create room with optimistic update
   const handleCreateRoom = async () => {
-    if (!newRoomName.trim()) return;
-    setLoading(true);
+    if (!newRoomName.trim()) {
+      toast.error('Room name is required');
+      return;
+    }
+    
+    setCreatingRoom(true);
     setError(null);
+    
+    // Optimistic update
+    const optimisticRoom = {
+      id: `temp_${Date.now()}`,
+      name: newRoomName,
+      created_by: user.id,
+      members: [{ id: user.id, name: user.name, email: user.email }],
+      admins: [{ id: user.id, name: user.name, email: user.email }],
+      topics: []
+    };
+    
+    const originalRooms = [...rooms];
+    setRooms(prev => [...prev, optimisticRoom]);
+    
     try {
       const password = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
       const res = await makeAuthenticatedRequest('/api/room/create', {
@@ -599,184 +776,298 @@ const Rooms = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newRoomName, password }),
       });
-      if (!res.ok) throw new Error('Failed to create room');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to create room');
+      }
+      
+      const data = await res.json();
+      
+      // Replace optimistic room with real room
+      setRooms(prev => prev.map(room => 
+        room.id === optimisticRoom.id ? { ...room, id: data.room_id } : room
+      ));
+      
       setShowCreate(false);
       setNewRoomName('');
-      await fetchRooms(setRooms, setLoading, setError);
+      toast.success('Room created successfully!');
+      
     } catch (err) {
-      setError(err.message || 'Error creating room');
-      setLoading(false);
+      // Rollback optimistic update
+      setRooms(originalRooms);
+      const errorMessage = err.message || 'Error creating room';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setCreatingRoom(false);
     }
   };
-  // Join room
+
+  // Join room with optimistic update
   const handleJoinRoom = async () => {
-    setLoading(true);
+    if (!joinRoomId.trim() || !joinRoomPass.trim()) {
+      toast.error('Room ID and password are required');
+      return;
+    }
+    
+    setJoiningRoom(true);
     setError(null);
+    
     try {
       const res = await makeAuthenticatedRequest('/api/room/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: joinRoomId, password: joinRoomPass }),
       });
-      if (!res.ok) throw new Error('Failed to join room');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to join room');
+      }
+      
       setShowJoin(false);
       setJoinRoomId('');
       setJoinRoomPass('');
+      
+      // Refresh rooms list
       await fetchRooms(setRooms, setLoading, setError);
+      toast.success('Successfully joined room!');
+      
     } catch (err) {
-      setError(err.message || 'Error joining room');
-      setLoading(false);
+      const errorMessage = err.message || 'Error joining room';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setJoiningRoom(false);
     }
   };
-  // Chat send
+
+  // Chat send with optimistic update
   const handleSendChat = async () => {
     if (!chatInput.trim()) return;
-    const newMessage = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 1, text: chatInput, isUser: true, sender: user?.name, avatar: user?.avatar, time: new Date().toLocaleTimeString() };
+    
+    setSendingMessage(true);
+    
+    // Optimistic update
+    const newMessage = { 
+      id: Date.now(), 
+      text: chatInput, 
+      isUser: true, 
+      sender: user?.name, 
+      avatar: user?.avatar, 
+      time: new Date().toLocaleTimeString() 
+    };
+    
+    const originalMessages = roomChatMessages[selectedTopic.title] || [];
     setRoomChatMessages(prev => ({
       ...prev,
       [selectedTopic.title]: [...(prev[selectedTopic.title] || []), newMessage]
     }));
+    
+    const messageToSend = chatInput;
     setChatInput('');
-    if (chatInput.toLowerCase().includes('@chatbot')) {
-      setTimeout(() => {
-        const aiResponse = { id: (roomChatMessages[selectedTopic.title]?.length || 0) + 2, text: "AI: I'm here to help your group!", isUser: false, sender: 'AI', avatar: '/ai_logo.png', time: new Date().toLocaleTimeString() };
-        setRoomChatMessages(prev => ({
-          ...prev,
-          [selectedTopic.title]: [...(prev[selectedTopic.title] || []), aiResponse]
-        }));
-      }, 1000);
+    
+    try {
+      // Send via WebSocket
+      sendWebSocketMessage(messageToSend, messageToSend.toLowerCase().includes('@chatbot') ? 'ai_request' : 'chat');
+      
+      // If it's an AI request, add a temporary "thinking" message
+      if (messageToSend.toLowerCase().includes('@chatbot')) {
+        setTimeout(() => {
+          const thinkingMessage = { 
+            id: Date.now() + 1, 
+            text: "AI is thinking...", 
+            isUser: false, 
+            sender: 'AI', 
+            avatar: '/ai_logo.png', 
+            time: new Date().toLocaleTimeString() 
+          };
+          setRoomChatMessages(prev => ({
+            ...prev,
+            [selectedTopic.title]: [...(prev[selectedTopic.title] || []), thinkingMessage]
+          }));
+        }, 500);
+      }
+      
+    } catch (err) {
+      // Rollback optimistic update
+      setRoomChatMessages(prev => ({
+        ...prev,
+        [selectedTopic.title]: originalMessages
+      }));
+      setChatInput(messageToSend);
+      toast.error('Failed to send message');
+    } finally {
+      setSendingMessage(false);
     }
-    // Construct WebSocket URL dynamically with JWT token
-    const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
-    const token = getAuthToken(session);
-    const wsUrl = backendUrl.replace(/^http/, 'ws') + `/api/chat/ws/${selectedRoom.id}/${selectedTopic.id}/${user?.id}` + (token ? `?token=${encodeURIComponent(token)}` : '');
-    const ws = new WebSocket(wsUrl);
-    ws.send(JSON.stringify({ type: chatInput.startsWith('@chatbot') ? 'ai_request' : 'chat', content: chatInput }));
   };
-  // Leave room
+
+  // Leave room with confirmation
   const handleLeaveRoom = async (roomId) => {
-    setLoading(true);
+    setLeavingRoom(true);
     setError(null);
+    
     try {
       const res = await makeAuthenticatedRequest('/api/room/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: roomId }),
       });
-      if (!res.ok) throw new Error('Failed to leave room');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to leave room');
+      }
+      
       setSelectedRoom(null);
       setView('rooms');
       setShowRoomMenu(null);
       await fetchRooms(setRooms, setLoading, setError);
+      toast.success('Successfully left room');
+      
     } catch (err) {
-      setError(err.message || 'Error leaving room');
-      setLoading(false);
+      const errorMessage = err.message || 'Error leaving room';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLeavingRoom(false);
     }
   };
-  // Delete room
+
+  // Delete room with confirmation
   const handleDeleteRoom = async (roomId) => {
-    setLoading(true);
+    if (!window.confirm('Are you sure you want to delete this room? This action cannot be undone.')) {
+      return;
+    }
+    
+    setDeletingRoom(true);
     setError(null);
+    
     try {
       const res = await makeAuthenticatedRequest('/api/room/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: roomId }),
       });
-      if (!res.ok) throw new Error('Failed to delete room');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to delete room');
+      }
+      
       setSelectedRoom(null);
       setView('rooms');
       setShowRoomMenu(null);
       await fetchRooms(setRooms, setLoading, setError);
+      toast.success('Room deleted successfully');
+      
     } catch (err) {
-      setError(err.message || 'Error deleting room');
-      setLoading(false);
+      const errorMessage = err.message || 'Error deleting room';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setDeletingRoom(false);
     }
   };
-  // Create topic
+
+  // Create topic with optimistic update
   const handleCreateTopic = async () => {
-    if (!newTopicTitle.trim()) return;
-    setLoading(true);
+    if (!newTopicTitle.trim()) {
+      toast.error('Topic title is required');
+      return;
+    }
+    
+    setCreatingTopic(true);
     setError(null);
+    
+    // Optimistic update
+    const optimisticTopic = {
+      id: `temp_${Date.now()}`,
+      title: newTopicTitle,
+      description: newTopicDesc,
+      createdBy: user?.name,
+      date: new Date().toLocaleDateString()
+    };
+    
+    const originalTopics = selectedRoom.topics || [];
+    setSelectedRoom(prev => prev ? {
+      ...prev,
+      topics: [...(prev.topics || []), optimisticTopic]
+    } : prev);
+    
     try {
       const res = await makeAuthenticatedRequest('/api/topic/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_id: selectedRoom.id, title: newTopicTitle, description: newTopicDesc }),
+        body: JSON.stringify({ 
+          room_id: selectedRoom.id, 
+          title: newTopicTitle, 
+          description: newTopicDesc 
+        }),
       });
-      if (!res.ok) throw new Error('Failed to create topic');
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to create topic');
+      }
+      
       setShowCreateTopicForm(false);
       setNewTopicTitle('');
       setNewTopicDesc('');
-      await fetchTopics(selectedRoom.id, setSelectedRoom, setLoading, setError);
+      toast.success('Topic created successfully!');
+      
     } catch (err) {
-      setError(err.message || 'Error creating topic');
-      setLoading(false);
+      // Rollback optimistic update
+      setSelectedRoom(prev => prev ? {
+        ...prev,
+        topics: originalTopics
+      } : prev);
+      
+      const errorMessage = err.message || 'Error creating topic';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setCreatingTopic(false);
     }
   };
-  // Delete topic
+
+  // Delete topic with confirmation
   const handleDeleteTopic = async (topic) => {
-    setLoading(true);
+    if (!window.confirm(`Are you sure you want to delete the topic "${topic.title}"?`)) {
+      return;
+    }
+    
+    setDeletingTopic(true);
     setError(null);
+    
     try {
       const res = await makeAuthenticatedRequest('/api/topic/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ topic_id: topic.id }),
       });
-      if (!res.ok) throw new Error('Failed to delete topic');
-      setShowTopicMenu(null);
-      await fetchTopics(selectedRoom.id, setSelectedRoom, setLoading, setError);
-    } catch (err) {
-      setError(err.message || 'Error deleting topic');
-      setLoading(false);
-    }
-  };
-  // Member actions
-  const handleRemoveUser = (user) => {
-    setRooms(rooms.map(r => {
-      if (r.id === selectedRoom.id) {
-        return {
-          ...r,
-          members: r.members.filter(m => m.email !== user.email),
-          admins: r.admins.filter(a => a.email !== user.email)
-        };
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to delete topic');
       }
-      return r;
-    }));
-    setSelectedRoom({
-      ...selectedRoom,
-      members: selectedRoom.members.filter(m => m.email !== user.email),
-      admins: selectedRoom.admins.filter(a => a.email !== user.email)
-    });
-    setMemberAction({ show: false, user: null, anchor: null });
-  };
-  const handleMakeAdmin = (user) => {
-    setRooms(rooms.map(r => {
-      if (r.id === selectedRoom.id) {
-        return {
-          ...r,
-          admins: [...r.admins, user],
-          members: r.members.filter(m => m.email !== user.email)
-        };
-      }
-      return r;
-    }));
-    setSelectedRoom({
-      ...selectedRoom,
-      admins: [...selectedRoom.admins, user],
-      members: selectedRoom.members.filter(m => m.email !== user.email)
-    });
-    setMemberAction({ show: false, user: null, anchor: null });
-  };
-
-  const handleDeleteChat = async () => {
-    if (window.confirm('Are you sure you want to delete this chat conversation?')) {
-      await makeAuthenticatedRequest(`/api/chat/history/${selectedRoom.id}/${selectedTopic.id}`, { method: 'DELETE' });
-      setRoomChatMessages(prev => ({
+      
+      // Remove topic from state
+      setSelectedRoom(prev => prev ? {
         ...prev,
-        [selectedTopic.title]: []
-      }));
+        topics: prev.topics.filter(t => t.id !== topic.id)
+      } : prev);
+      
+      setShowTopicMenu(null);
+      toast.success('Topic deleted successfully');
+      
+    } catch (err) {
+      const errorMessage = err.message || 'Error deleting topic';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setDeletingTopic(false);
     }
   };
 
@@ -787,15 +1078,17 @@ const Rooms = () => {
       const res = await makeAuthenticatedRequest('/api/room/list');
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        // Received HTML or other non-JSON (likely an error page)
         const text = await res.text();
         setError('Server error: Received non-JSON response.');
+        toast.error('Server error: Received non-JSON response.');
         return;
       }
       const data = await res.json();
       setRooms(data.rooms || []);
     } catch (err) {
-      setError(err.message || 'Error fetching rooms');
+      const errorMessage = err.message || 'Error fetching rooms';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -809,7 +1102,9 @@ const Rooms = () => {
       const data = await res.json();
       setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
     } catch (err) {
-      setError(err.message || 'Error fetching topics');
+      const errorMessage = err.message || 'Error fetching topics';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -841,7 +1136,7 @@ const Rooms = () => {
               <ChatTitle>{selectedTopic.title}</ChatTitle>
               <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>
                 {isAdmin(selectedRoom) && (
-                  <DeleteChatButton onClick={handleDeleteChat}><FaTrash /> Delete Conversation</DeleteChatButton>
+                  <DeleteChatButton onClick={() => handleDeleteChat()}><FaTrash /> Delete Conversation</DeleteChatButton>
                 )}
                 <SidebarToggle onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? "Hide Participants" : "Show Participants"} style={{position: 'relative', top: 'auto', right: 'auto'}}>
                   {showParticipants ? <FaChevronRight /> : <FaChevronLeft />}

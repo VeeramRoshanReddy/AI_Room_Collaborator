@@ -13,43 +13,87 @@ from models.postgresql.room import Room, room_members
 from models.postgresql.topic import Topic
 from models.postgresql.user import User
 from models.mongodb.chat_log import ChatLog, ChatMessage
+from middleware.websocket_auth import get_websocket_user, WebSocketAuthenticationError
 import uuid
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# WebSocket connection manager
+# WebSocket connection manager with improved error handling
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, List[WebSocket]] = {}
+        self.connection_users: Dict[WebSocket, Dict] = {}  # Store user info for each connection
     
-    async def connect(self, websocket: WebSocket, room_id: str):
+    async def connect(self, websocket: WebSocket, room_id: str, user: User):
         await websocket.accept()
         if room_id not in self.active_connections:
             self.active_connections[room_id] = []
         self.active_connections[room_id].append(websocket)
-        logger.info(f"Client connected to room {room_id}")
+        self.connection_users[websocket] = {
+            "user": user,
+            "room_id": room_id,
+            "connected_at": datetime.utcnow()
+        }
+        logger.info(f"User {user.email} connected to room {room_id}")
+        
+        # Send connection confirmation
+        await self.send_personal_message(
+            json.dumps({
+                "type": "connection_established",
+                "data": {
+                    "user_id": user.id,
+                    "room_id": room_id,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            }),
+            websocket
+        )
     
     def disconnect(self, websocket: WebSocket, room_id: str):
+        user_info = self.connection_users.get(websocket)
+        if user_info:
+            user = user_info["user"]
+            logger.info(f"User {user.email} disconnected from room {room_id}")
+            del self.connection_users[websocket]
+        
         if room_id in self.active_connections:
-            self.active_connections[room_id].remove(websocket)
-            if not self.active_connections[room_id]:
-                del self.active_connections[room_id]
-        logger.info(f"Client disconnected from room {room_id}")
+            try:
+                self.active_connections[room_id].remove(websocket)
+                if not self.active_connections[room_id]:
+                    del self.active_connections[room_id]
+            except ValueError:
+                # Connection already removed
+                pass
     
     async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
+        try:
+            await websocket.send_text(message)
+        except Exception as e:
+            logger.error(f"Error sending personal message: {e}")
+            # Mark connection for cleanup
+            user_info = self.connection_users.get(websocket)
+            if user_info:
+                self.disconnect(websocket, user_info["room_id"])
     
     async def broadcast_to_room(self, message: str, room_id: str, exclude_websocket: WebSocket = None):
-        if room_id in self.active_connections:
-            for connection in self.active_connections[room_id]:
-                if connection != exclude_websocket:
-                    try:
-                        await connection.send_text(message)
-                    except Exception as e:
-                        logger.error(f"Error sending message to client: {e}")
-                        # Remove broken connection
-                        self.active_connections[room_id].remove(connection)
+        if room_id not in self.active_connections:
+            return
+        
+        disconnected = []
+        for connection in self.active_connections[room_id]:
+            if connection != exclude_websocket:
+                try:
+                    await connection.send_text(message)
+                except Exception as e:
+                    logger.error(f"Error broadcasting message: {e}")
+                    disconnected.append(connection)
+        
+        # Clean up disconnected connections
+        for conn in disconnected:
+            user_info = self.connection_users.get(conn)
+            if user_info:
+                self.disconnect(conn, user_info["room_id"])
 
 manager = ConnectionManager()
 
@@ -76,73 +120,108 @@ class ChatResponse(BaseModel):
     timestamp: datetime
     is_encrypted: bool = True
 
-# Helper: get current user from session cookie
-async def get_current_user(request: Request, db: Session = Depends(get_db)):
-    token = request.cookies.get("airoom_session")
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    import jwt
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id = payload["user"]["sub"]
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid session")
-
 def is_room_member(db: Session, room_id: str, user_id: str) -> bool:
     return db.execute(room_members.select().where((room_members.c.room_id == room_id) & (room_members.c.user_id == user_id))).rowcount > 0
 
-@router.websocket("/ws/{room_id}/{topic_id}/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, db: Session = Depends(get_db), token: str = Query(None)):
-    # Hardened authentication: require JWT token as query param
-    import jwt
-    from core.config import settings
-    if not token:
-        await websocket.close(code=4003)
-        return
+@router.websocket("/ws/{room_id}/{topic_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str, topic_id: str, db: Session = Depends(get_db)):
+    """WebSocket endpoint with robust authentication and error handling"""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        token_user_id = payload["user"]["sub"]
-        if token_user_id != user_id:
-            await websocket.close(code=4003)
+        # Use robust WebSocket authentication
+        user = await get_websocket_user(websocket, db)
+        
+        # Check room membership
+        if not is_room_member(db, room_id, user.id):
+            logger.warning(f"User {user.email} attempted to access room {room_id} without membership")
+            await websocket.close(code=4001, reason="Not a room member")
             return
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            await websocket.close(code=4003)
-            return
-    except Exception:
-        await websocket.close(code=4003)
-        return
-    # Membership check
-    if not is_room_member(db, room_id, user_id):
-        await websocket.close(code=4001)
-        return
-    await manager.connect(websocket, room_id)
-    mongo_db = get_mongo_db()
-    try:
-        while True:
-            # Receive message from client
-            data = await websocket.receive_text()
-            message_data = json.loads(data)
+        
+        # Connect to room
+        await manager.connect(websocket, room_id, user)
+        mongo_db = get_mongo_db()
+        
+        # Send room join notification
+        await manager.broadcast_to_room(
+            json.dumps({
+                "type": "user_joined",
+                "data": {
+                    "user_id": user.id,
+                    "user_email": user.email,
+                    "user_name": user.name,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            }),
+            room_id,
+            exclude_websocket=websocket
+        )
+        
+        try:
+            while True:
+                # Receive message from client
+                data = await websocket.receive_text()
+                message_data = json.loads(data)
+                
+                # Handle different message types
+                if message_data.get("type") == "chat":
+                    await handle_chat_message(websocket, room_id, topic_id, user.id, message_data, db, mongo_db)
+                elif message_data.get("type") == "ai_request":
+                    await handle_ai_request(websocket, room_id, topic_id, user.id, message_data, db, mongo_db)
+                elif message_data.get("type") == "join_room":
+                    await handle_join_room(websocket, room_id, topic_id, user.id, mongo_db)
+                elif message_data.get("type") == "leave_room":
+                    await handle_leave_room(websocket, room_id, topic_id, user.id, mongo_db)
+                elif message_data.get("type") == "ping":
+                    # Respond to ping with pong
+                    await manager.send_personal_message(
+                        json.dumps({
+                            "type": "pong",
+                            "timestamp": datetime.utcnow().isoformat()
+                        }),
+                        websocket
+                    )
+        
+        except WebSocketDisconnect:
+            logger.info(f"WebSocket disconnected for user {user.email} in room {room_id}")
+        except Exception as e:
+            logger.error(f"WebSocket error for user {user.email} in room {room_id}: {e}")
+            # Send error message to client
+            try:
+                await manager.send_personal_message(
+                    json.dumps({
+                        "type": "error",
+                        "data": {
+                            "message": "An error occurred",
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                    }),
+                    websocket
+                )
+            except:
+                pass
+        finally:
+            # Clean up connection
+            manager.disconnect(websocket, room_id)
             
-            # Handle different message types
-            if message_data.get("type") == "chat":
-                await handle_chat_message(websocket, room_id, topic_id, user_id, message_data, db, mongo_db)
-            elif message_data.get("type") == "ai_request":
-                await handle_ai_request(websocket, room_id, topic_id, user_id, message_data, db, mongo_db)
-            elif message_data.get("type") == "join_room":
-                await handle_join_room(websocket, room_id, topic_id, user_id, mongo_db)
-            elif message_data.get("type") == "leave_room":
-                await handle_leave_room(websocket, room_id, topic_id, user_id, mongo_db)
+            # Send user left notification
+            await manager.broadcast_to_room(
+                json.dumps({
+                    "type": "user_left",
+                    "data": {
+                        "user_id": user.id,
+                        "user_email": user.email,
+                        "user_name": user.name,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                }),
+                room_id
+            )
     
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, room_id)
+    except WebSocketAuthenticationError as e:
+        logger.warning(f"WebSocket authentication failed: {e.reason}")
+        await websocket.close(code=4003, reason=e.reason)
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-        manager.disconnect(websocket, room_id)
+        logger.error(f"WebSocket connection error: {e}")
+        await websocket.close(code=1011, reason="Internal server error")
 
 async def handle_chat_message(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, message_data: Dict, db: Session, mongo_db):
     """Handle regular chat messages"""
@@ -301,6 +380,10 @@ async def handle_ai_request(websocket: WebSocket, room_id: str, topic_id: str, u
 async def handle_join_room(websocket: WebSocket, room_id: str, topic_id: str, user_id: str, mongo_db):
     """Handle user joining a room"""
     try:
+        if mongo_db is None:
+            logger.error("MongoDB connection not available")
+            return
+        
         # Send room history to the new user
         chat_log = await mongo_db.chat_logs.find_one({"room_id": room_id, "topic_id": topic_id})
         messages = chat_log["messages"][-50:] if chat_log else []
@@ -377,6 +460,9 @@ async def send_message(message: ChatMessage):
         
         # Store in chat history
         mongo_db = get_mongo_db()
+        if mongo_db is None:
+            raise HTTPException(status_code=500, detail="MongoDB connection not available")
+        
         chat_log = await mongo_db.chat_logs.find_one({"room_id": message.room_id})
         if not chat_log:
             chat_log_doc = {
@@ -402,6 +488,9 @@ async def ai_chat(request: AIRequest):
     try:
         # Get room history
         mongo_db = get_mongo_db()
+        if mongo_db is None:
+            raise HTTPException(status_code=500, detail="MongoDB connection not available")
+        
         chat_log = await mongo_db.chat_logs.find_one({"room_id": request.room_id})
         room_history = chat_log["messages"] if chat_log else []
         
@@ -459,6 +548,9 @@ async def get_chat_history(room_id: str, topic_id: str, limit: int = 50):
     """Get chat history for a room"""
     try:
         mongo_db = get_mongo_db()
+        if mongo_db is None:
+            raise HTTPException(status_code=500, detail="MongoDB connection not available")
+        
         chat_log = await mongo_db.chat_logs.find_one({"room_id": room_id, "topic_id": topic_id})
         messages = chat_log["messages"][-limit:] if chat_log else []
         return {
@@ -476,6 +568,9 @@ async def clear_chat_history(room_id: str, topic_id: str):
     """Clear chat history for a room"""
     try:
         mongo_db = get_mongo_db()
+        if mongo_db is None:
+            raise HTTPException(status_code=500, detail="MongoDB connection not available")
+        
         await mongo_db.chat_logs.delete_one({"room_id": room_id, "topic_id": topic_id})
         return {"message": "Chat history cleared", "room_id": room_id, "topic_id": topic_id}
     except Exception as e:
