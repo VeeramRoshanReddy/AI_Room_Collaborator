@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class RAGService:
     def __init__(self):
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.client = OpenAI(api_key=settings.OPENAI_KEY)
         self.chunk_size = 1000
         self.chunk_overlap = 200
         self.vector_db = {}  # In-memory storage for development

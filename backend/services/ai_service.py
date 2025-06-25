@@ -9,7 +9,7 @@ from services.encryption_service import encryption_service
 logger = logging.getLogger(__name__)
 
 # Configure OpenAI
-client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+client = openai.OpenAI(api_key=settings.OPENAI_KEY)
 
 class AIService:
     def __init__(self):
