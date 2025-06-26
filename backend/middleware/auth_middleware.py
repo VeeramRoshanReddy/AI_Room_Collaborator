@@ -159,23 +159,34 @@ def get_current_user(
                     detail="Invalid token - missing user ID"
                 )
             
-            # For Supabase, create or get user from database
+            # Try to find user by supabase_id first
             user = db.query(PGUser).filter(PGUser.supabase_id == user_id).first()
             if not user:
-                # Create new user if doesn't exist
-                user_name = payload.get("user_metadata", {}).get("full_name") or payload.get("email", "").split("@")[0]
-                user = PGUser(
-                    supabase_id=user_id,
-                    email=user_email,
-                    name=user_name,
-                    picture=payload.get("user_metadata", {}).get("avatar_url"),
-                    is_active=True
-                )
-                db.add(user)
-                db.commit()
-                db.refresh(user)
-                logger.info(f"Created new user from Supabase: {user_email}")
-            
+                # Try to find user by email (in case user was created before supabase_id was set)
+                user = db.query(PGUser).filter(PGUser.email == user_email).first()
+                if user:
+                    # Update user to add supabase_id
+                    user.supabase_id = user_id
+                    db.commit()
+                    db.refresh(user)
+                    logger.info(f"Updated user {user_email} with supabase_id {user_id}")
+                else:
+                    # Create new user if doesn't exist
+                    user_name = payload.get("user_metadata", {}).get("full_name") or payload.get("email", "").split("@")[0]
+                    user = PGUser(
+                        supabase_id=user_id,
+                        email=user_email,
+                        name=user_name,
+                        picture=payload.get("user_metadata", {}).get("avatar_url"),
+                        is_active=True
+                    )
+                    db.add(user)
+                    db.commit()
+                    db.refresh(user)
+                    logger.info(f"Created new user from Supabase: {user_email}")
+            else:
+                logger.info(f"User already exists: {user_email}")
+        
         elif token_type == "demo":
             # Handle demo JWT
             payload = verify_demo_jwt(token)
