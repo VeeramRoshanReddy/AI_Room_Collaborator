@@ -52,3 +52,6 @@ gunicorn==21.2.0
 
 # Migrations
 alembic==1.12.1
+
+# Additional utilities
+motor==3.3.1

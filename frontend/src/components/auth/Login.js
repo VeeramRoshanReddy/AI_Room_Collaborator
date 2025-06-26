@@ -11,7 +11,7 @@ const lightBlue = '#60a5fa';
 const MinimalBackground = styled.div`
   min-height: 100vh;
   width: 100vw;
-  background: #f6f8fc;
+  background: #2563eb;
   display: flex;
   align-items: center;
   justify-content: center;
