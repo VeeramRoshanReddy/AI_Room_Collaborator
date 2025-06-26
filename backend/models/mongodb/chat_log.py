@@ -48,7 +48,7 @@ class ChatMessage(BaseModel):
 
 class ChatLogBase(BaseModel):
     room_id: str = Field(...)
-    topic_id: Optional[str] = Field(None)
+    topic_id: Optional[str] = Field(None, description="The ID of the topic within the room")
     messages: List[ChatMessage] = Field(default_factory=list)
     is_active: bool = Field(default=True)
     last_activity: datetime = Field(default_factory=datetime.utcnow)
@@ -67,10 +67,10 @@ class ChatLog(ChatLogBase):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "room_id": "room123",
                 "topic_id": "topic456",

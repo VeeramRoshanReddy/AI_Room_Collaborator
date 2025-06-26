@@ -61,11 +61,12 @@ class Note(NoteBase):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
-        schema_extra = {
+        json_schema_extra = {
             "example": {
+                "_id": "60d5ec49e9c9e6b3b8e4b1a2",
                 "title": "Study Notes for AI Course",
                 "content": "These are my notes from the AI course...",
                 "user_id": "user123",
