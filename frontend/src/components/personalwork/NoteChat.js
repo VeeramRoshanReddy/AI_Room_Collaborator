@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaFileUpload, FaRobot, FaUserCircle } from 'react-icons/fa';
-import axios from 'axios';
+import { FaFileUpload, FaRobot, FaUserCircle, FaTimes } from 'react-icons/fa';
+import { useUserContext } from '../../context/UserContext';
+import { toast } from 'react-toastify';
 
 const Container = styled.div`
   display: flex;
@@ -144,7 +145,35 @@ const Loader = styled.div`
   }
 `;
 
+const FileInfo = styled.div`
+  padding: 12px 16px;
+  background: rgba(224,231,239,0.7);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const FileName = styled.span`
+  font-weight: 600;
+  color: #2563eb;
+`;
+
+const RemoveButton = styled.button`
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  &:hover {
+    background: rgba(239, 68, 68, 0.1);
+  }
+`;
+
 const NoteChat = () => {
+  const { makeAuthenticatedRequest } = useUserContext();
   const [file, setFile] = useState(null);
   const [noteId, setNoteId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -156,42 +185,122 @@ const NoteChat = () => {
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
+    
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+    if (!allowedTypes.includes(selectedFile.type)) {
+      toast.error('Please upload a PDF or Word document');
+      return;
+    }
+    
     setUploading(true);
     setFile(selectedFile);
-    const formData = new FormData();
-    formData.append('file', selectedFile);
+    
     try {
-      const res = await axios.post('/api/notes/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        withCredentials: true
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      
+      const response = await makeAuthenticatedRequest('/api/v1/notes/upload', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          // Don't set Content-Type for FormData, let browser set it
+        }
       });
-      setNoteId(res.data.note_id);
+      
+      const data = await response.json();
+      setNoteId(data.note_id);
       setMessages([]);
+      toast.success('File uploaded successfully!');
+      
+      // Load chat history if available
+      await loadChatHistory(data.note_id);
+      
     } catch (err) {
-      alert('File upload failed.');
+      console.error('File upload error:', err);
+      toast.error(err.message || 'File upload failed');
+      setFile(null);
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
+  };
+
+  const loadChatHistory = async (noteId) => {
+    try {
+      const response = await makeAuthenticatedRequest(`/api/v1/notes/${noteId}/chat-history`);
+      const data = await response.json();
+      
+      if (data.messages && Array.isArray(data.messages)) {
+        const formattedMessages = data.messages.map(msg => ({
+          isUser: !msg.is_ai,
+          text: msg.content,
+          timestamp: msg.timestamp
+        }));
+        setMessages(formattedMessages);
+      }
+    } catch (err) {
+      console.error('Error loading chat history:', err);
+    }
   };
 
   const handleSend = async () => {
     if (!input.trim() || !noteId) return;
-    setLoading(true);
-    setMessages(msgs => [...msgs, { isUser: true, text: input }]);
-    try {
-      const res = await axios.post(`/api/notes/${noteId}/ask`, {
-        note_id: noteId,
-        question: input
-      }, { withCredentials: true });
-      setMessages(msgs => [...msgs, { isUser: false, text: res.data.answer }]);
-    } catch (err) {
-      setMessages(msgs => [...msgs, { isUser: false, text: 'Error: Could not get answer.' }]);
-    }
+    
+    const userMessage = input.trim();
     setInput('');
-    setLoading(false);
+    setLoading(true);
+    
+    // Add user message immediately
+    setMessages(msgs => [...msgs, { 
+      isUser: true, 
+      text: userMessage,
+      timestamp: new Date().toISOString()
+    }]);
+    
+    try {
+      const response = await makeAuthenticatedRequest(`/api/v1/notes/${noteId}/ask`, {
+        method: 'POST',
+        body: JSON.stringify({ question: userMessage })
+      });
+      
+      const data = await response.json();
+      
+      // Add AI response
+      setMessages(msgs => [...msgs, { 
+        isUser: false, 
+        text: data.answer,
+        timestamp: new Date().toISOString()
+      }]);
+      
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setMessages(msgs => [...msgs, { 
+        isUser: false, 
+        text: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date().toISOString()
+      }]);
+      toast.error('Failed to get response');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+    setNoteId(null);
+    setMessages([]);
+    setInput('');
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
   // Scroll to bottom on new message
-  React.useEffect(() => {
+  useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
@@ -201,30 +310,60 @@ const NoteChat = () => {
     <Container>
       {!noteId && (
         <UploadArea>
+          <input 
+            type="file" 
+            accept=".pdf,.doc,.docx" 
+            style={{ display: 'none' }} 
+            onChange={handleFileChange}
+            disabled={uploading}
+          />
           <FaFileUpload size={32} style={{ marginBottom: 12, color: '#2563eb' }} />
-          <input type="file" accept=".pdf,.doc,.docx" style={{ display: 'none' }} onChange={handleFileChange} />
-          <span style={{ color: '#2563eb', fontWeight: 600, fontSize: 16 }}>Upload PDF or DOCX to chat</span>
+          <span style={{ color: '#2563eb', fontWeight: 600, fontSize: 16 }}>
+            {uploading ? 'Uploading...' : 'Upload PDF or DOCX to chat'}
+          </span>
           {uploading && <Loader />}
         </UploadArea>
       )}
+      
       {noteId && (
         <>
+          <FileInfo>
+            <FileName>{file?.name}</FileName>
+            <RemoveButton onClick={handleRemoveFile}>
+              <FaTimes />
+            </RemoveButton>
+          </FileInfo>
+          
           <ChatArea ref={chatRef}>
             {messages.map((msg, idx) => (
               <Message key={idx} isUser={msg.isUser}>
-                <Avatar isUser={msg.isUser}>{msg.isUser ? <FaUserCircle /> : <FaRobot />}</Avatar>
-                <MessageContent isUser={msg.isUser}>{msg.text}</MessageContent>
+                <Avatar isUser={msg.isUser}>
+                  {msg.isUser ? <FaUserCircle /> : <FaRobot />}
+                </Avatar>
+                <MessageContent isUser={msg.isUser}>
+                  {msg.text}
+                </MessageContent>
               </Message>
             ))}
-            {loading && <Loader />}
+            {loading && (
+              <Message isUser={false}>
+                <Avatar isUser={false}>
+                  <FaRobot />
+                </Avatar>
+                <MessageContent isUser={false}>
+                  <Loader />
+                </MessageContent>
+              </Message>
+            )}
           </ChatArea>
+          
           <ChatInputArea>
             <Input
               type="text"
               placeholder="Ask a question about the uploaded file..."
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              onKeyPress={handleKeyPress}
               disabled={loading}
             />
             <Button onClick={handleSend} disabled={loading || !input.trim()}>

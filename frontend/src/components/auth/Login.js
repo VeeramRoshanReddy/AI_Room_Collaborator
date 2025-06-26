@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../../context/UserContext';
 import { FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash } from 'react-icons/fa';
 import styled from 'styled-components';
+import { toast } from 'react-toastify';
 
 const blue = '#2563eb';
 const lightBlue = '#60a5fa';
@@ -182,7 +183,7 @@ const ErrorMsg = styled.div`
 
 const Login = () => {
   const navigate = useNavigate();
-  const { setUser } = useContext(UserContext);
+  const { login, signup } = useContext(UserContext);
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -195,24 +196,61 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
     try {
-      // ... your login logic here ...
+      await login(email, password);
+      toast.success('Login successful!');
+      navigate('/dashboard');
     } catch (err) {
-      setError('Login failed. Please check your credentials.');
+      setError(err.message || 'Login failed. Please check your credentials.');
+      toast.error(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
     try {
-      // ... your signup logic here ...
+      await signup(name, email, password);
+      toast.success('Account created successfully!');
+      navigate('/dashboard');
     } catch (err) {
-      setError('Signup failed. Please try again.');
+      setError(err.message || 'Signup failed. Please try again.');
+      toast.error(err.message || 'Signup failed');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const validateForm = () => {
+    if (mode === 'signup') {
+      if (!name.trim()) return 'Name is required';
+      if (!email.trim()) return 'Email is required';
+      if (!password.trim()) return 'Password is required';
+      if (password.length < 6) return 'Password must be at least 6 characters';
+    } else {
+      if (!email.trim()) return 'Email is required';
+      if (!password.trim()) return 'Password is required';
+    }
+    return null;
+  };
+
+  const handleSubmit = (e) => {
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    
+    if (mode === 'login') {
+      handleLogin(e);
+    } else {
+      handleSignup(e);
+    }
   };
 
   return (
@@ -239,7 +277,7 @@ const Login = () => {
           <Tab active={mode === 'signup'} onClick={() => setMode('signup')}>Sign Up</Tab>
         </TabRow>
         {error && <ErrorMsg>{error}</ErrorMsg>}
-        <StyledForm onSubmit={mode === 'login' ? handleLogin : handleSignup}>
+        <StyledForm onSubmit={handleSubmit}>
           {mode === 'signup' && (
             <InputGroup>
               <InputIcon><FaUser /></InputIcon>
@@ -249,6 +287,7 @@ const Login = () => {
                 value={name}
                 onChange={e => setName(e.target.value)}
                 required
+                disabled={loading}
               />
             </InputGroup>
           )}
@@ -260,6 +299,7 @@ const Login = () => {
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
           </InputGroup>
           <InputGroup>
@@ -270,13 +310,14 @@ const Login = () => {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
+              disabled={loading}
             />
             <PasswordToggle type="button" onClick={() => setShowPassword(s => !s)}>
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </PasswordToggle>
           </InputGroup>
           <SubmitButton type="submit" disabled={loading}>
-            {mode === 'login' ? 'Login' : 'Sign Up'}
+            {loading ? 'Processing...' : (mode === 'login' ? 'Login' : 'Sign Up')}
           </SubmitButton>
         </StyledForm>
       </Card>

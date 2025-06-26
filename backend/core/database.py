@@ -57,7 +57,7 @@ def init_db():
     """Initialize database tables"""
     try:
         # Import all models here to ensure they are registered
-        from models.postgresql import user, room, topic
+        from models.postgresql import user, room, topic, note, chat_log
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created successfully")
     except Exception as e:

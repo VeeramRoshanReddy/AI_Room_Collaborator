@@ -1,508 +1,293 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes } from 'react-icons/fa';
+import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes, FaLock, FaUnlock, FaEdit, FaCog } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
 
-const NoScrollWrapper = styled.div`
-  height: 100%;
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   width: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  height: 100%;
+  padding: 20px;
 `;
 
-const CenteredContent = styled.div`
-  flex: 1;
+const Header = styled.div`
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  height: 100%;
-  min-height: 0;
+  margin-bottom: 20px;
 `;
 
-const TwoColumn = styled.div`
-  display: flex;
-  height: 100%;
-  width: 100%;
-  min-height: 0;
-  min-width: 0;
-`;
-
-const MainArea = styled.div`
-  flex: ${props => props.showParticipants ? '0 0 80%' : '0 0 100%'};
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  background: #f8fafc;
-  border-radius: ${props => props.showParticipants ? '14px 0 0 14px' : '14px'};
-  margin-top: 0;
-  margin-bottom: 0;
-  margin-left: 0;
-  margin-right: 0;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
-  position: relative;
-  transition: flex 0.3s ease-in-out, border-radius 0.3s ease-in-out;
-`;
-
-const ParticipantsSidebar = styled.div`
-  background: rgba(241,245,253,0.98);
-  border-radius: 0 14px 14px 0;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.06);
-  padding: 0 0 0 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: ${props => props.showParticipants ? '120px' : '0px'};
-  max-width: ${props => props.showParticipants ? '260px' : '0px'};
-  height: 100%;
-  margin: 0;
-  position: relative;
-  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), flex 0.3s ease-in-out, min-width 0.3s ease-in-out, max-width 0.3s ease-in-out;
-  z-index: 10;
-  flex: ${props => props.showParticipants ? '0 0 20%' : '0 0 0%'};
-  transform: translateX(${props => props.showParticipants ? '0' : '100%'});
-  overflow: hidden;
-`;
-
-const SidebarToggle = styled.button`
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
-  cursor: pointer;
-  z-index: 20;
-`;
-
-const MemberName = styled.div`
-  font-size: 1rem;
+const Title = styled.h2`
   color: #1e293b;
-  margin-bottom: 8px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+`;
+
+const CreateButton = styled.button`
   display: flex;
   align-items: center;
   gap: 8px;
-`;
-
-const SectionTitle = styled.h2`
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1d4ed8;
-  margin-bottom: 18px;
-  font-family: 'Poppins', 'Inter', 'Montserrat', sans-serif;
-`;
-
-const RoomList = styled.div`
-  display: flex;
-  gap: 32px;
-  flex-wrap: wrap;
-  margin-bottom: 32px;
-  justify-content: center;
-`;
-
-const RoomBox = styled.div`
-  background: #fff;
+  padding: 12px 20px;
+  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+  color: white;
+  border: none;
   border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
-  padding: 28px 24px;
-  min-width: 220px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  margin-bottom: 12px;
-  transition: box-shadow 0.2s;
-  position: relative;
-  &:hover {
-    box-shadow: 0 8px 32px rgba(37, 99, 235, 0.18);
-  }
-`;
-
-const ThreeDotsIcon = styled.div`
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  cursor: pointer;
-  font-size: 1.2rem;
-  color: #64748b;
-  &:hover {
-    color: #1d4ed8;
-  }
-`;
-
-const DropdownMenu = styled.div`
-  position: absolute;
-  top: 40px; /* Adjust based on icon position */
-  right: 16px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.18);
-  padding: 8px 0;
-  min-width: 120px;
-  z-index: 100;
-`;
-
-const DropdownMenuItem = styled.div`
-  padding: 10px 18px;
-  color: #2563eb;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
   &:hover {
-    background: #f1f5fd;
-  }
-  &.delete {
-    color: #ef4444;
-  }
-  &.leave {
-    color: #eab308;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2);
   }
 `;
 
-const RoomMeta = styled.div`
-  font-size: 0.95rem;
+const RoomsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  flex: 1;
+  overflow-y: auto;
+`;
+
+const RoomCard = styled.div`
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+  cursor: pointer;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+const RoomHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+`;
+
+const RoomTitle = styled.h3`
+  color: #1e293b;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+`;
+
+const RoomStatus = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: ${props => props.isPrivate ? '#ef4444' : '#10b981'};
+`;
+
+const RoomDescription = styled.p`
   color: #64748b;
-  margin-bottom: 10px;
+  font-size: 0.9rem;
+  margin: 8px 0;
+  line-height: 1.4;
+`;
+
+const RoomStats = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+`;
+
+const MemberCount = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 0.9rem;
 `;
 
 const RoomActions = styled.div`
   display: flex;
-  gap: 10px;
-  justify-content: center;
+  gap: 8px;
 `;
 
 const ActionButton = styled.button`
-  padding: 8px 16px;
-  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
-  color: white;
+  padding: 6px 12px;
   border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
-  transition: background 0.2s;
-  &:hover {
-    background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
-  }
-`;
-
-const TopicList = styled.div`
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
-  margin-bottom: 32px;
-  justify-content: center;
-`;
-
-const TopicBox = styled.div`
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
-  padding: 22px 20px;
-  min-width: 200px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  margin-bottom: 12px;
-  transition: box-shadow 0.2s;
-  position: relative;
-  &:hover {
-    box-shadow: 0 8px 32px rgba(37, 99, 235, 0.18);
-  }
-`;
-
-const TopicTitle = styled.div`
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 6px;
-`;
-
-const TopicMeta = styled.div`
-  font-size: 0.95rem;
-  color: #64748b;
-  margin-bottom: 10px;
-`;
-
-const TopicActions = styled.div`
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-`;
-
-const ChatArea = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: #f8fafc;
-  border-radius: 10px;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
-  padding: 20px;
-  min-height: 0;
-  max-height: 100%;
-  overflow: hidden;
-  position: relative;
-`;
-
-const ChatMessages = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-`;
-
-const ChatInput = styled.div`
-  display: flex;
-  gap: 10px;
-`;
-
-const Input = styled.input`
-  flex: 1;
-  padding: 12px 16px;
-  border: 1.5px solid #60a5fa;
   border-radius: 8px;
-  font-size: 15px;
-  background: #fff;
-`;
-
-const Message = styled.div`
-  display: flex;
-  gap: 12px;
-  margin-bottom: 15px;
-  align-items: flex-start;
-  flex-direction: ${props => props.isUser ? 'row-reverse' : 'row'};
-`;
-
-const MessageHeader = styled.div`
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-  ${props => props.isUser ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}
+  gap: 4px;
+  
+  &.join {
+    background: #10b981;
+    color: white;
+    &:hover {
+      background: #059669;
+    }
+  }
+  
+  &.edit {
+    background: #f59e0b;
+    color: white;
+    &:hover {
+      background: #d97706;
+    }
+  }
+  
+  &.delete {
+    background: #ef4444;
+    color: white;
+    &:hover {
+      background: #dc2626;
+    }
+  }
 `;
 
-const SenderName = styled.span`
-  font-weight: 600;
+const Modal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+`;
+
+const ModalTitle = styled.h3`
   color: #1e293b;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const FormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const Label = styled.label`
+  color: #374151;
+  font-weight: 500;
   font-size: 0.9rem;
 `;
 
-const MessageTime = styled.span`
-  font-size: 0.8rem;
-  color: #64748b;
-  margin-top: 5px; /* Add margin to separate from content */
-`;
-
-const MessageContent = styled.div`
-  background: ${props => props.isUser ? '#dbeafe' : '#eff6ff'};
-  color: #1e293b;
-  padding: 10px 14px;
-  border-radius: 18px;
-  max-width: 75%;
-  word-wrap: break-word; /* Ensure long words break */
-  overflow-wrap: break-word; /* Modern property for word breaking */
-  white-space: pre-wrap; /* Preserve whitespace and wrap text */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  font-size: 0.95rem;
-  line-height: 1.4;
-`;
-
-const Avatar = styled.div`
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : 'rgba(224,231,239,0.8)'};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${props => props.isUser ? 'white' : '#3b82f6'};
-  font-size: 20px;
-  overflow: hidden; /* Ensure image is contained */
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
+const Input = styled.input`
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
   }
 `;
 
-const BackButton = styled.button`
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  cursor: pointer;
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  z-index: 20;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-  transition: all 0.2s;
-
-  &:hover {
-    background: #1d4ed8;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+const TextArea = styled.textarea`
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 80px;
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
   }
 `;
 
-const FormOverlay = styled.div`
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-`;
-
-const FormBox = styled.div`
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.18);
-  padding: 32px 28px;
-  min-width: 320px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-`;
-
-const FormTitle = styled.h3`
-  color: #2563eb;
-  font-size: 1.3rem;
-  font-weight: 700;
-  margin-bottom: 18px;
-`;
-
-const FormInput = styled.input`
-  width: 100%;
-  padding: 10px 14px;
-  border: 1.5px solid #60a5fa;
-  border-radius: 8px;
-  font-size: 15px;
-  margin-bottom: 16px;
-`;
-
-const FormButton = styled.button`
-  padding: 10px 20px;
-  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-  margin-top: 8px;
-`;
-
-const SectionDivider = styled.div`
-  width: 100%;
-  height: 1px;
-  background: #e0e7ef;
-  margin: 12px 0 8px 0;
-`;
-
-const MemberSectionTitle = styled.div`
-  font-size: 1rem;
-  font-weight: 700;
-  color: #2563eb;
-  margin: 12px 0 6px 0;
-`;
-
-const MemberRow = styled.div`
+const CheckboxGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 0;
-  width: 100%;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.15s;
-  &:hover {
-    background: #e0e7ef;
-  }
 `;
 
-const MemberActionMenu = styled.div`
-  position: absolute;
-  right: 16px;
-  top: 40px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(37, 99, 235, 0.18);
-  padding: 8px 0;
-  min-width: 140px;
-  z-index: 100;
+const Checkbox = styled.input`
+  width: 16px;
+  height: 16px;
 `;
 
-const MemberActionItem = styled.div`
-  padding: 10px 18px;
-  color: #2563eb;
-  font-weight: 600;
-  cursor: pointer;
-  &:hover {
-    background: #f1f5fd;
-  }
-`;
-
-const ChatHeader = styled.div`
-  padding: 18px 24px;
-  background: rgba(255,255,255,0.7);
-  border-bottom: 1px solid #e0e7ef;
+const ModalActions = styled.div`
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
-  z-index: 10;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
 `;
 
-const ChatTitle = styled.h3`
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #1d4ed8;
-  flex-grow: 1;
-  text-align: center;
-`;
-
-const DeleteChatButton = styled.button`
-  background: #ef4444;
-  color: white;
+const Button = styled.button`
+  padding: 10px 20px;
   border: none;
   border-radius: 8px;
-  padding: 8px 16px;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
-  transition: background 0.2s;
-  &:hover {
-    background: #dc2626;
+  transition: all 0.2s;
+  
+  &.primary {
+    background: #2563eb;
+    color: white;
+    &:hover {
+      background: #1d4ed8;
+    }
   }
+  
+  &.secondary {
+    background: #6b7280;
+    color: white;
+    &:hover {
+      background: #4b5563;
+    }
+  }
+`;
+
+const LoadingSpinner = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #2563eb;
+  font-size: 1.1rem;
+`;
+
+const EmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #64748b;
+  text-align: center;
 `;
 
 const Rooms = () => {
@@ -1450,38 +1235,78 @@ const Rooms = () => {
   }
   // Default: rooms list
   return (
-    <NoScrollWrapper>
-      <CenteredContent>
-        <SectionTitle>Joined Rooms</SectionTitle>
-        <RoomList>
-          {rooms.map(room => (
-            <RoomBox key={room.id}>
-              <ThreeDotsIcon onClick={(e) => { e.stopPropagation(); setShowRoomMenu(room.id); }}><FaEllipsisV /></ThreeDotsIcon>
-                {showRoomMenu === room.id && (
-                  <DropdownMenu>
-                    {isAdmin(room) ? (
-                      <DropdownMenuItem className="delete" onClick={() => handleDeleteRoom(room.id)}><FaTrash /> Delete Room</DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem className="leave" onClick={() => handleLeaveRoom(room.id)}><FaSignInAlt /> Leave Room</DropdownMenuItem>
-                    )}
-                    <DropdownMenuItem onClick={() => setShowRoomMenu(null)}><FaTimes /> Cancel</DropdownMenuItem>
-                  </DropdownMenu>
-                )}
-              <h3>{room.name}</h3>
-              <RoomMeta>{room.members.length + room.admins.length} Members</RoomMeta>
-              <RoomMeta>{room.topics.length} Topics</RoomMeta>
-              <RoomActions>
-                <ActionButton onClick={() => handleEnterRoom(room)}><FaSignInAlt /> Enter Room</ActionButton>
-              </RoomActions>
-            </RoomBox>
+    <Container>
+      <Header>
+        <Title>Study Rooms</Title>
+        <CreateButton onClick={() => setShowCreate(true)}>
+          <FaPlus />
+          Create Room
+        </CreateButton>
+      </Header>
+
+      {rooms.length === 0 ? (
+        <EmptyState>
+          <FaUsers size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+          <h3>No rooms available</h3>
+          <p>Create a new room to get started!</p>
+        </EmptyState>
+      ) : (
+        <RoomsGrid>
+          {rooms.map((room) => (
+            <RoomCard key={room.id}>
+              <RoomHeader>
+                <RoomTitle>{room.name}</RoomTitle>
+                <RoomStatus isPrivate={room.is_private}>
+                  {room.is_private ? <FaLock /> : <FaUnlock />}
+                  {room.is_private ? 'Private' : 'Public'}
+                </RoomStatus>
+              </RoomHeader>
+              
+              <RoomDescription>
+                {room.description || 'No description available'}
+              </RoomDescription>
+              
+              <RoomStats>
+                <MemberCount>
+                  <FaUsers />
+                  {room.member_count || 0} members
+                </MemberCount>
+                
+                <RoomActions>
+                  <ActionButton 
+                    className="join" 
+                    onClick={() => handleJoinRoom(room)}
+                  >
+                    <FaSignInAlt />
+                    Join
+                  </ActionButton>
+                  
+                  {room.owner_id === user?.id && (
+                    <>
+                      <ActionButton 
+                        className="edit" 
+                        onClick={() => setShowCreate(true)}
+                      >
+                        <FaEdit />
+                        Edit
+                      </ActionButton>
+                      <ActionButton 
+                        className="delete" 
+                        onClick={() => handleDeleteRoom(room.id)}
+                      >
+                        <FaTrash />
+                        Delete
+                      </ActionButton>
+                    </>
+                  )}
+                </RoomActions>
+              </RoomStats>
+            </RoomCard>
           ))}
-        </RoomList>
-        <SectionTitle>Actions</SectionTitle>
-        <RoomActions>
-          <ActionButton onClick={() => setShowCreate(true)}><FaPlus /> Create New Room</ActionButton>
-          <ActionButton onClick={() => setShowJoin(true)}><FaSignInAlt /> Join a Room</ActionButton>
-        </RoomActions>
-      </CenteredContent>
+        </RoomsGrid>
+      )}
+
+      {/* Create Room Modal */}
       {showCreate && (
         <FormOverlay onClick={() => setShowCreate(false)}>
           <FormBox onClick={e => e.stopPropagation()}>
@@ -1536,7 +1361,7 @@ const Rooms = () => {
           </FormBox>
         </FormOverlay>
       )}
-    </NoScrollWrapper>
+    </Container>
   );
 };
 

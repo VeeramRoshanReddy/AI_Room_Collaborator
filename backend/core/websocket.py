@@ -224,7 +224,7 @@ class ChatWebSocket:
                 }
             )
             
-            # Get AI response (this would integrate with your AI service)
+            # Get AI response
             ai_response = await self.get_ai_response(question)
             
             # Create AI response message
@@ -304,6 +304,10 @@ class ChatWebSocket:
     async def save_message_to_db(self, chat_message: ChatMessage):
         """Save message to MongoDB"""
         try:
+            if not self.mongo_db:
+                logger.error("MongoDB connection not available")
+                return
+                
             # Get or create chat log
             chat_log = await self.mongo_db.chat_logs.find_one({
                 "room_id": self.room_id,
@@ -339,9 +343,18 @@ class ChatWebSocket:
     async def get_ai_response(self, question: str) -> str:
         """Get AI response for a question"""
         try:
-            # This would integrate with your AI service
-            # For now, return a placeholder response
-            return f"I understand you're asking: '{question}'. This is a placeholder AI response. Please integrate with your AI service."
+            # Import AI service
+            from services.ai_service import ai_service
+            
+            # Get AI response using the AI service
+            response = await ai_service.generate_group_chat_response(
+                message=question,
+                chat_history=[],  # Could be enhanced to include recent context
+                room_id=self.room_id,
+                user_id=self.user_id
+            )
+            
+            return response.get("response", "Sorry, I couldn't generate a response at this time.")
             
         except Exception as e:
             logger.error(f"Error getting AI response: {e}")
@@ -362,6 +375,10 @@ class ChatWebSocket:
     async def load_chat_history(self, limit: int = 50):
         """Load recent chat history"""
         try:
+            if not self.mongo_db:
+                logger.error("MongoDB connection not available")
+                return
+                
             chat_log = await self.mongo_db.chat_logs.find_one({
                 "room_id": self.room_id,
                 "topic_id": self.topic_id

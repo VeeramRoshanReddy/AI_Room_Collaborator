@@ -25,6 +25,7 @@ class User(Base):
     notes = relationship("Note", back_populates="user")
     room_participants = relationship("RoomParticipant", back_populates="user")
     created_topics = relationship("Topic", back_populates="creator", foreign_keys="Topic.created_by_user_id")
+    chat_logs = relationship("ChatLog", back_populates="user")
     
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, name={self.name})>"

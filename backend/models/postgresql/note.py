@@ -30,6 +30,7 @@ class Note(Base):
     
     # Relationships
     user = relationship("User", back_populates="notes")
+    chat_logs = relationship("ChatLog", back_populates="note")
     
     def __repr__(self):
         return f"<Note(id={self.id}, title={self.title}, user_id={self.user_id})>"

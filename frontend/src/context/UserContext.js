@@ -13,13 +13,13 @@ export const UserProvider = ({ children }) => {
   // Store token and user data in localStorage
   const storeAuthData = (token, userData) => {
     localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem('airoom_user', JSON.stringify(userData));
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
   };
 
   // Clear auth data from localStorage
   const removeAuthData = () => {
     localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem('airoom_user');
+    localStorage.removeItem(USER_KEY);
   };
 
   // Get stored token
@@ -51,6 +51,11 @@ export const UserProvider = ({ children }) => {
       'Content-Type': 'application/json',
       ...options.headers,
     };
+
+    // Remove Content-Type for FormData requests
+    if (options.body instanceof FormData) {
+      delete headers['Content-Type'];
+    }
 
     const response = await fetch(url, {
       ...options,
@@ -85,6 +90,58 @@ export const UserProvider = ({ children }) => {
     return response;
   };
 
+  // Login function
+  const handleLogin = async (email, password) => {
+    try {
+      const response = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Login failed. Please check your credentials.');
+      }
+
+      const data = await response.json();
+      storeAuthData(data.access_token, data.user);
+      setUser(data.user);
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
+
+  // Signup function
+  const handleSignup = async (name, email, password) => {
+    try {
+      const response = await fetch('/api/v1/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Signup failed');
+      }
+
+      const data = await response.json();
+      storeAuthData(data.access_token, data.user);
+      setUser(data.user);
+      return data;
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
+  };
+
   // Check authentication status with backend
   const checkAuthStatus = async () => {
     try {
@@ -94,12 +151,12 @@ export const UserProvider = ({ children }) => {
         return;
       }
 
-      const response = await makeAuthenticatedRequest('/api/auth/status');
+      const response = await makeAuthenticatedRequest('/api/v1/auth/me');
       const data = await response.json();
 
-      if (data.authenticated && data.user) {
-        setUser(data.user);
-        storeAuthData(token, data.user);
+      if (data) {
+        setUser(data);
+        storeAuthData(token, data);
       } else {
         // Token is invalid
         removeAuthData();
@@ -117,13 +174,13 @@ export const UserProvider = ({ children }) => {
   // Get current user info
   const getCurrentUser = async () => {
     try {
-      const response = await makeAuthenticatedRequest('/api/auth/me');
+      const response = await makeAuthenticatedRequest('/api/v1/auth/me');
       const data = await response.json();
       
-      if (data.user) {
-        setUser(data.user);
-        storeAuthData(getStoredToken(), data.user);
-        return data.user;
+      if (data) {
+        setUser(data);
+        storeAuthData(getStoredToken(), data);
+        return data;
       }
     } catch (error) {
       console.error('Error getting current user:', error);
@@ -149,7 +206,7 @@ export const UserProvider = ({ children }) => {
     setLoading(true);
     try {
       // Call logout endpoint
-      await makeAuthenticatedRequest('/api/auth/logout', {
+      await makeAuthenticatedRequest('/api/v1/auth/logout', {
         method: 'POST'
       });
     } catch (error) {
@@ -194,8 +251,10 @@ export const UserProvider = ({ children }) => {
     loading,
     error,
     isAuthenticated: isAuthenticated(),
+    login: handleLogin,
+    signup: handleSignup,
+    logout: handleLogout,
     refreshUser,
-    handleLogout,
     makeAuthenticatedRequest,
     getCurrentUser
   };

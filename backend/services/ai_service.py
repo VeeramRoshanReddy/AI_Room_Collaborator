@@ -226,6 +226,52 @@ class AIService:
                 "expert_script": "Please try again later."
             }
     
+    async def generate_group_chat_response(self, message: str, chat_history: List[Dict] = None, room_id: str = None, user_id: str = None) -> Dict[str, str]:
+        """Generate AI response for group chat messages"""
+        try:
+            if not settings.OPENAI_KEY:
+                return {"response": "AI service is not configured. Please set OPENAI_KEY in environment."}
+            
+            # Prepare system message for group chat context
+            system_message = """You are an AI assistant in a collaborative learning environment. 
+            You help users with their questions and discussions in group chats.
+            Be helpful, educational, and engaging. Keep responses concise but informative.
+            If you don't know something, say so and suggest where they might find the information."""
+            
+            # Add room context if available
+            if room_id:
+                system_message += f"\n\nYou are in room: {room_id}"
+            
+            # Prepare messages
+            messages = [{"role": "system", "content": system_message}]
+            
+            # Add recent chat history for context (last 5 messages)
+            if chat_history:
+                for msg in chat_history[-5:]:
+                    if msg.get("is_ai"):
+                        messages.append({"role": "assistant", "content": msg.get("content", "")})
+                    else:
+                        messages.append({"role": "user", "content": msg.get("content", "")})
+            
+            # Add current message
+            messages.append({"role": "user", "content": message})
+            
+            # Get response from OpenAI
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature
+            )
+            
+            ai_response = response.choices[0].message.content.strip()
+            
+            return {"response": ai_response}
+            
+        except Exception as e:
+            logger.error(f"Error generating group chat response: {e}")
+            return {"response": "Sorry, I'm having trouble processing your request right now."}
+    
     async def analyze_document_for_quiz(self, document_content: str) -> Dict[str, Any]:
         """Analyze document to determine suitable quiz topics and difficulty"""
         try:
