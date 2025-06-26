@@ -31,6 +31,15 @@ const Card = styled.div`
   font-family: 'Inter', 'Montserrat', 'Poppins', sans-serif;
 `;
 
+const IllustrationRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 18px;
+`;
+
 const Illustration = styled.div`
   width: 110px;
   height: 110px;
@@ -209,17 +218,19 @@ const Login = () => {
   return (
     <MinimalBackground>
       <Card>
-        <Illustration style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-          <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="10" y="30" width="80" height="50" rx="12" fill="#e3eefe"/>
-            <rect x="22" y="42" width="56" height="8" rx="4" fill="#2563eb"/>
-            <rect x="22" y="56" width="36" height="8" rx="4" fill="#60a5fa"/>
-            <circle cx="78" cy="60" r="6" fill="#2563eb"/>
-            <rect x="35" y="18" width="30" height="8" rx="4" fill="#60a5fa"/>
-            <rect x="44" y="10" width="12" height="8" rx="4" fill="#2563eb"/>
-          </svg>
+        <IllustrationRow>
+          <Illustration style={{marginBottom: 0}}>
+            <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="10" y="30" width="80" height="50" rx="12" fill="#e3eefe"/>
+              <rect x="22" y="42" width="56" height="8" rx="4" fill="#2563eb"/>
+              <rect x="22" y="56" width="36" height="8" rx="4" fill="#60a5fa"/>
+              <circle cx="78" cy="60" r="6" fill="#2563eb"/>
+              <rect x="35" y="18" width="30" height="8" rx="4" fill="#60a5fa"/>
+              <rect x="44" y="10" width="12" height="8" rx="4" fill="#2563eb"/>
+            </svg>
+          </Illustration>
           <RoomName>Room Connect</RoomName>
-        </Illustration>
+        </IllustrationRow>
         <Title>
           {mode === 'login' ? 'Login to your account!' : 'Create new account!'}
         </Title>
