@@ -23,7 +23,7 @@ except ImportError:
 openai.api_key = settings.OPENAI_KEY
 
 # Initialize Pinecone
-pinecone.init(api_key=settings.VECTOR_DB_API_KEY, environment=settings.PINECONE_ENV)
+pinecone.init(api_key=settings.VECTOR_DB_API_KEY, environment=settings.VECTOR_DB_REGION)
 INDEX_NAME = 'airoom-notes'
 if INDEX_NAME not in pinecone.list_indexes():
     pinecone.create_index(INDEX_NAME, dimension=1536)
