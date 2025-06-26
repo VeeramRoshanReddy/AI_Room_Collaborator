@@ -56,3 +56,6 @@ alembic==1.12.1
 # Additional utilities
 motor==3.3.2
 pymongo==4.6.3
+
+# Additional utilities
+email-validator

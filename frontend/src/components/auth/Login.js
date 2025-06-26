@@ -47,6 +47,7 @@ const RoomName = styled.span`
   margin-left: 10px;
   vertical-align: middle;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 `;
 
 const Title = styled.h2`
