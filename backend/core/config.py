@@ -26,6 +26,10 @@ class Settings(BaseSettings):
         "127.0.0.1"
     ]
     
+    # Google OAuth2 Settings - From .env
+    GOOGLE_OAUTH2_CLIENT_ID: str = os.getenv("GOOGLE_OAUTH2_CLIENT_ID", "")
+    GOOGLE_OAUTH2_CLIENT_SECRET: str = os.getenv("GOOGLE_OAUTH2_CLIENT_SECRET", "")
+    
     # Database Settings - From .env
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")  # From .env
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")  # From .env

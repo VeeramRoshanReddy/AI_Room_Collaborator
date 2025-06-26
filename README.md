@@ -1,180 +1,287 @@
 # AI Room Collaborator
 
-A real-time collaborative platform that combines AI assistance with room-based collaboration, built with React frontend and FastAPI backend.
+A comprehensive AI-powered collaborative learning platform with real-time chat, document analysis, quiz generation, and audio overviews.
 
 ## 🚀 Features
 
-- **Real-time Collaboration**: Multiple users can collaborate in real-time rooms
-- **AI Integration**: AI-powered assistance for enhanced productivity
-- **User Authentication**: Secure authentication with Google OAuth and Firebase
-- **File Sharing**: Drag-and-drop file sharing capabilities
-- **Responsive Design**: Modern, responsive UI built with styled-components
-- **WebSocket Communication**: Real-time updates and messaging
+### 🔐 Authentication & User Management
+- **Google OAuth2 Integration**: Secure authentication with automatic user creation
+- **Profile Management**: User profiles with Google profile pictures
+- **JWT Token Authentication**: Secure session management
 
-## 🏗️ Project Structure
+### 🏠 Room Management
+- **8-Digit Room IDs & Passwords**: Auto-generated unique room identifiers
+- **Room Creation & Joining**: Create rooms with descriptions, join with room ID/password
+- **Admin Management**: Multiple admins per room with promotion/demotion capabilities
+- **Member Management**: Add, remove, and manage room participants
+- **Room Deletion**: Admin-only room deletion with cascade cleanup
 
+### 💬 Real-Time Chat
+- **WebSocket Implementation**: Real-time messaging without page reloads
+- **End-to-End Encryption**: Secure message encryption for privacy
+- **AI Chatbot Integration**: @chatbot functionality for AI assistance
+- **Message Persistence**: Chat history stored in MongoDB
+- **Typing Indicators**: Real-time typing status
+- **Read Receipts**: Message read status tracking
+
+### 📚 Personal Work Space
+- **Private Notes**: User-exclusive note creation and management
+- **Document Upload**: Support for PDF, DOC, DOCX, TXT files
+- **AI Document Analysis**: Automatic document summarization
+- **Persistent Chat**: AI conversations about uploaded documents
+- **File Management**: Upload, remove, and manage documents
+
+### 🎯 Quiz Generation
+- **AI-Powered Quizzes**: Generate MCQs from uploaded documents
+- **Multiple Difficulty Levels**: Easy, medium, hard quiz options
+- **Detailed Explanations**: Correct answer explanations
+- **Document Analysis**: AI analysis of document content for quiz suitability
+
+### 🎧 Audio Overviews
+- **Podcast-Style Content**: Host and expert conversation format
+- **AI-Generated Scripts**: Automatic script generation from documents
+- **Educational Content**: Engaging audio explanations
+
+### 🎨 Modern UI/UX
+- **Responsive Design**: Works on desktop, tablet, and mobile
+- **Dark/Light Theme**: Theme support with smooth transitions
+- **Framer Motion**: Smooth animations and interactions
+- **Styled Components**: Modern CSS-in-JS styling
+- **Real-Time Updates**: Live UI updates without page refresh
+
+## 🏗️ Architecture
+
+### Backend (FastAPI + Python)
 ```
-AI_Room_Collaborator/
-├── frontend/                 # React frontend application
-│   ├── src/
-│   │   ├── components/      # React components
-│   │   │   ├── auth/        # Authentication components
-│   │   │   ├── layout/      # Layout components (Navbar, Sidebar)
-│   │   │   └── personalwork/ # Main application components
-│   │   └── themes/          # Styling themes
-│   └── public/              # Static assets
-├── backend/                  # FastAPI backend application
-│   ├── core/                # Core configuration and utilities
-│   ├── models/              # Database models (MongoDB & PostgreSQL)
-│   ├── services/            # Business logic services
-│   └── main.py              # FastAPI application entry point
-└── vercel.json              # Vercel deployment configuration
+backend/
+├── api/                    # API endpoints
+│   ├── auth.py            # Authentication endpoints
+│   ├── user.py            # User management
+│   ├── room.py            # Room management
+│   ├── topic.py           # Topic management
+│   ├── notes.py           # Notes and document handling
+│   ├── chat.py            # Chat functionality
+│   ├── quiz.py            # Quiz generation
+│   └── audio.py           # Audio overview generation
+├── core/                   # Core functionality
+│   ├── config.py          # Configuration management
+│   ├── database.py        # Database connections
+│   ├── security.py        # Security utilities
+│   └── websocket.py       # WebSocket implementation
+├── models/                 # Database models
+│   ├── postgresql/        # PostgreSQL models
+│   └── mongodb/           # MongoDB models
+├── services/              # Business logic services
+│   ├── ai_service.py      # AI integration
+│   ├── encryption_service.py # End-to-end encryption
+│   └── supabase_service.py # Supabase integration
+└── middleware/            # Custom middleware
+    ├── auth_middleware.py # Authentication middleware
+    └── websocket_auth.py  # WebSocket authentication
 ```
 
-## 🛠️ Tech Stack
+### Frontend (React + JavaScript)
+```
+frontend/
+├── src/
+│   ├── components/        # React components
+│   │   ├── auth/         # Authentication components
+│   │   ├── layout/       # Layout components
+│   │   └── personalwork/ # Personal work components
+│   ├── context/          # React context
+│   ├── themes/           # Theme configuration
+│   └── utils/            # Utility functions
+```
 
-### Frontend
-- **React 18** - UI framework
-- **Styled Components** - CSS-in-JS styling
-- **React Router** - Client-side routing
-- **Socket.io Client** - Real-time communication
-- **Axios** - HTTP client
-- **Firebase** - Authentication and real-time database
-- **Framer Motion** - Animations
-- **React Dropzone** - File upload handling
+## 🛠️ Technology Stack
 
 ### Backend
-- **FastAPI** - Python web framework
-- **PostgreSQL** - Primary database
-- **MongoDB** - Document database for chat logs and AI responses
-- **WebSocket** - Real-time communication
-- **Supabase** - Database and authentication services
-- **Firebase** - Additional authentication and services
+- **FastAPI**: Modern Python web framework
+- **PostgreSQL**: Primary database for user and room data
+- **MongoDB**: Document database for chat logs and notes
+- **Redis**: Caching and session management
+- **WebSockets**: Real-time communication
+- **OpenAI API**: AI-powered features
+- **JWT**: Authentication tokens
+- **Cryptography**: End-to-end encryption
 
-## 🚀 Getting Started
+### Frontend
+- **React 18**: Modern React with hooks
+- **Styled Components**: CSS-in-JS styling
+- **Framer Motion**: Animations and transitions
+- **React Router**: Client-side routing
+- **Socket.io**: WebSocket client
+- **React Dropzone**: File upload handling
+- **React Toastify**: Notifications
 
-### Prerequisites
-- Node.js (v16 or higher)
-- Python (v3.8 or higher)
-- PostgreSQL database
-- MongoDB database
+## 📋 Prerequisites
 
-### Frontend Setup
+- Python 3.8+
+- Node.js 16+
+- PostgreSQL 12+
+- MongoDB 4.4+
+- Redis 6+
+- Google OAuth2 credentials
+- OpenAI API key
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
+## 🚀 Installation & Setup
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+### 1. Clone the Repository
+```bash
+git clone https://github.com/yourusername/ai-room-collaborator.git
+cd ai-room-collaborator
+```
 
-3. Create a `.env` file in the frontend directory with your environment variables:
-   ```env
-   REACT_APP_API_URL=http://localhost:8000
-   REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
-   REACT_APP_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
-   REACT_APP_FIREBASE_PROJECT_ID=your_firebase_project_id
-   REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
-   ```
+### 2. Backend Setup
 
-4. Start the development server:
-   ```bash
-   npm start
-   ```
+#### Install Python Dependencies
+```bash
+cd backend
+pip install -r requirements.txt
+```
 
-### Backend Setup
+#### Environment Configuration
+Create a `.env` file in the `backend/` directory:
+```env
+# Application Settings
+SECRET_KEY=your-secret-key-here
+DEBUG=True
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
+# Google OAuth2
+GOOGLE_OAUTH2_CLIENT_ID=your-google-client-id
+GOOGLE_OAUTH2_CLIENT_SECRET=your-google-client-secret
 
-2. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+# Database URLs
+DATABASE_URL=postgresql://user:password@localhost:5432/airoom
+MONGODB_URL=mongodb://localhost:27017
+REDIS_URL=redis://localhost:6379
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+# OpenAI
+OPENAI_KEY=your-openai-api-key
 
-4. Create a `.env` file in the backend directory:
-   ```env
-   DATABASE_URL=postgresql://username:password@localhost/dbname
-   MONGODB_URL=mongodb://localhost:27017/ai_room_collaborator
-   SECRET_KEY=your_secret_key
-   FIREBASE_CREDENTIALS_PATH=path/to/firebase-credentials.json
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_KEY=your_supabase_key
-   ```
+# Encryption
+ENCRYPTION_KEY=your-encryption-key
 
-5. Run the backend server:
-   ```bash
-   uvicorn main:app --reload
-   ```
+# Frontend URL
+FRONTEND_URL=http://localhost:3000
+```
 
-## 🌐 Deployment
+#### Database Setup
+```bash
+# PostgreSQL
+createdb airoom
 
-### Vercel Deployment (Frontend)
+# MongoDB
+# MongoDB will be created automatically when the app starts
+```
 
-The project is configured for Vercel deployment. The `vercel.json` file contains the necessary configuration:
+#### Run Backend
+```bash
+cd backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
 
-- **Build Command**: `cd frontend && npm install && npm run build`
-- **Output Directory**: `frontend/build`
-- **Framework**: `create-react-app`
+### 3. Frontend Setup
 
-To deploy:
-1. Connect your GitHub repository to Vercel
-2. Vercel will automatically detect the configuration and deploy
-3. Set up environment variables in Vercel dashboard
+#### Install Dependencies
+```bash
+cd frontend
+npm install
+```
 
-### Backend Deployment
-
-For the backend, you can deploy to platforms like:
-- **Railway**
-- **Heroku**
-- **DigitalOcean App Platform**
-- **AWS Elastic Beanstalk**
-
-## 🔧 Environment Variables
-
-### Frontend (.env)
+#### Environment Configuration
+Create a `.env` file in the `frontend/` directory:
 ```env
 REACT_APP_API_URL=http://localhost:8000
-REACT_APP_FIREBASE_API_KEY=your_firebase_api_key
-REACT_APP_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
-REACT_APP_FIREBASE_PROJECT_ID=your_firebase_project_id
-REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
-### Backend (.env)
-```env
-DATABASE_URL=postgresql://username:password@localhost/dbname
-MONGODB_URL=mongodb://localhost:27017/ai_room_collaborator
-SECRET_KEY=your_secret_key
-FIREBASE_CREDENTIALS_PATH=path/to/firebase-credentials.json
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_key
+#### Run Frontend
+```bash
+cd frontend
+npm start
 ```
 
-## 📝 API Documentation
+## 🔧 Configuration
 
-Once the backend is running, you can access the interactive API documentation at:
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
+### Google OAuth2 Setup
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable Google+ API
+4. Create OAuth2 credentials
+5. Add authorized redirect URIs:
+   - `http://localhost:3000/auth/callback` (development)
+   - `https://yourdomain.com/auth/callback` (production)
+
+### OpenAI API Setup
+1. Sign up at [OpenAI](https://openai.com/)
+2. Get your API key
+3. Add to environment variables
+
+## 📖 API Documentation
+
+### Authentication Endpoints
+- `POST /api/auth/google/callback` - Handle Google OAuth callback
+- `GET /api/auth/me` - Get current user info
+- `POST /api/auth/logout` - Logout user
+- `GET /api/auth/status` - Check authentication status
+
+### Room Endpoints
+- `POST /api/room/create` - Create new room
+- `POST /api/room/join` - Join room with ID/password
+- `POST /api/room/leave` - Leave room
+- `GET /api/room/list` - List user's rooms
+- `DELETE /api/room/delete` - Delete room (admin only)
+
+### Chat Endpoints
+- `GET /ws/{room_id}/{topic_id}` - WebSocket endpoint for real-time chat
+
+### Notes Endpoints
+- `POST /api/notes/create` - Create new note
+- `POST /api/notes/upload` - Upload document
+- `GET /api/notes/list` - List user's notes
+
+## 🔒 Security Features
+
+- **End-to-End Encryption**: All chat messages are encrypted
+- **JWT Authentication**: Secure token-based authentication
+- **CORS Protection**: Configured CORS for security
+- **Input Validation**: Comprehensive input sanitization
+- **Rate Limiting**: API rate limiting (configurable)
+- **HTTPS Only**: Production-ready HTTPS configuration
+
+## 🧪 Testing
+
+### Backend Tests
+```bash
+cd backend
+pytest
+```
+
+### Frontend Tests
+```bash
+cd frontend
+npm test
+```
+
+## 🚀 Deployment
+
+### Backend Deployment (Render/Heroku)
+1. Set environment variables
+2. Configure database URLs
+3. Deploy using Git integration
+
+### Frontend Deployment (Vercel/Netlify)
+1. Set environment variables
+2. Configure build settings
+3. Deploy using Git integration
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
 ## 📄 License
 
@@ -182,18 +289,25 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-If you encounter any issues or have questions:
-1. Check the [Issues](https://github.com/VeeramRoshanReddy/AI_Room_Collaborator/issues) page
-2. Create a new issue with detailed information
-3. Contact the maintainers
+For support, email support@airoomcollaborator.com or create an issue in the GitHub repository.
 
-## 🔮 Roadmap
+## 🔄 Changelog
 
-- [ ] Enhanced AI capabilities
-- [ ] Mobile app development
-- [ ] Advanced file management
-- [ ] Team collaboration features
-- [ ] Analytics and insights
-- [ ] Multi-language support 
+### v1.0.0 (Current)
+- Initial release
+- Google OAuth2 authentication
+- Real-time chat with WebSockets
+- Room management system
+- AI-powered features
+- Document analysis and quiz generation
+- Audio overview generation
+- End-to-end encryption
+- Modern responsive UI
 
-Frontend: https://room-connect-eight.vercel.app/ 
+## 🙏 Acknowledgments
+
+- OpenAI for AI capabilities
+- Google for OAuth2 integration
+- FastAPI community
+- React community
+- All contributors and testers 

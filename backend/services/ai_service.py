@@ -5,6 +5,9 @@ import logging
 import time
 from models.mongodb.ai_response import AIResponse, QuizQuestion, QuizResponse, AudioResponse
 from services.encryption_service import encryption_service
+import json
+import re
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -13,332 +16,322 @@ client = openai.OpenAI(api_key=settings.OPENAI_KEY)
 
 class AIService:
     def __init__(self):
+        self.client = openai.OpenAI(api_key=settings.OPENAI_KEY)
         self.model = settings.OPENAI_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
         self.temperature = settings.OPENAI_TEMPERATURE
     
-    async def generate_group_chat_response(self, message: str, chat_history: List[Dict], room_id: str, user_id: str = None) -> Dict[str, Any]:
-        """Generate AI response for group chat (open-ended)"""
-        start_time = time.time()
-        
+    async def get_chatbot_response(self, question: str, context: str = "", chat_history: List[Dict] = None) -> str:
+        """Get AI chatbot response for a question"""
         try:
-            # Prepare chat history for context
-            formatted_history = self._format_chat_history(chat_history)
+            if not settings.OPENAI_KEY:
+                return "AI service is not configured. Please set OPENAI_KEY in environment."
             
-            # Create system prompt for group chat
-            system_prompt = """You are an educational assistant helping students discuss classroom topics. 
-            Engage helpfully in group discussions by:
-            1. Providing relevant insights and explanations
-            2. Asking clarifying questions when needed
-            3. Encouraging collaborative thinking
-            4. Being supportive and educational
-            5. Staying on topic and contributing meaningfully to the conversation
+            # Prepare system message
+            system_message = """You are a helpful AI assistant in a collaborative learning environment. 
+            You help users with their questions about documents, topics, and general knowledge.
+            Be concise, accurate, and helpful. If you don't know something, say so."""
             
-            Respond naturally as if you're part of the group discussion."""
+            if context:
+                system_message += f"\n\nContext from uploaded document: {context}"
             
-            # Prepare messages for OpenAI
-            messages = [{"role": "system", "content": system_prompt}]
+            # Prepare messages
+            messages = [{"role": "system", "content": system_message}]
             
-            # Add chat history
-            for msg in formatted_history[-10:]:  # Last 10 messages for context
-                messages.append(msg)
+            # Add chat history if provided
+            if chat_history:
+                for msg in chat_history[-10:]:  # Last 10 messages for context
+                    if msg.get("is_ai"):
+                        messages.append({"role": "assistant", "content": msg.get("content", "")})
+                    else:
+                        messages.append({"role": "user", "content": msg.get("content", "")})
             
-            # Add current message
-            messages.append({"role": "user", "content": message})
+            # Add current question
+            messages.append({"role": "user", "content": question})
             
-            response = client.chat.completions.create(
+            # Get response from OpenAI
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=self.max_tokens,
-                temperature=0.7,  # Slightly higher for more engaging responses
-                top_p=0.9
-            )
-            
-            processing_time = time.time() - start_time
-            ai_response = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens if response.usage else None
-            
-            # Encrypt the response for end-to-end security
-            encrypted_response = encryption_service.encrypt_message(ai_response, room_id)
-            
-            # Log the response
-            if user_id:
-                await self._log_ai_response(
-                    user_id=user_id,
-                    request_type="group_chat",
-                    prompt=message,
-                    response=ai_response,
-                    tokens_used=tokens_used,
-                    processing_time=processing_time,
-                    room_id=room_id
-                )
-            
-            return {
-                "response": encrypted_response,
-                "original_response": ai_response,  # For logging purposes
-                "tokens_used": tokens_used,
-                "processing_time": processing_time,
-                "model_used": self.model,
-                "is_encrypted": True
-            }
-            
-        except Exception as e:
-            logger.error(f"Error generating group chat response: {e}")
-            raise
-    
-    def _format_chat_history(self, chat_history: List[Dict]) -> List[Dict]:
-        """Format chat history for OpenAI API"""
-        formatted = []
-        
-        for msg in chat_history:
-            if msg.get("type") == "user":
-                formatted.append({"role": "user", "content": msg.get("content", "")})
-            elif msg.get("type") == "ai":
-                formatted.append({"role": "assistant", "content": msg.get("content", "")})
-            elif msg.get("type") == "system":
-                formatted.append({"role": "system", "content": msg.get("content", "")})
-        
-        return formatted
-    
-    async def generate_chat_response(self, prompt: str, context: str = "", user_id: str = None) -> Dict[str, Any]:
-        """Generate AI chat response (legacy method)"""
-        start_time = time.time()
-        
-        try:
-            # Prepare the full prompt with context
-            full_prompt = f"{context}\n\nUser: {prompt}\n\nAI Assistant:"
-            
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a helpful AI assistant for an educational platform. Provide clear, accurate, and educational responses."},
-                    {"role": "user", "content": full_prompt}
-                ],
                 max_tokens=self.max_tokens,
                 temperature=self.temperature
             )
             
-            processing_time = time.time() - start_time
-            ai_response = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens if response.usage else None
-            
-            # Log the response
-            if user_id:
-                await self._log_ai_response(
-                    user_id=user_id,
-                    request_type="chat",
-                    prompt=prompt,
-                    response=ai_response,
-                    tokens_used=tokens_used,
-                    processing_time=processing_time
-                )
-            
-            return {
-                "response": ai_response,
-                "tokens_used": tokens_used,
-                "processing_time": processing_time,
-                "model_used": self.model
-            }
+            return response.choices[0].message.content.strip()
             
         except Exception as e:
-            logger.error(f"Error generating chat response: {e}")
-            raise
+            logger.error(f"Error getting chatbot response: {e}")
+            return "Sorry, I'm having trouble processing your request right now."
     
-    async def generate_quiz(self, content: str, difficulty: str = "medium", num_questions: int = 5, user_id: str = None) -> Dict[str, Any]:
-        """Generate quiz questions from content"""
-        start_time = time.time()
-        
+    async def generate_document_summary(self, document_content: str) -> str:
+        """Generate a summary of uploaded document"""
         try:
-            prompt = f"""
-            Create a {difficulty} difficulty quiz with {num_questions} multiple choice questions based on the following content:
+            if not settings.OPENAI_KEY:
+                return "AI service is not configured. Please set OPENAI_KEY in environment."
             
-            {content}
+            system_message = """You are an expert at summarizing documents. 
+            Provide a clear, concise summary of the key points and main ideas from the document.
+            Focus on the most important information that would be useful for learning and discussion."""
             
-            Format the response as a JSON object with the following structure:
-            {{
-                "questions": [
-                    {{
-                        "question": "Question text",
-                        "options": ["Option A", "Option B", "Option C", "Option D"],
-                        "correct_answer": 0,
-                        "explanation": "Explanation of the correct answer"
-                    }}
-                ]
-            }}
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Please summarize this document:\n\n{document_content}"}
+            ]
             
-            Make sure the questions are relevant to the content and have clear, distinct options.
-            """
-            
-            response = client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert quiz generator. Create educational and engaging multiple choice questions."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=3000,
-                temperature=0.5
+                messages=messages,
+                max_tokens=self.max_tokens,
+                temperature=0.3  # Lower temperature for more focused summaries
             )
             
-            processing_time = time.time() - start_time
-            ai_response = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens if response.usage else None
-            
-            # Parse the JSON response
-            import json
-            try:
-                quiz_data = json.loads(ai_response)
-                questions = quiz_data.get("questions", [])
-                
-                # Convert to QuizQuestion objects
-                quiz_questions = []
-                for q in questions:
-                    quiz_questions.append(QuizQuestion(
-                        question=q["question"],
-                        options=q["options"],
-                        correct_answer=q["correct_answer"],
-                        explanation=q.get("explanation", ""),
-                        difficulty=difficulty
-                    ))
-                
-                # Log the response
-                if user_id:
-                    await self._log_ai_response(
-                        user_id=user_id,
-                        request_type="quiz",
-                        prompt=f"Generate {num_questions} {difficulty} questions from content",
-                        response=ai_response,
-                        tokens_used=tokens_used,
-                        processing_time=processing_time,
-                        metadata={"difficulty": difficulty, "num_questions": num_questions}
-                    )
-                
-                return {
-                    "questions": quiz_questions,
-                    "total_questions": len(quiz_questions),
-                    "difficulty": difficulty,
-                    "tokens_used": tokens_used,
-                    "processing_time": processing_time,
-                    "model_used": self.model
-                }
-                
-            except json.JSONDecodeError:
-                logger.error("Failed to parse quiz JSON response")
-                raise ValueError("Failed to generate quiz questions")
+            return response.choices[0].message.content.strip()
             
         except Exception as e:
-            logger.error(f"Error generating quiz: {e}")
-            raise
+            logger.error(f"Error generating document summary: {e}")
+            return "Unable to generate summary at this time."
     
-    async def generate_summary(self, content: str, user_id: str = None) -> Dict[str, Any]:
-        """Generate a summary of the content"""
-        start_time = time.time()
-        
+    async def generate_quiz_questions(self, document_content: str, num_questions: int = 10, difficulty: str = "medium") -> List[Dict]:
+        """Generate MCQ quiz questions from document content"""
         try:
-            prompt = f"""
-            Provide a comprehensive summary of the following content in a clear and educational manner:
+            if not settings.OPENAI_KEY:
+                return []
             
-            {content}
+            system_message = f"""You are an expert at creating multiple choice questions for educational purposes.
+            Create {num_questions} questions based on the document content.
+            Difficulty level: {difficulty}
             
-            The summary should:
-            1. Cover the main points and key concepts
-            2. Be well-structured and easy to understand
-            3. Include important details and examples
-            4. Be suitable for educational purposes
-            """
+            For each question, provide:
+            1. A clear question
+            2. 4 answer options (A, B, C, D)
+            3. The correct answer (A, B, C, or D)
+            4. A brief explanation of why the answer is correct
             
-            response = client.chat.completions.create(
+            Format your response as a JSON array with objects containing:
+            - question: the question text
+            - options: array of 4 options
+            - correct_answer: index of correct option (0-3)
+            - explanation: brief explanation
+            - difficulty: the difficulty level"""
+            
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Generate quiz questions from this document:\n\n{document_content}"}
+            ]
+            
+            response = self.client.chat.completions.create(
                 model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert at creating educational summaries."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=1500,
+                messages=messages,
+                max_tokens=self.max_tokens * 2,  # More tokens for quiz generation
+                temperature=0.7
+            )
+            
+            # Parse JSON response
+            try:
+                content = response.choices[0].message.content.strip()
+                # Extract JSON from response (in case there's extra text)
+                json_match = re.search(r'\[.*\]', content, re.DOTALL)
+                if json_match:
+                    questions = json.loads(json_match.group())
+                else:
+                    questions = json.loads(content)
+                
+                # Validate and clean questions
+                cleaned_questions = []
+                for q in questions:
+                    if isinstance(q, dict) and 'question' in q and 'options' in q and 'correct_answer' in q:
+                        cleaned_questions.append({
+                            'question': q['question'],
+                            'options': q['options'][:4],  # Ensure exactly 4 options
+                            'correct_answer': min(q['correct_answer'], 3),  # Ensure valid index
+                            'explanation': q.get('explanation', ''),
+                            'difficulty': q.get('difficulty', difficulty)
+                        })
+                
+                return cleaned_questions[:num_questions]  # Ensure correct number
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Error parsing quiz JSON: {e}")
+                return []
+            
+        except Exception as e:
+            logger.error(f"Error generating quiz questions: {e}")
+            return []
+    
+    async def generate_audio_overview_script(self, document_content: str) -> Dict[str, str]:
+        """Generate a podcast-style audio overview script"""
+        try:
+            if not settings.OPENAI_KEY:
+                return {
+                    "host_script": "AI service is not configured.",
+                    "expert_script": "Please set OPENAI_KEY in environment."
+                }
+            
+            system_message = """You are creating a podcast-style audio overview of a document.
+            Create a conversation between a host and a domain expert.
+            
+            The host should:
+            - Ask engaging questions
+            - Guide the conversation
+            - Summarize key points
+            
+            The domain expert should:
+            - Provide detailed explanations
+            - Share insights and context
+            - Make complex topics accessible
+            
+            Format your response as JSON with:
+            - host_script: The host's part of the conversation
+            - expert_script: The expert's part of the conversation
+            
+            Make it engaging, educational, and conversational."""
+            
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Create a podcast overview of this document:\n\n{document_content}"}
+            ]
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=self.max_tokens * 2,
+                temperature=0.8
+            )
+            
+            # Parse JSON response
+            try:
+                content = response.choices[0].message.content.strip()
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    script = json.loads(json_match.group())
+                else:
+                    script = json.loads(content)
+                
+                return {
+                    "host_script": script.get("host_script", "Host script not generated."),
+                    "expert_script": script.get("expert_script", "Expert script not generated.")
+                }
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Error parsing audio script JSON: {e}")
+                return {
+                    "host_script": "Error generating host script.",
+                    "expert_script": "Error generating expert script."
+                }
+            
+        except Exception as e:
+            logger.error(f"Error generating audio overview script: {e}")
+            return {
+                "host_script": "Unable to generate audio overview at this time.",
+                "expert_script": "Please try again later."
+            }
+    
+    async def analyze_document_for_quiz(self, document_content: str) -> Dict[str, Any]:
+        """Analyze document to determine suitable quiz topics and difficulty"""
+        try:
+            if not settings.OPENAI_KEY:
+                return {"topics": [], "suggested_difficulty": "medium", "estimated_questions": 5}
+            
+            system_message = """Analyze this document to determine:
+            1. Main topics and themes
+            2. Suitable difficulty level for quiz questions
+            3. Estimated number of questions that can be generated
+            
+            Return your analysis as JSON with:
+            - topics: array of main topics
+            - suggested_difficulty: "easy", "medium", or "hard"
+            - estimated_questions: number of questions that can be generated
+            - key_concepts: array of important concepts"""
+            
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"Analyze this document:\n\n{document_content}"}
+            ]
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=self.max_tokens,
                 temperature=0.3
             )
             
-            processing_time = time.time() - start_time
-            ai_response = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens if response.usage else None
-            
-            # Log the response
-            if user_id:
-                await self._log_ai_response(
-                    user_id=user_id,
-                    request_type="summary",
-                    prompt="Generate summary of content",
-                    response=ai_response,
-                    tokens_used=tokens_used,
-                    processing_time=processing_time
-                )
-            
-            return {
-                "summary": ai_response,
-                "tokens_used": tokens_used,
-                "processing_time": processing_time,
-                "model_used": self.model
-            }
+            # Parse JSON response
+            try:
+                content = response.choices[0].message.content.strip()
+                json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                if json_match:
+                    analysis = json.loads(json_match.group())
+                else:
+                    analysis = json.loads(content)
+                
+                return {
+                    "topics": analysis.get("topics", []),
+                    "suggested_difficulty": analysis.get("suggested_difficulty", "medium"),
+                    "estimated_questions": analysis.get("estimated_questions", 5),
+                    "key_concepts": analysis.get("key_concepts", [])
+                }
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Error parsing document analysis JSON: {e}")
+                return {"topics": [], "suggested_difficulty": "medium", "estimated_questions": 5}
             
         except Exception as e:
-            logger.error(f"Error generating summary: {e}")
-            raise
+            logger.error(f"Error analyzing document: {e}")
+            return {"topics": [], "suggested_difficulty": "medium", "estimated_questions": 5}
     
-    async def generate_audio_transcript(self, audio_file_path: str, user_id: str = None) -> Dict[str, Any]:
-        """Generate transcript from audio file"""
-        start_time = time.time()
-        
+    async def extract_text_from_document(self, file_content: bytes, file_type: str) -> str:
+        """Extract text content from uploaded document"""
         try:
-            with open(audio_file_path, "rb") as audio_file:
-                transcript = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file
-                )
-            
-            processing_time = time.time() - start_time
-            
-            # Log the response
-            if user_id:
-                await self._log_ai_response(
-                    user_id=user_id,
-                    request_type="audio_transcript",
-                    prompt=f"Transcribe audio file: {audio_file_path}",
-                    response=transcript.text,
-                    processing_time=processing_time
-                )
-            
-            return {
-                "transcript": transcript.text,
-                "processing_time": processing_time,
-                "model_used": "whisper-1"
-            }
-            
+            if file_type.lower() == "pdf":
+                return await self._extract_text_from_pdf(file_content)
+            elif file_type.lower() in ["doc", "docx"]:
+                return await self._extract_text_from_word(file_content)
+            elif file_type.lower() == "txt":
+                return file_content.decode('utf-8', errors='ignore')
+            else:
+                return "Unsupported file type for text extraction."
+                
         except Exception as e:
-            logger.error(f"Error generating audio transcript: {e}")
-            raise
+            logger.error(f"Error extracting text from document: {e}")
+            return "Error extracting text from document."
     
-    async def _log_ai_response(self, user_id: str, request_type: str, prompt: str, response: str, 
-                              tokens_used: int = None, processing_time: float = None, 
-                              room_id: str = None, topic_id: str = None, document_id: str = None,
-                              metadata: Dict[str, Any] = None):
-        """Log AI response to database"""
+    async def _extract_text_from_pdf(self, file_content: bytes) -> str:
+        """Extract text from PDF file"""
         try:
-            ai_response = AIResponse(
-                user_id=user_id,
-                request_type=request_type,
-                prompt=prompt,
-                response=response,
-                tokens_used=tokens_used,
-                processing_time=processing_time,
-                room_id=room_id,
-                topic_id=topic_id,
-                document_id=document_id,
-                metadata=metadata or {}
-            )
+            import PyPDF2
+            from io import BytesIO
             
-            # Save to database (implement based on your database setup)
-            # await ai_response.save()
+            pdf_file = BytesIO(file_content)
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            
+            text = ""
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+            
+            return text.strip()
             
         except Exception as e:
-            logger.error(f"Error logging AI response: {e}")
+            logger.error(f"Error extracting text from PDF: {e}")
+            return "Error extracting text from PDF file."
+    
+    async def _extract_text_from_word(self, file_content: bytes) -> str:
+        """Extract text from Word document"""
+        try:
+            from docx import Document
+            from io import BytesIO
+            
+            doc_file = BytesIO(file_content)
+            doc = Document(doc_file)
+            
+            text = ""
+            for paragraph in doc.paragraphs:
+                text += paragraph.text + "\n"
+            
+            return text.strip()
+            
+        except Exception as e:
+            logger.error(f"Error extracting text from Word document: {e}")
+            return "Error extracting text from Word document."
 
 # Global AI service instance
 ai_service = AIService() 

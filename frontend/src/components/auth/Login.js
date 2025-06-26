@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { FaGraduationCap } from 'react-icons/fa';
+import { FaGraduationCap, FaGoogle, FaSpinner, FaEnvelope, FaLock, FaUserPlus, FaKey } from 'react-icons/fa';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useUserContext } from '../../context/UserContext';
@@ -68,13 +68,19 @@ const GoogleButton = styled.button`
   align-items: center;
   gap: 10px;
   box-shadow: 0 2px 8px rgba(66, 133, 244, 0.15);
-  transition: background 0.2s;
+  transition: all 0.2s ease;
+  
   &:hover {
     background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.25);
   }
+  
   &:disabled {
     background: #ccc;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 `;
 
@@ -92,6 +98,7 @@ const FeatureItem = styled.div`
   gap: 12px;
   color: ${props => props.theme.colors.text};
   font-size: 14px;
+  
   svg {
     color: ${props => props.theme.colors.primary};
     font-size: 20px;
@@ -108,13 +115,7 @@ const ErrorMessage = styled.div`
   font-size: 14px;
 `;
 
-const LoadingSpinner = styled.div`
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 2px solid #f3f3f3;
-  border-top: 2px solid #4285f4;
-  border-radius: 50%;
+const LoadingSpinner = styled(FaSpinner)`
   animation: spin 1s linear infinite;
   
   @keyframes spin {
@@ -123,66 +124,128 @@ const LoadingSpinner = styled.div`
   }
 `;
 
-// Construct API_BASE URL properly
+const SupabaseForm = styled.form`
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const Input = styled.input`
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid ${props => props.theme.colors.border};
+  font-size: 16px;
+  outline: none;
+  &:focus {
+    border-color: ${props => props.theme.colors.primary};
+  }
+`;
+
+const SupabaseButton = styled.button`
+  background: ${props => props.theme.colors.primary};
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+  transition: background 0.2s;
+  &:hover {
+    background: ${props => props.theme.colors.secondary};
+  }
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+`;
+
+const ToggleLinks = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+`;
+const ToggleLink = styled.button`
+  background: none;
+  border: none;
+  color: ${props => props.active ? props.theme.colors.primary : props.theme.colors.textLight};
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 15px;
+  text-decoration: underline;
+  &:hover {
+    color: ${props => props.theme.colors.primary};
+  }
+`;
+
+const SuccessMessage = styled.div`
+  background: #e6ffed;
+  color: #15803d;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  border: 1px solid #bbf7d0;
+  font-size: 14px;
+`;
+
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [isProcessingCallback, setIsProcessingCallback] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [supabaseLoading, setSupabaseLoading] = useState(false);
+  const [formType, setFormType] = useState('login'); // 'login' | 'signup' | 'magic'
+  const [magicSent, setMagicSent] = useState(false);
   
-  // Use UserContext
-  const { user, loading, isAuthenticated, refreshUser, handleOAuthCallback } = useUserContext();
+  const { user, loading, isAuthenticated, refreshUser } = useUserContext();
   
   // Show error if redirected back with error param
   const params = new URLSearchParams(location.search);
-  const error = params.get('error');
-  const success = params.get('success');
-  const token = params.get('token');
+  const errorParam = params.get('error');
+  const successParam = params.get('success');
   const code = params.get('code');
 
   useEffect(() => {
-    // Handle OAuth callback with token
-    if (token) {
-      setIsProcessingCallback(true);
-      console.log('Token found in URL, processing OAuth callback...');
-      
-      const callbackHandled = handleOAuthCallback();
-      if (callbackHandled) {
-        toast.success('Login successful!');
-        navigate('/dashboard');
-      } else {
-        toast.error('Failed to process login callback');
-      }
-      setIsProcessingCallback(false);
-      return;
-    }
-
     // Handle OAuth callback with authorization code
     if (code) {
-      setIsProcessingCallback(true);
+      setIsLoading(true);
       console.log('Authorization code found, exchanging for token...');
       exchangeCodeForToken(code);
       return;
     }
 
-    // If user is already authenticated (from context), redirect to dashboard
+    // If user is already authenticated, redirect to dashboard
     if (!loading && isAuthenticated) {
-      console.log('User already authenticated from context:', user);
+      console.log('User already authenticated:', user);
       navigate('/dashboard');
       return;
     }
 
-    // Check for successful login callback (legacy)
-    if (success === 'true') {
+    // Check for successful login callback
+    if (successParam === 'true') {
       console.log('Login success detected, refreshing user data...');
       refreshUser();
       // Remove success param from URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
     }
-  }, [loading, isAuthenticated, user, navigate, success, refreshUser, token, code, handleOAuthCallback]);
+
+    // Show error if present
+    if (errorParam) {
+      setError(getErrorMessage(errorParam));
+    }
+  }, [loading, isAuthenticated, user, navigate, successParam, refreshUser, code, errorParam]);
 
   // Exchange authorization code for token
   const exchangeCodeForToken = async (authCode) => {
@@ -198,77 +261,146 @@ const Login = () => {
 
       const data = await response.json();
 
-      if (response.ok && data.token) {
-        // Store token and user data
-        localStorage.setItem('authToken', data.token);
-        if (data.user) {
-          localStorage.setItem('user', JSON.stringify(data.user));
-        }
-        
+      if (response.ok) {
         toast.success('Login successful!');
-        
-        // Clean up URL
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, newUrl);
-        
-        // Refresh user context and navigate
-        refreshUser();
+        // Refresh user context
+        await refreshUser();
         navigate('/dashboard');
       } else {
-        throw new Error(data.error || 'Token exchange failed');
+        throw new Error(data.detail || 'Authentication failed');
       }
-    } catch (err) {
-      console.error('Token exchange failed:', err);
-      toast.error('Login failed. Please try again.');
-      
-      // Clean up URL
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
+    } catch (error) {
+      console.error('Token exchange error:', error);
+      setError('Failed to complete authentication. Please try again.');
+      toast.error('Authentication failed');
     } finally {
-      setIsProcessingCallback(false);
+      setIsLoading(false);
     }
   };
-
-  // Redirect to dashboard once user data is loaded after successful login
-  useEffect(() => {
-    if (!loading && isAuthenticated && (success === 'true' || token)) {
-      navigate('/dashboard');
-    }
-  }, [loading, isAuthenticated, navigate, success, token]);
 
   const handleGoogleLogin = () => {
     setIsLoading(true);
-    window.location.href = `${API_BASE}/api/auth/google/login`;
+    setError(null);
+    
+    // Get Google OAuth URL from backend
+    fetch(`${API_BASE}/api/auth/google/url`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.auth_url) {
+          // Redirect to Google OAuth
+          window.location.href = data.auth_url;
+        } else {
+          throw new Error('Failed to get authentication URL');
+        }
+      })
+      .catch(error => {
+        console.error('Google login error:', error);
+        setError('Failed to start authentication. Please try again.');
+        setIsLoading(false);
+      });
   };
 
-  const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: 'https://room-connect-eight.vercel.app/auth/callback'
+  // Supabase Auth (email/password) login
+  const handleSupabaseLogin = async (e) => {
+    e.preventDefault();
+    setSupabaseLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (supabaseError) {
+        setError(supabaseError.message);
+        setSupabaseLoading(false);
+        return;
       }
-    });
+      if (data.session && data.session.access_token) {
+        localStorage.setItem('airoom_supabase_token', data.session.access_token);
+        localStorage.setItem('airoom_user_data', JSON.stringify(data.session.user));
+        toast.success('Login successful!');
+        await refreshUser();
+        navigate('/dashboard');
+      } else {
+        setError('Login failed. No session returned.');
+      }
+    } catch (err) {
+      setError('Login failed. Please try again.');
+    } finally {
+      setSupabaseLoading(false);
+    }
+  };
+
+  // Supabase Auth (email/password) sign-up
+  const handleSupabaseSignup = async (e) => {
+    e.preventDefault();
+    setSupabaseLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const { data, error: supabaseError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (supabaseError) {
+        setError(supabaseError.message);
+        setSupabaseLoading(false);
+        return;
+      }
+      if (data.user) {
+        setSuccess('Sign-up successful! Please check your email to confirm your account.');
+        setFormType('login');
+        setEmail('');
+        setPassword('');
+      } else {
+        setError('Sign-up failed.');
+      }
+    } catch (err) {
+      setError('Sign-up failed. Please try again.');
+    } finally {
+      setSupabaseLoading(false);
+    }
+  };
+
+  // Supabase Magic Link login
+  const handleSupabaseMagicLink = async (e) => {
+    e.preventDefault();
+    setSupabaseLoading(true);
+    setError(null);
+    setSuccess(null);
+    setMagicSent(false);
+    try {
+      const { error: supabaseError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true },
+      });
+      if (supabaseError) {
+        setError(supabaseError.message);
+        setSupabaseLoading(false);
+        return;
+      }
+      setMagicSent(true);
+      setSuccess('Magic link sent! Please check your email.');
+    } catch (err) {
+      setError('Failed to send magic link. Please try again.');
+    } finally {
+      setSupabaseLoading(false);
+    }
   };
 
   const getErrorMessage = (errorCode) => {
     const errorMessages = {
-      missing_code: 'Google login failed: Missing authorization code.',
-      token_exchange_failed: 'Google login failed: Could not exchange code for token.',
-      missing_access_token: 'Google login failed: Missing access token.',
-      userinfo_failed: 'Google login failed: Could not fetch user info.',
-      incomplete_profile: 'Google login failed: Incomplete profile information.',
-      database_error: 'Login failed: Database error occurred.',
-      network_error: 'Login failed: Network error occurred.',
-      authentication_failed: 'Authentication failed. Please try again.',
-      oauth_denied: 'Google login was cancelled or denied.',
-      invalid_state: 'Login failed: Security validation failed.'
+      'access_denied': 'Access was denied. Please try again.',
+      'invalid_request': 'Invalid request. Please try again.',
+      'server_error': 'Server error. Please try again later.',
+      'temporarily_unavailable': 'Service temporarily unavailable. Please try again later.',
+      'default': 'An error occurred during authentication. Please try again.'
     };
-    
-    return errorMessages[errorCode] || 'Google login failed. Please try again.';
+    return errorMessages[errorCode] || errorMessages.default;
   };
 
-  // Show loading if context is still loading or processing callback
-  if (loading || isProcessingCallback) {
+  if (loading || isLoading) {
     return (
       <LoginContainer>
         <LoginCard
@@ -276,10 +408,12 @@ const Login = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <LoadingSpinner />
-            <span>{isProcessingCallback ? 'Processing login...' : 'Loading...'}</span>
-          </div>
+          <Logo>
+            <FaGraduationCap />
+          </Logo>
+          <Title>AI Room Collaborator</Title>
+          <Subtitle>Loading...</Subtitle>
+          <LoadingSpinner size={24} />
         </LoginCard>
       </LoginContainer>
     );
@@ -295,22 +429,112 @@ const Login = () => {
         <Logo>
           <FaGraduationCap />
         </Logo>
-        <Title>AI Learning Platform</Title>
-        <Subtitle>Your collaborative space for enhanced learning</Subtitle>
         
+        <Title>AI Room Collaborator</Title>
+        <Subtitle>
+          Join the future of collaborative learning with AI-powered rooms, 
+          real-time chat, and intelligent study tools.
+        </Subtitle>
+
         {error && (
           <ErrorMessage>
-            {getErrorMessage(error)}
+            {error}
           </ErrorMessage>
         )}
-        
+        {success && (
+          <SuccessMessage>
+            {success}
+          </SuccessMessage>
+        )}
+
         <GoogleButtonContainer>
-          <GoogleButton type="button" onClick={signInWithGoogle}>
-            <svg width="20" height="20" viewBox="0 0 48 48"><g><path fill="#4285F4" d="M24 9.5c3.54 0 6.7 1.22 9.19 3.22l6.85-6.85C35.64 2.36 30.13 0 24 0 14.82 0 6.73 5.48 2.69 13.44l7.98 6.2C12.13 13.09 17.62 9.5 24 9.5z"/><path fill="#34A853" d="M46.1 24.5c0-1.64-.15-3.22-.42-4.74H24v9.04h12.42c-.54 2.9-2.18 5.36-4.64 7.04l7.18 5.6C43.98 37.36 46.1 31.36 46.1 24.5z"/><path fill="#FBBC05" d="M10.67 28.04c-1.01-2.99-1.01-6.09 0-9.08l-7.98-6.2C.99 16.36 0 20.05 0 24c0 3.95.99 7.64 2.69 11.24l7.98-6.2z"/><path fill="#EA4335" d="M24 48c6.13 0 11.64-2.03 15.64-5.52l-7.18-5.6c-2.01 1.35-4.59 2.12-8.46 2.12-6.38 0-11.87-3.59-14.33-8.74l-7.98 6.2C6.73 42.52 14.82 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></g></svg>
-            Sign in with Google
+          <GoogleButton 
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <LoadingSpinner size={16} />
+            ) : (
+              <FaGoogle size={16} />
+            )}
+            {isLoading ? 'Signing in...' : 'Sign in with Google'}
           </GoogleButton>
         </GoogleButtonContainer>
-        
+
+        <ToggleLinks>
+          <ToggleLink active={formType === 'login'} onClick={() => { setFormType('login'); setError(null); setSuccess(null); }}>Login</ToggleLink>
+          <ToggleLink active={formType === 'signup'} onClick={() => { setFormType('signup'); setError(null); setSuccess(null); }}>Sign Up</ToggleLink>
+          <ToggleLink active={formType === 'magic'} onClick={() => { setFormType('magic'); setError(null); setSuccess(null); }}>Magic Link</ToggleLink>
+        </ToggleLinks>
+
+        {formType === 'login' && (
+          <SupabaseForm onSubmit={handleSupabaseLogin}>
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoComplete="username"
+            />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+            <SupabaseButton type="submit" disabled={supabaseLoading}>
+              {supabaseLoading ? <LoadingSpinner size={16} /> : <FaEnvelope size={16} />}
+              {supabaseLoading ? 'Signing in...' : 'Sign in with Email'}
+            </SupabaseButton>
+          </SupabaseForm>
+        )}
+
+        {formType === 'signup' && (
+          <SupabaseForm onSubmit={handleSupabaseSignup}>
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoComplete="username"
+            />
+            <Input
+              type="password"
+              placeholder="Password (min 6 chars)"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+            />
+            <SupabaseButton type="submit" disabled={supabaseLoading}>
+              {supabaseLoading ? <LoadingSpinner size={16} /> : <FaUserPlus size={16} />}
+              {supabaseLoading ? 'Signing up...' : 'Sign Up'}
+            </SupabaseButton>
+          </SupabaseForm>
+        )}
+
+        {formType === 'magic' && (
+          <SupabaseForm onSubmit={handleSupabaseMagicLink}>
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoComplete="username"
+            />
+            <SupabaseButton type="submit" disabled={supabaseLoading || magicSent}>
+              {supabaseLoading ? <LoadingSpinner size={16} /> : <FaKey size={16} />}
+              {supabaseLoading ? 'Sending...' : (magicSent ? 'Magic Link Sent' : 'Send Magic Link')}
+            </SupabaseButton>
+          </SupabaseForm>
+        )}
+
         <FeaturesList>
           <FeatureItem>
             <FaGraduationCap />
@@ -322,11 +546,19 @@ const Login = () => {
           </FeatureItem>
           <FeatureItem>
             <FaGraduationCap />
-            <span>Interactive Classrooms</span>
+            <span>Secure End-to-End Chat</span>
           </FeatureItem>
           <FeatureItem>
             <FaGraduationCap />
-            <span>Smart Document Analysis</span>
+            <span>Document Analysis</span>
+          </FeatureItem>
+          <FeatureItem>
+            <FaGraduationCap />
+            <span>Quiz Generation</span>
+          </FeatureItem>
+          <FeatureItem>
+            <FaGraduationCap />
+            <span>Audio Overviews</span>
           </FeatureItem>
         </FeaturesList>
       </LoginCard>

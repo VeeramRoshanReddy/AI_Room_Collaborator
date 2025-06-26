@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi import WebSocket
 import uvicorn
 import logging
 import time
@@ -15,6 +16,7 @@ import traceback
 from api import auth, user, room, topic, notes, chat, quiz, audio
 from core.config import settings
 from core.database import init_db
+from core.websocket import websocket_endpoint
 
 # Configure logging for production
 logging.basicConfig(
@@ -122,6 +124,17 @@ app.include_router(notes.router, prefix="/api/notes", tags=["Notes"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz"])
 app.include_router(audio.router, prefix="/api/audio", tags=["Audio"])
+
+# WebSocket endpoint for real-time chat
+@app.websocket("/ws/{room_id}/{topic_id}")
+async def websocket_endpoint_route(
+    websocket: WebSocket,
+    room_id: str,
+    topic_id: str,
+    token: str = None
+):
+    """WebSocket endpoint for real-time chat functionality"""
+    await websocket_endpoint(websocket, room_id, topic_id, token)
 
 # Root endpoints
 @app.get("/")
