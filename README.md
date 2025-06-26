@@ -1,130 +1,68 @@
-# AI Room Collaborator
+# AI Room Collaborator 🚀
 
-A comprehensive AI-powered collaborative learning platform with real-time chat, document analysis, quiz generation, and audio overviews.
+A comprehensive platform for collaborative learning with AI-powered features, real-time chat, document analysis, and interactive learning tools.
 
-## 🚀 Features
+## 🌟 Features
 
-### 🔐 Authentication & User Management
-- **Google OAuth2 Integration**: Secure authentication with automatic user creation
-- **Profile Management**: User profiles with Google profile pictures
-- **JWT Token Authentication**: Secure session management
+### 🔐 Authentication
+- **Multiple Auth Methods**: Google OAuth2, Supabase Auth, Email/Password
+- **Secure JWT Tokens**: Bearer token authentication
+- **User Management**: Profile pictures, verification, and account management
 
-### 🏠 Room Management
-- **8-Digit Room IDs & Passwords**: Auto-generated unique room identifiers
-- **Room Creation & Joining**: Create rooms with descriptions, join with room ID/password
-- **Admin Management**: Multiple admins per room with promotion/demotion capabilities
-- **Member Management**: Add, remove, and manage room participants
-- **Room Deletion**: Admin-only room deletion with cascade cleanup
+### 🏠 Collaborative Rooms
+- **8-Digit Room IDs**: Easy-to-share room identifiers
+- **Room Passwords**: Secure access control
+- **Admin Management**: Promote members, remove participants
+- **Real-time Updates**: Live participant status
 
-### 💬 Real-Time Chat
-- **WebSocket Implementation**: Real-time messaging without page reloads
-- **End-to-End Encryption**: Secure message encryption for privacy
-- **AI Chatbot Integration**: @chatbot functionality for AI assistance
-- **Message Persistence**: Chat history stored in MongoDB
-- **Typing Indicators**: Real-time typing status
-- **Read Receipts**: Message read status tracking
+### 📚 Topics & Discussions
+- **Topic Creation**: Any room member can create topics
+- **Focused Discussions**: Organized conversations within rooms
+- **Permission Control**: Only creators and admins can delete topics
 
-### 📚 Personal Work Space
-- **Private Notes**: User-exclusive note creation and management
-- **Document Upload**: Support for PDF, DOC, DOCX, TXT files
-- **AI Document Analysis**: Automatic document summarization
-- **Persistent Chat**: AI conversations about uploaded documents
-- **File Management**: Upload, remove, and manage documents
+### 💬 Real-time Chat
+- **WebSocket Support**: Instant message delivery
+- **End-to-End Encryption**: Secure message transmission
+- **AI Chatbot**: @chatbot integration for AI assistance
+- **Message Persistence**: All chats stored in database
+- **Typing Indicators**: Real-time user activity
 
-### 🎯 Quiz Generation
-- **AI-Powered Quizzes**: Generate MCQs from uploaded documents
-- **Multiple Difficulty Levels**: Easy, medium, hard quiz options
-- **Detailed Explanations**: Correct answer explanations
-- **Document Analysis**: AI analysis of document content for quiz suitability
+### 📝 Personal Notes
+- **Private Workspace**: Each user's notes are private
+- **File Upload**: Support for PDF, DOC, DOCX files
+- **AI Document Analysis**: Automatic summaries and insights
+- **Quiz Generation**: AI-powered MCQs from documents
+- **Audio Overviews**: Podcast-style document explanations
 
-### 🎧 Audio Overviews
-- **Podcast-Style Content**: Host and expert conversation format
-- **AI-Generated Scripts**: Automatic script generation from documents
-- **Educational Content**: Engaging audio explanations
-
-### 🎨 Modern UI/UX
-- **Responsive Design**: Works on desktop, tablet, and mobile
-- **Dark/Light Theme**: Theme support with smooth transitions
-- **Framer Motion**: Smooth animations and interactions
-- **Styled Components**: Modern CSS-in-JS styling
-- **Real-Time Updates**: Live UI updates without page refresh
+### 🤖 AI Features
+- **Document Summarization**: Intelligent content extraction
+- **Quiz Generation**: Contextual multiple-choice questions
+- **Audio Scripts**: Host-expert dialogue generation
+- **Chatbot Integration**: Context-aware AI responses
 
 ## 🏗️ Architecture
 
-### Backend (FastAPI + Python)
-```
-backend/
-├── api/                    # API endpoints
-│   ├── auth.py            # Authentication endpoints
-│   ├── user.py            # User management
-│   ├── room.py            # Room management
-│   ├── topic.py           # Topic management
-│   ├── notes.py           # Notes and document handling
-│   ├── chat.py            # Chat functionality
-│   ├── quiz.py            # Quiz generation
-│   └── audio.py           # Audio overview generation
-├── core/                   # Core functionality
-│   ├── config.py          # Configuration management
-│   ├── database.py        # Database connections
-│   ├── security.py        # Security utilities
-│   └── websocket.py       # WebSocket implementation
-├── models/                 # Database models
-│   ├── postgresql/        # PostgreSQL models
-│   └── mongodb/           # MongoDB models
-├── services/              # Business logic services
-│   ├── ai_service.py      # AI integration
-│   ├── encryption_service.py # End-to-end encryption
-│   └── supabase_service.py # Supabase integration
-└── middleware/            # Custom middleware
-    ├── auth_middleware.py # Authentication middleware
-    └── websocket_auth.py  # WebSocket authentication
-```
+### Database Design
+- **PostgreSQL (Neon)**: User data, rooms, topics, notes
+- **MongoDB**: Chat logs, AI responses, document metadata
+- **Redis**: Real-time features, caching, session management
 
-### Frontend (React + JavaScript)
-```
-frontend/
-├── src/
-│   ├── components/        # React components
-│   │   ├── auth/         # Authentication components
-│   │   ├── layout/       # Layout components
-│   │   └── personalwork/ # Personal work components
-│   ├── context/          # React context
-│   ├── themes/           # Theme configuration
-│   └── utils/            # Utility functions
-```
+### Security
+- **End-to-End Encryption**: Fernet encryption for messages
+- **JWT Authentication**: Secure token-based auth
+- **Role-Based Access**: Admin and member permissions
+- **Input Validation**: Comprehensive data validation
 
-## 🛠️ Technology Stack
+## 🚀 Quick Start
 
-### Backend
-- **FastAPI**: Modern Python web framework
-- **PostgreSQL**: Primary database for user and room data
-- **MongoDB**: Document database for chat logs and notes
-- **Redis**: Caching and session management
-- **WebSockets**: Real-time communication
-- **OpenAI API**: AI-powered features
-- **JWT**: Authentication tokens
-- **Cryptography**: End-to-end encryption
-
-### Frontend
-- **React 18**: Modern React with hooks
-- **Styled Components**: CSS-in-JS styling
-- **Framer Motion**: Animations and transitions
-- **React Router**: Client-side routing
-- **Socket.io**: WebSocket client
-- **React Dropzone**: File upload handling
-- **React Toastify**: Notifications
-
-## 📋 Prerequisites
-
-- Python 3.8+
-- Node.js 16+
-- PostgreSQL 12+
-- MongoDB 4.4+
-- Redis 6+
+### Prerequisites
+- Python 3.9+
+- PostgreSQL database
+- MongoDB database
+- Redis server
 - Google OAuth2 credentials
+- Supabase project
 - OpenAI API key
-
-## 🚀 Installation & Setup
 
 ### 1. Clone the Repository
 ```bash
@@ -134,51 +72,66 @@ cd ai-room-collaborator
 
 ### 2. Backend Setup
 
-#### Install Python Dependencies
+#### Install Dependencies
 ```bash
 cd backend
 pip install -r requirements.txt
 ```
 
 #### Environment Configuration
-Create a `.env` file in the `backend/` directory:
+Create `.env` file in the backend directory:
+
 ```env
-# Application Settings
+# Database Configuration
+DATABASE_URL=postgresql://user:password@localhost:5432/airoom
+MONGODB_URL=mongodb://localhost:27017/airoom
+REDIS_URL=redis://localhost:6379
+
+# Security
 SECRET_KEY=your-secret-key-here
-DEBUG=True
+ALGORITHM=HS256
+ENCRYPTION_KEY=your-32-byte-fernet-key
 
 # Google OAuth2
 GOOGLE_OAUTH2_CLIENT_ID=your-google-client-id
 GOOGLE_OAUTH2_CLIENT_SECRET=your-google-client-secret
 
-# Database URLs
-DATABASE_URL=postgresql://user:password@localhost:5432/airoom
-MONGODB_URL=mongodb://localhost:27017
-REDIS_URL=redis://localhost:6379
+# Supabase
+SUPABASE_URL=your-supabase-url
+SUPABASE_KEY=your-supabase-anon-key
 
 # OpenAI
-OPENAI_KEY=your-openai-api-key
+OPENAI_API_KEY=your-openai-api-key
 
-# Encryption
-ENCRYPTION_KEY=your-encryption-key
+# Firebase (for file storage)
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_PRIVATE_KEY_ID=your-private-key-id
+FIREBASE_PRIVATE_KEY=your-private-key
+FIREBASE_CLIENT_EMAIL=your-client-email
+FIREBASE_CLIENT_ID=your-client-id
 
-# Frontend URL
-FRONTEND_URL=http://localhost:3000
+# Application Settings
+DEBUG=False
+ALLOWED_ORIGINS=["https://yourdomain.com", "http://localhost:3000"]
+ALLOWED_HOSTS=["yourdomain.com", "localhost"]
+MAX_FILE_SIZE=10485760  # 10MB
 ```
 
-#### Database Setup
-```bash
-# PostgreSQL
-createdb airoom
-
-# MongoDB
-# MongoDB will be created automatically when the app starts
+#### Generate Encryption Key
+```python
+from cryptography.fernet import Fernet
+print(Fernet.generate_key().decode())
 ```
 
-#### Run Backend
+#### Database Migration
 ```bash
-cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Initialize database tables
+python -c "from core.database import init_db; init_db()"
+```
+
+#### Run the Backend
+```bash
+uvicorn main:app --host=0.0.0.0 --port=8000 --reload
 ```
 
 ### 3. Frontend Setup
@@ -190,98 +143,259 @@ npm install
 ```
 
 #### Environment Configuration
-Create a `.env` file in the `frontend/` directory:
+Create `.env` file in the frontend directory:
+
 ```env
-REACT_APP_API_URL=http://localhost:8000
+REACT_APP_API_URL=http://localhost:8000/api/v1
+REACT_APP_GOOGLE_CLIENT_ID=your-google-client-id
+REACT_APP_SUPABASE_URL=your-supabase-url
+REACT_APP_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-#### Run Frontend
+#### Run the Frontend
 ```bash
-cd frontend
 npm start
 ```
 
-## 🔧 Configuration
-
-### Google OAuth2 Setup
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable Google+ API
-4. Create OAuth2 credentials
-5. Add authorized redirect URIs:
-   - `http://localhost:3000/auth/callback` (development)
-   - `https://yourdomain.com/auth/callback` (production)
-
-### OpenAI API Setup
-1. Sign up at [OpenAI](https://openai.com/)
-2. Get your API key
-3. Add to environment variables
-
-## 📖 API Documentation
+## 📚 API Documentation
 
 ### Authentication Endpoints
-- `POST /api/auth/google/callback` - Handle Google OAuth callback
-- `GET /api/auth/me` - Get current user info
-- `POST /api/auth/logout` - Logout user
-- `GET /api/auth/status` - Check authentication status
 
-### Room Endpoints
-- `POST /api/room/create` - Create new room
-- `POST /api/room/join` - Join room with ID/password
-- `POST /api/room/leave` - Leave room
-- `GET /api/room/list` - List user's rooms
-- `DELETE /api/room/delete` - Delete room (admin only)
+#### Sign Up
+```http
+POST /api/v1/auth/signup
+Content-Type: application/json
 
-### Chat Endpoints
-- `GET /ws/{room_id}/{topic_id}` - WebSocket endpoint for real-time chat
-
-### Notes Endpoints
-- `POST /api/notes/create` - Create new note
-- `POST /api/notes/upload` - Upload document
-- `GET /api/notes/list` - List user's notes
-
-## 🔒 Security Features
-
-- **End-to-End Encryption**: All chat messages are encrypted
-- **JWT Authentication**: Secure token-based authentication
-- **CORS Protection**: Configured CORS for security
-- **Input Validation**: Comprehensive input sanitization
-- **Rate Limiting**: API rate limiting (configurable)
-- **HTTPS Only**: Production-ready HTTPS configuration
-
-## 🧪 Testing
-
-### Backend Tests
-```bash
-cd backend
-pytest
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "securepassword"
+}
 ```
 
-### Frontend Tests
+#### Login
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "securepassword"
+}
+```
+
+#### Google OAuth2
+```http
+POST /api/v1/auth/google
+Content-Type: application/json
+
+{
+  "token": "google-id-token"
+}
+```
+
+### Room Management
+
+#### Create Room
+```http
+POST /api/v1/rooms/create
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "title": "Study Group",
+  "description": "Weekly study session"
+}
+```
+
+#### Join Room
+```http
+POST /api/v1/rooms/join
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "room_id": "12345678",
+  "password": "87654321"
+}
+```
+
+### Topic Management
+
+#### Create Topic
+```http
+POST /api/v1/topics/create
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "title": "Chapter 5 Discussion",
+  "description": "Let's discuss the key concepts",
+  "room_id": "room-uuid"
+}
+```
+
+### Notes Management
+
+#### Create Note
+```http
+POST /api/v1/notes/create
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "title": "My Study Notes",
+  "content": "Important concepts..."
+}
+```
+
+#### Upload File
+```http
+POST /api/v1/notes/{note_id}/upload-file
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file: <file-upload>
+```
+
+### WebSocket Endpoints
+
+#### Group Chat
+```javascript
+const ws = new WebSocket(`ws://localhost:8000/api/v1/chat/group/${roomId}/${topicId}?token=${jwtToken}`);
+```
+
+#### Note Chat
+```javascript
+const ws = new WebSocket(`ws://localhost:8000/api/v1/chat/note/${noteId}?token=${jwtToken}`);
+```
+
+## 🔧 Development
+
+### Project Structure
+```
+ai-room-collaborator/
+├── backend/
+│   ├── api/                 # API endpoints
+│   ├── core/               # Core configuration
+│   ├── models/             # Database models
+│   ├── services/           # Business logic
+│   ├── middleware/         # Custom middleware
+│   └── main.py            # Application entry point
+├── frontend/
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   ├── context/        # React context
+│   │   ├── utils/          # Utility functions
+│   │   └── themes/         # UI themes
+│   └── package.json
+└── README.md
+```
+
+### Running Tests
 ```bash
+# Backend tests
+cd backend
+pytest
+
+# Frontend tests
 cd frontend
 npm test
 ```
 
+### Code Formatting
+```bash
+# Backend
+cd backend
+black .
+flake8 .
+
+# Frontend
+cd frontend
+npm run format
+```
+
 ## 🚀 Deployment
 
-### Backend Deployment (Render/Heroku)
-1. Set environment variables
-2. Configure database URLs
-3. Deploy using Git integration
+### Backend Deployment (Render)
 
-### Frontend Deployment (Vercel/Netlify)
-1. Set environment variables
-2. Configure build settings
-3. Deploy using Git integration
+1. **Create Render Account**: Sign up at [render.com](https://render.com)
+
+2. **Connect Repository**: Link your GitHub repository
+
+3. **Configure Environment**:
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `uvicorn main:app --host=0.0.0.0 --port=$PORT`
+   - **Environment Variables**: Add all variables from `.env`
+
+4. **Database Setup**:
+   - Create PostgreSQL database on Render
+   - Create MongoDB database (MongoDB Atlas)
+   - Create Redis instance (Redis Cloud)
+
+### Frontend Deployment (Vercel)
+
+1. **Create Vercel Account**: Sign up at [vercel.com](https://vercel.com)
+
+2. **Import Project**: Connect your GitHub repository
+
+3. **Configure Environment Variables**: Add frontend environment variables
+
+4. **Deploy**: Vercel will automatically deploy on push to main branch
+
+### Environment Variables for Production
+
+#### Backend (Render)
+```env
+DATABASE_URL=postgresql://user:password@host:port/database
+MONGODB_URL=mongodb+srv://user:password@cluster.mongodb.net/database
+REDIS_URL=redis://user:password@host:port
+SECRET_KEY=your-production-secret-key
+ENCRYPTION_KEY=your-production-encryption-key
+DEBUG=False
+ALLOWED_ORIGINS=["https://yourdomain.com"]
+```
+
+#### Frontend (Vercel)
+```env
+REACT_APP_API_URL=https://your-backend.onrender.com/api/v1
+REACT_APP_GOOGLE_CLIENT_ID=your-google-client-id
+REACT_APP_SUPABASE_URL=your-supabase-url
+REACT_APP_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+## 🔒 Security Considerations
+
+### Authentication
+- JWT tokens with secure expiration
+- Password hashing with bcrypt
+- OAuth2 integration for third-party auth
+
+### Data Protection
+- End-to-end encryption for chat messages
+- Input validation and sanitization
+- SQL injection prevention
+- XSS protection
+
+### API Security
+- Rate limiting
+- CORS configuration
+- Request validation
+- Error handling without information leakage
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+- Follow PEP 8 for Python code
+- Use TypeScript for frontend components
+- Write comprehensive tests
+- Update documentation for new features
 
 ## 📄 License
 
@@ -289,25 +403,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-For support, email support@airoomcollaborator.com or create an issue in the GitHub repository.
-
-## 🔄 Changelog
-
-### v1.0.0 (Current)
-- Initial release
-- Google OAuth2 authentication
-- Real-time chat with WebSockets
-- Room management system
-- AI-powered features
-- Document analysis and quiz generation
-- Audio overview generation
-- End-to-end encryption
-- Modern responsive UI
+- **Documentation**: [API Docs](https://yourdomain.com/docs)
+- **Issues**: [GitHub Issues](https://github.com/yourusername/ai-room-collaborator/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/ai-room-collaborator/discussions)
 
 ## 🙏 Acknowledgments
 
+- FastAPI for the excellent web framework
+- React for the frontend framework
 - OpenAI for AI capabilities
-- Google for OAuth2 integration
-- FastAPI community
-- React community
-- All contributors and testers 
+- Supabase for authentication and database
+- All contributors and users
+
+---
+
+**Made with ❤️ for collaborative learning** 

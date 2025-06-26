@@ -1,5 +1,5 @@
 # main.py
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -12,15 +12,19 @@ from fastapi.exceptions import RequestValidationError as FastAPIRequestValidatio
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi import status
 import traceback
+from contextlib import asynccontextmanager
+import os
+from datetime import datetime
 
 from api import auth, user, room, topic, notes, chat, quiz, audio
 from core.config import settings
-from core.database import init_db
+from core.database import init_db, connect_to_mongo, close_mongo_connection
 from core.websocket import websocket_endpoint
+from core.security import LoggingMiddleware
 
 # Configure logging for production
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.INFO if not settings.DEBUG else logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
@@ -30,37 +34,63 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    logger.info("Starting AI Room Collaborator application...")
+    
+    try:
+        # Initialize database
+        init_db()
+        logger.info("Database initialized successfully")
+        
+        # Connect to MongoDB
+        await connect_to_mongo()
+        logger.info("MongoDB connected successfully")
+        
+        logger.info("Application startup completed")
+        yield
+        
+    except Exception as e:
+        logger.error(f"Startup error: {e}")
+        raise
+    finally:
+        # Shutdown
+        logger.info("Shutting down application...")
+        try:
+            await close_mongo_connection()
+            logger.info("MongoDB connection closed")
+        except Exception as e:
+            logger.error(f"Shutdown error: {e}")
+
 # Create FastAPI app
 app = FastAPI(
-    title="AI Learning Platform API",
-    description="Production API for AI-powered collaborative learning platform",
+    title=settings.APP_NAME,
+    description="AI Room Collaborator - A comprehensive platform for collaborative learning with AI-powered features",
     version="1.0.0",
-    docs_url=None,  # Disable docs in production
-    redoc_url=None,  # Disable redoc in production
-    # Enable docs only in development
-    # docs_url="/docs" if settings.DEBUG else None,
-    # redoc_url="/redoc" if settings.DEBUG else None
+    debug=settings.DEBUG,
+    lifespan=lifespan
 )
 
 # CORS middleware - configured for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://room-connect-eight.vercel.app",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 # Trusted host middleware for security
-if hasattr(settings, 'ALLOWED_HOSTS') and settings.ALLOWED_HOSTS:
+if not settings.DEBUG:
     app.add_middleware(
         TrustedHostMiddleware,
         allowed_hosts=settings.ALLOWED_HOSTS
     )
+
+# Add logging middleware
+app.add_middleware(LoggingMiddleware, app=app)
 
 # Request logging and monitoring middleware
 @app.middleware("http")
@@ -92,13 +122,15 @@ async def process_request(request: Request, call_next):
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for unhandled errors"""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={
             "detail": "Internal server error",
-            "error": str(exc),
-            "trace": traceback.format_exc()
-        },
+            "timestamp": datetime.utcnow().isoformat(),
+            "path": request.url.path
+        }
     )
 
 @app.exception_handler(StarletteHTTPException)
@@ -116,14 +148,23 @@ async def validation_exception_handler(request: Request, exc: FastAPIRequestVali
     )
 
 # Include API routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(user.router, prefix="/api/user", tags=["Users"])
-app.include_router(room.router, prefix="/api/room", tags=["Rooms"])
-app.include_router(topic.router, prefix="/api/topic", tags=["Topics"])
-app.include_router(notes.router, prefix="/api/notes", tags=["Notes"])
-app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
-app.include_router(quiz.router, prefix="/api/quiz", tags=["Quiz"])
-app.include_router(audio.router, prefix="/api/audio", tags=["Audio"])
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(user.router, prefix="/api/v1")
+app.include_router(room.router, prefix="/api/v1")
+app.include_router(topic.router, prefix="/api/v1")
+app.include_router(notes.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
+
+# Include additional feature routers if they exist
+try:
+    app.include_router(quiz.router, prefix="/api/v1")
+except ImportError:
+    logger.warning("Quiz router not available")
+
+try:
+    app.include_router(audio.router, prefix="/api/v1")
+except ImportError:
+    logger.warning("Audio router not available")
 
 # WebSocket endpoint for real-time chat
 @app.websocket("/ws/{room_id}/{topic_id}")
@@ -139,18 +180,33 @@ async def websocket_endpoint_route(
 # Root endpoints
 @app.get("/")
 async def root():
+    """Root endpoint with API information"""
     return {
-        "message": "AI Learning Platform API",
+        "message": "AI Room Collaborator API",
         "version": "1.0.0",
-        "status": "running"
+        "description": "A comprehensive platform for collaborative learning with AI-powered features",
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs",
+            "redoc": "/redoc",
+            "auth": "/auth",
+            "rooms": "/rooms",
+            "topics": "/topics",
+            "notes": "/notes",
+            "chat": "/chat",
+            "users": "/users"
+        },
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for load balancers"""
+    """Health check endpoint"""
     return {
         "status": "healthy",
-        "timestamp": time.time()
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "environment": "production" if not settings.DEBUG else "development"
     }
 
 @app.get("/api/health")
@@ -166,41 +222,108 @@ async def api_health_check():
 @app.options("/{path:path}")
 async def options_handler(request: Request):
     origin = request.headers.get("origin")
-    allowed_origins = [
-        "https://room-connect-eight.vercel.app",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ]
+    allowed_origins = settings.ALLOWED_ORIGINS
     headers = {
         "Access-Control-Allow-Origin": origin if origin in allowed_origins else "*",
-        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
         "Access-Control-Allow-Headers": "*",
         "Access-Control-Allow-Credentials": "true"
     }
     return JSONResponse(content={"message": "OK"}, headers=headers)
 
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    logger.info("AI Learning Platform API starting up...")
-    logger.info(f"CORS origins: {settings.ALLOWED_ORIGINS}")
-    init_db()
+# API documentation customization
+@app.get("/api/v1")
+async def api_info():
+    """API information and available endpoints"""
+    return {
+        "api_name": "AI Room Collaborator API",
+        "version": "1.0.0",
+        "description": "A comprehensive platform for collaborative learning with AI-powered features",
+        "features": {
+            "authentication": {
+                "description": "Multiple authentication methods (Google OAuth2, Supabase, Email/Password)",
+                "endpoints": ["/auth/signup", "/auth/login", "/auth/google", "/auth/supabase"]
+            },
+            "rooms": {
+                "description": "Collaborative rooms with 8-digit IDs and passwords",
+                "endpoints": ["/rooms/create", "/rooms/join", "/rooms/my-rooms"]
+            },
+            "topics": {
+                "description": "Topics within rooms for focused discussions",
+                "endpoints": ["/topics/create", "/topics/room/{room_id}"]
+            },
+            "notes": {
+                "description": "Private notes with file upload and AI features",
+                "endpoints": ["/notes/create", "/notes/my-notes", "/notes/{note_id}/upload-file"]
+            },
+            "chat": {
+                "description": "Real-time encrypted chat with AI integration",
+                "endpoints": ["/chat/group/{room_id}/{topic_id}", "/chat/note/{note_id}"]
+            },
+            "ai_features": {
+                "description": "AI-powered document analysis, quiz generation, and audio overviews",
+                "endpoints": ["/notes/{note_id}/generate-quiz", "/notes/{note_id}/generate-audio"]
+            }
+        },
+        "websocket_endpoints": {
+            "group_chat": "/api/v1/chat/group/{room_id}/{topic_id}",
+            "note_chat": "/api/v1/chat/note/{note_id}"
+        },
+        "authentication": {
+            "methods": ["Google OAuth2", "Supabase Auth", "Email/Password"],
+            "token_type": "JWT Bearer Token"
+        },
+        "database": {
+            "postgresql": "Structured data (users, rooms, topics, notes)",
+            "mongodb": "Chat logs and AI responses",
+            "redis": "Real-time features and caching"
+        },
+        "security": {
+            "encryption": "End-to-end encryption for chat messages",
+            "authentication": "JWT-based authentication",
+            "authorization": "Role-based access control"
+        }
+    }
 
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("AI Learning Platform API shutting down...")
+# Error handling for 404
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException):
+    """Handle 404 errors"""
+    return JSONResponse(
+        status_code=404,
+        content={
+            "detail": "Endpoint not found",
+            "path": request.url.path,
+            "method": request.method,
+            "timestamp": datetime.utcnow().isoformat(),
+            "suggestions": {
+                "api_docs": "/docs",
+                "health_check": "/health",
+                "api_info": "/api/v1"
+            }
+        }
+    )
 
-@app.api_route('/{full_path:path}', methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-async def catch_all_global(full_path: str, request: Request):
-    return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Not found", "path": f"/{full_path}"})
+# Error handling for 422 (validation errors)
+@app.exception_handler(422)
+async def validation_error_handler(request: Request, exc: HTTPException):
+    """Handle validation errors"""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Validation error",
+            "path": request.url.path,
+            "method": request.method,
+            "timestamp": datetime.utcnow().isoformat(),
+            "message": "Request data validation failed. Please check your input."
+        }
+    )
 
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=False,  # Disable reload in production
-        access_log=True,
-        log_level="info"
+        port=int(os.getenv("PORT", 8000)),
+        reload=settings.DEBUG,
+        log_level="info" if not settings.DEBUG else "debug"
     )

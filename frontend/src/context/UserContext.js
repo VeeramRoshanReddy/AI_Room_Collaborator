@@ -2,8 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export const UserContext = createContext();
 
-const SUPABASE_TOKEN_KEY = 'airoom_supabase_token';
-const OAUTH2_TOKEN_KEY = 'airoom_jwt_token';
+const TOKEN_KEY = 'airoom_jwt_token';
 const USER_KEY = 'airoom_user_data';
 
 export const UserProvider = ({ children }) => {
@@ -12,27 +11,20 @@ export const UserProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   // Store token and user data in localStorage
-  const storeAuthData = (token, userData, type = 'oauth2') => {
-    if (token) {
-      if (type === 'supabase') {
-        localStorage.setItem(SUPABASE_TOKEN_KEY, token);
-      } else {
-        localStorage.setItem(OAUTH2_TOKEN_KEY, token);
-      }
-      localStorage.setItem(USER_KEY, JSON.stringify(userData));
-    }
+  const storeAuthData = (token, userData) => {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem('airoom_user', JSON.stringify(userData));
   };
 
   // Clear auth data from localStorage
-  const clearAuthData = () => {
-    localStorage.removeItem(SUPABASE_TOKEN_KEY);
-    localStorage.removeItem(OAUTH2_TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+  const removeAuthData = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('airoom_user');
   };
 
-  // Get stored token (prefer Supabase)
+  // Get stored token
   const getStoredToken = () => {
-    return localStorage.getItem(SUPABASE_TOKEN_KEY) || localStorage.getItem(OAUTH2_TOKEN_KEY);
+    return localStorage.getItem(TOKEN_KEY);
   };
 
   // Get stored user data
@@ -68,7 +60,7 @@ export const UserProvider = ({ children }) => {
 
     if (response.status === 401) {
       // Token expired or invalid
-      clearAuthData();
+      removeAuthData();
       setUser(null);
       throw new Error('Authentication expired. Please login again.');
     }
@@ -107,15 +99,15 @@ export const UserProvider = ({ children }) => {
 
       if (data.authenticated && data.user) {
         setUser(data.user);
-        storeAuthData(token, data.user, token === localStorage.getItem(SUPABASE_TOKEN_KEY) ? 'supabase' : 'oauth2');
+        storeAuthData(token, data.user);
       } else {
         // Token is invalid
-        clearAuthData();
+        removeAuthData();
         setUser(null);
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
-      clearAuthData();
+      removeAuthData();
       setUser(null);
     } finally {
       setLoading(false);
@@ -130,7 +122,7 @@ export const UserProvider = ({ children }) => {
       
       if (data.user) {
         setUser(data.user);
-        storeAuthData(getStoredToken(), data.user, getStoredToken() === localStorage.getItem(SUPABASE_TOKEN_KEY) ? 'supabase' : 'oauth2');
+        storeAuthData(getStoredToken(), data.user);
         return data.user;
       }
     } catch (error) {
@@ -166,7 +158,7 @@ export const UserProvider = ({ children }) => {
     } finally {
       // Clear local data
       setUser(null);
-      clearAuthData();
+      removeAuthData();
       setLoading(false);
       window.location.href = '/login';
     }
@@ -189,7 +181,7 @@ export const UserProvider = ({ children }) => {
       } catch (error) {
         console.error('Error initializing auth:', error);
         setError('Failed to initialize authentication');
-        clearAuthData();
+        removeAuthData();
         setLoading(false);
       }
     };

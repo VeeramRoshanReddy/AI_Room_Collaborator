@@ -1012,10 +1012,8 @@ const PersonalWork = () => {
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
     setUploadingFile(true);
     setError(null);
-
     // Optimistic update
     const optimisticDocument = {
       id: `temp_${Date.now()}`,
@@ -1025,38 +1023,27 @@ const PersonalWork = () => {
       status: 'uploading'
     };
     setUploadedDocument(optimisticDocument);
-
     try {
       const formData = new FormData();
       formData.append('file', file);
-
       const res = await makeAuthenticatedRequest('/api/notes/upload', {
         method: 'POST',
         body: formData,
-        headers: {
-          // Don't set Content-Type for FormData
-        },
       });
-
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Failed to upload file');
       }
-
       const data = await res.json();
-      
-      // Replace optimistic document with real document
       setUploadedDocument({
-        id: data.file_id,
-        name: data.file_name,
+        id: data.note_id,
+        name: file.name,
         status: 'uploaded',
-        chunks: data.chunks_processed
       });
-
       toast.success('Document uploaded successfully!');
-      
+      // Fetch chat history for this note
+      fetchChatHistory(data.note_id);
     } catch (err) {
-      // Rollback optimistic update
       setUploadedDocument(null);
       const errorMessage = err.message || 'Error uploading file';
       setError(errorMessage);
@@ -1068,11 +1055,8 @@ const PersonalWork = () => {
 
   const handleSendMessage = async (question) => {
     if (!question.trim() || !uploadedDocument) return;
-
     setSendingMessage(true);
     setError(null);
-
-    // Optimistic update
     const optimisticMessage = {
       id: Date.now(),
       text: question,
@@ -1080,28 +1064,22 @@ const PersonalWork = () => {
       sender: user?.name,
       time: new Date().toLocaleTimeString()
     };
-
     const originalMessages = [...messages];
     setMessages(prev => [...prev, optimisticMessage]);
-
     try {
       const res = await makeAuthenticatedRequest('/api/notes/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          file_id: uploadedDocument.id,
+          note_id: uploadedDocument.id,
           question: question
         }),
       });
-
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Failed to get response');
       }
-
       const data = await res.json();
-      
-      // Add AI response
       const aiMessage = {
         id: Date.now() + 1,
         text: data.answer,
@@ -1109,12 +1087,11 @@ const PersonalWork = () => {
         sender: 'AI',
         time: new Date().toLocaleTimeString()
       };
-
       setMessages(prev => [...prev, aiMessage]);
       setInputMessage('');
-
+      // Optionally, fetch chat history again
+      fetchChatHistory(uploadedDocument.id);
     } catch (err) {
-      // Rollback optimistic update
       setMessages(originalMessages);
       const errorMessage = err.message || 'Error sending message';
       setError(errorMessage);
@@ -1462,6 +1439,26 @@ const PersonalWork = () => {
       alert('Audio download started (simulated)');
       setIsAudioDownloading(false);
     }, 1000);
+  };
+
+  const fetchChatHistory = async (noteId) => {
+    try {
+      const res = await makeAuthenticatedRequest(`/api/notes/${noteId}/chat-history`, {
+        method: 'GET',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.map(log => ({
+          id: log.id,
+          text: `${log.question}\n\n${log.answer}`,
+          isUser: false,
+          sender: 'AI',
+          time: log.created_at ? new Date(log.created_at).toLocaleTimeString() : ''
+        })));
+      }
+    } catch (err) {
+      // Ignore chat history errors for now
+    }
   };
 
   if (!isAuthenticated) {

@@ -1,19 +1,21 @@
 from fastapi import APIRouter, HTTPException, Depends, Request, status
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.config import settings
-from services.supabase_service import SupabaseService
-from models.postgresql.room import Room, room_members, room_admins
+from models.postgresql.room import Room, room_members, room_admins, RoomParticipant
 from models.postgresql.user import User as PGUser
+from models.postgresql.topic import Topic
 import uuid
 from fastapi.responses import JSONResponse
 from middleware.auth_middleware import get_current_user
 import logging
+import secrets
+import string
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
-supabase_service = SupabaseService()
+router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
 try:
     import jwt
@@ -21,596 +23,434 @@ except ImportError:
     # jwt is required for authentication. Please install with 'pip install PyJWT'
     jwt = None
 
-@router.post("/create")
+# Pydantic models
+class RoomCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+class RoomJoin(BaseModel):
+    room_id: str  # 8-digit room ID
+    password: str  # 8-digit password
+
+class RoomResponse(BaseModel):
+    id: str
+    title: str
+    description: Optional[str]
+    room_id: str
+    created_by_user_id: str
+    creator_name: Optional[str]
+    is_active: bool
+    created_at: str
+    updated_at: Optional[str]
+    participant_count: int
+    topic_count: int
+    is_admin: bool = False
+
+class ParticipantResponse(BaseModel):
+    id: str
+    user_id: str
+    user_name: str
+    user_email: str
+    user_picture: Optional[str]
+    is_admin: bool
+    joined_at: str
+
+@router.post("/create", response_model=RoomResponse)
 async def create_room(
-    data: Dict[str, Any], 
-    user: PGUser = Depends(get_current_user), 
+    room_data: RoomCreate,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new room with auto-generated 8-digit room ID and password"""
+    """Create a new room"""
     try:
-        name = data.get("name")
-        description = data.get("description", "")
+        # Generate unique room ID and password
+        room_id = _generate_unique_room_id(db)
+        password = _generate_room_password()
         
-        if not name:
-            raise HTTPException(status_code=400, detail="Room name is required")
-        
-        # Create room with auto-generated room_id and room_password
-        room = Room.create_room(
-            name=name,
-            description=description,
-            created_by=user.id,
-            db=db
+        # Create room
+        new_room = Room(
+            title=room_data.title,
+            description=room_data.description,
+            room_id=room_id,
+            password=password,
+            created_by_user_id=current_user["id"]
         )
         
-        # Add creator as member and admin
-        db.execute(room_members.insert().values(room_id=room.id, user_id=user.id))
-        db.execute(room_admins.insert().values(room_id=room.id, user_id=user.id))
-        db.add(room)
+        db.add(new_room)
         db.commit()
-        db.refresh(room)
+        db.refresh(new_room)
         
-        return {
-            "message": "Room created successfully",
-            "room": {
-                "id": room.id,
-                "room_id": room.room_id,
-                "room_password": room.room_password,
-                "name": room.name,
-                "description": room.description,
-                "created_by": room.created_by,
-                "created_at": room.created_at.isoformat() if room.created_at else None
-            }
-        }
+        # Add creator as admin participant
+        participant = RoomParticipant(
+            room_id=new_room.id,
+            user_id=current_user["id"],
+            is_admin=True
+        )
+        db.add(participant)
+        db.commit()
         
-    except HTTPException:
-        raise
+        # Return room with password (only for creator)
+        response_data = new_room.to_dict()
+        response_data["password"] = password  # Include password for creator
+        response_data["is_admin"] = True
+        
+        return RoomResponse(**response_data)
+        
     except Exception as e:
+        logger.error(f"Error creating room: {e}")
         db.rollback()
-        logger.error(f"Failed to create room: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to create room: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create room"
+        )
 
-@router.post("/join")
+@router.post("/join", response_model=RoomResponse)
 async def join_room(
-    data: Dict[str, Any], 
-    user: PGUser = Depends(get_current_user), 
+    join_data: RoomJoin,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Join a room using room_id and room_password"""
+    """Join a room using room ID and password"""
     try:
-        room_id = data.get("room_id")
-        room_password = data.get("room_password")
-        
-        if not room_id or not room_password:
-            raise HTTPException(status_code=400, detail="Room ID and password are required")
-        
         # Find room by room_id
-        room = db.query(Room).filter(Room.room_id == room_id).first()
-        if not room:
-            raise HTTPException(status_code=404, detail="Room not found")
-        
-        # Check password
-        if room.room_password != room_password:
-            raise HTTPException(status_code=400, detail="Invalid room password")
-        
-        # Check if user is already a member
-        existing_member = db.execute(
-            room_members.select().where(
-                (room_members.c.room_id == room.id) & 
-                (room_members.c.user_id == user.id)
-            )
+        room = db.query(Room).filter(
+            Room.room_id == join_data.room_id,
+            Room.is_active == True
         ).first()
         
-        if existing_member:
-            raise HTTPException(status_code=400, detail="You are already a member of this room")
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Room not found"
+            )
         
-        # Check if room is full
-        member_count = db.execute(
-            room_members.select().where(room_members.c.room_id == room.id)
-        ).rowcount
+        # Verify password
+        if room.password != join_data.password:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid room password"
+            )
         
-        if member_count >= room.max_members:
-            raise HTTPException(status_code=400, detail="Room is full")
+        # Check if user is already a participant
+        existing_participant = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room.id,
+            RoomParticipant.user_id == current_user["id"]
+        ).first()
         
-        # Add user as member
-        db.execute(room_members.insert().values(room_id=room.id, user_id=user.id))
-        db.commit()
+        if existing_participant:
+            # User is already in the room
+            is_admin = existing_participant.is_admin
+        else:
+            # Add user as participant
+            participant = RoomParticipant(
+                room_id=room.id,
+                user_id=current_user["id"],
+                is_admin=False
+            )
+            db.add(participant)
+            db.commit()
+            is_admin = False
         
-        return {
-            "message": "Successfully joined room",
-            "room": {
-                "id": room.id,
-                "room_id": room.room_id,
-                "name": room.name,
-                "description": room.description
-            }
-        }
+        # Return room data
+        response_data = room.to_dict_without_password()
+        response_data["is_admin"] = is_admin
+        
+        return RoomResponse(**response_data)
         
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error joining room: {e}")
         db.rollback()
-        logger.error(f"Failed to join room: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to join room: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to join room"
+        )
 
-@router.post("/leave")
+@router.get("/my-rooms", response_model=List[RoomResponse])
+async def get_my_rooms(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all rooms where current user is a participant"""
+    try:
+        # Get user's room participations
+        participations = db.query(RoomParticipant).filter(
+            RoomParticipant.user_id == current_user["id"]
+        ).all()
+        
+        rooms = []
+        for participation in participations:
+            room = participation.room
+            if room and room.is_active:
+                room_data = room.to_dict_without_password()
+                room_data["is_admin"] = participation.is_admin
+                rooms.append(RoomResponse(**room_data))
+        
+        return rooms
+        
+    except Exception as e:
+        logger.error(f"Error getting user rooms: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get rooms"
+        )
+
+@router.get("/{room_id}/participants", response_model=List[ParticipantResponse])
+async def get_room_participants(
+    room_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all participants in a room"""
+    try:
+        # Check if user is participant in this room
+        user_participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id,
+            RoomParticipant.user_id == current_user["id"]
+        ).first()
+        
+        if not user_participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a participant in this room"
+            )
+        
+        # Get all participants
+        participants = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id
+        ).all()
+        
+        return [ParticipantResponse(**participant.to_dict()) for participant in participants]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting room participants: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get participants"
+        )
+
+@router.post("/{room_id}/leave")
 async def leave_room(
-    data: Dict[str, Any], 
-    user: PGUser = Depends(get_current_user), 
+    room_id: str,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Leave a room"""
     try:
-        room_id = data.get("room_id")
-        
-        if not room_id:
-            raise HTTPException(status_code=400, detail="Room ID is required")
-        
-        # Find room
-        room = db.query(Room).filter(Room.id == room_id).first()
-        if not room:
-            raise HTTPException(status_code=404, detail="Room not found")
-        
-        # Check if user is a member
-        is_member = db.execute(
-            room_members.select().where(
-                (room_members.c.room_id == room_id) & 
-                (room_members.c.user_id == user.id)
-            )
+        # Get user's participation
+        participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id,
+            RoomParticipant.user_id == current_user["id"]
         ).first()
         
-        if not is_member:
-            raise HTTPException(status_code=400, detail="You are not a member of this room")
-        
-        # Check if user is admin
-        is_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == user.id)
+        if not participation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="You are not a participant in this room"
             )
-        ).first()
         
-        # If user is admin, check if they can leave
-        if is_admin:
-            admin_count = db.execute(
-                room_admins.select().where(room_admins.c.room_id == room_id)
-            ).rowcount
+        # Check if user is the only admin
+        if participation.is_admin:
+            admin_count = db.query(RoomParticipant).filter(
+                RoomParticipant.room_id == room_id,
+                RoomParticipant.is_admin == True
+            ).count()
             
-            if admin_count <= 1:
+            if admin_count == 1:
                 raise HTTPException(
-                    status_code=400, 
-                    detail="Cannot leave as the only admin. Please promote another member to admin first."
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot leave room: you are the only admin. Promote another member to admin first."
                 )
         
-        # Remove user from room
-        db.execute(
-            room_members.delete().where(
-                (room_members.c.room_id == room_id) & 
-                (room_members.c.user_id == user.id)
-            )
+        # Remove participation
+        db.delete(participation)
+        db.commit()
+        
+        return {"message": "Successfully left the room"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error leaving room: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to leave room"
         )
-        
-        # Remove admin privileges if applicable
-        if is_admin:
-            db.execute(
-                room_admins.delete().where(
-                    (room_admins.c.room_id == room_id) & 
-                    (room_admins.c.user_id == user.id)
-                )
-            )
-        
-        db.commit()
-        
-        return {
-            "message": "Successfully left room",
-            "room_id": room_id
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to leave room: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to leave room: {str(e)}")
 
-@router.post("/make-admin")
-async def make_admin(
-    data: Dict[str, Any], 
-    user: PGUser = Depends(get_current_user), 
-    db: Session = Depends(get_db)
-):
-    """Make a member an admin of the room"""
-    try:
-        room_id = data.get("room_id")
-        member_email = data.get("member_email")
-        
-        if not room_id or not member_email:
-            raise HTTPException(status_code=400, detail="Room ID and member email are required")
-        
-        # Check if current user is admin
-        is_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == user.id)
-            )
-        ).first()
-        
-        if not is_admin:
-            raise HTTPException(status_code=403, detail="Only admins can promote members")
-        
-        # Find the member to promote
-        member = db.query(PGUser).filter(PGUser.email == member_email).first()
-        if not member:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Check if user is a member of the room
-        is_member = db.execute(
-            room_members.select().where(
-                (room_members.c.room_id == room_id) & 
-                (room_members.c.user_id == member.id)
-            )
-        ).first()
-        
-        if not is_member:
-            raise HTTPException(status_code=400, detail="User is not a member of this room")
-        
-        # Check if user is already an admin
-        is_already_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == member.id)
-            )
-        ).first()
-        
-        if is_already_admin:
-            raise HTTPException(status_code=400, detail="User is already an admin")
-        
-        # Promote to admin
-        db.execute(room_admins.insert().values(room_id=room_id, user_id=member.id))
-        db.commit()
-        
-        return {
-            "message": "User promoted to admin successfully",
-            "member": member.to_dict()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to promote user: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to promote user: {str(e)}")
-
-@router.post("/remove-admin")
-async def remove_admin(
-    data: Dict[str, Any], 
-    user: PGUser = Depends(get_current_user), 
-    db: Session = Depends(get_db)
-):
-    """Remove admin privileges from a user"""
-    try:
-        room_id = data.get("room_id")
-        admin_email = data.get("admin_email")
-        
-        if not room_id or not admin_email:
-            raise HTTPException(status_code=400, detail="Room ID and admin email are required")
-        
-        # Check if current user is admin
-        is_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == user.id)
-            )
-        ).first()
-        
-        if not is_admin:
-            raise HTTPException(status_code=403, detail="Only admins can demote other admins")
-        
-        # Find the admin to demote
-        admin_user = db.query(PGUser).filter(PGUser.email == admin_email).first()
-        if not admin_user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Check if user is an admin of the room
-        is_room_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == admin_user.id)
-            )
-        ).first()
-        
-        if not is_room_admin:
-            raise HTTPException(status_code=400, detail="User is not an admin of this room")
-        
-        # Check if this would leave the room without admins
-        admin_count = db.execute(
-            room_admins.select().where(room_admins.c.room_id == room_id)
-        ).rowcount
-        
-        if admin_count <= 1:
-            raise HTTPException(status_code=400, detail="Cannot demote the only admin")
-        
-        # Demote admin
-        db.execute(
-            room_admins.delete().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == admin_user.id)
-            )
-        )
-        db.commit()
-        
-        return {
-            "message": "Admin privileges removed successfully",
-            "user": admin_user.to_dict()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to demote admin: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to demote admin: {str(e)}")
-
-@router.delete("/delete")
-async def delete_room(
-    data: Dict[str, Any], 
-    user: PGUser = Depends(get_current_user), 
-    db: Session = Depends(get_db)
-):
-    """Delete a room (admin only)"""
-    try:
-        room_id = data.get("room_id")
-        
-        if not room_id:
-            raise HTTPException(status_code=400, detail="Room ID is required")
-        
-        # Check if current user is admin
-        is_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == user.id)
-            )
-        ).first()
-        
-        if not is_admin:
-            raise HTTPException(status_code=403, detail="Only admins can delete rooms")
-        
-        # Delete room and all associated data
-        db.execute(room_members.delete().where(room_members.c.room_id == room_id))
-        db.execute(room_admins.delete().where(room_admins.c.room_id == room_id))
-        db.query(Room).filter(Room.id == room_id).delete()
-        db.commit()
-        
-        return {
-            "message": "Room deleted successfully",
-            "room_id": room_id
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to delete room: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete room: {str(e)}")
-
-@router.get("/list")
-async def list_user_rooms(user: PGUser = Depends(get_current_user), db: Session = Depends(get_db)):
-    """List all rooms the user is a member of"""
-    try:
-        # Get room IDs where user is a member
-        member_rooms = db.execute(
-            room_members.select().where(room_members.c.user_id == user.id)
-        ).fetchall()
-        
-        if not member_rooms:
-            return {"rooms": []}
-        
-        room_ids = [row.room_id for row in member_rooms]
-        rooms = db.query(Room).filter(Room.id.in_(room_ids)).all()
-        
-        result = []
-        for room in rooms:
-            # Get members
-            member_ids = db.execute(
-                room_members.select().where(room_members.c.room_id == room.id)
-            ).fetchall()
-            members = db.query(PGUser).filter(
-                PGUser.id.in_([row.user_id for row in member_ids])
-            ).all()
-            
-            # Get admins
-            admin_ids = db.execute(
-                room_admins.select().where(room_admins.c.room_id == room.id)
-            ).fetchall()
-            admins = db.query(PGUser).filter(
-                PGUser.id.in_([row.user_id for row in admin_ids])
-            ).all()
-            
-            # Check if current user is admin
-            is_current_user_admin = db.execute(
-                room_admins.select().where(
-                    (room_admins.c.room_id == room.id) & 
-                    (room_admins.c.user_id == user.id)
-                )
-            ).first() is not None
-            
-            result.append({
-                "id": room.id,
-                "room_id": room.room_id,
-                "name": room.name,
-                "description": room.description,
-                "created_by": room.created_by,
-                "created_at": room.created_at.isoformat() if room.created_at else None,
-                "members": [member.to_dict() for member in members],
-                "admins": [admin.to_dict() for admin in admins],
-                "member_count": len(members),
-                "admin_count": len(admins),
-                "is_admin": is_current_user_admin
-            })
-        
-        return {"rooms": result}
-        
-    except Exception as e:
-        logger.error(f"Failed to list rooms: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to list rooms: {str(e)}")
-
-@router.post("/remove-user")
-async def remove_user(
-    data: Dict[str, Any], 
-    user: PGUser = Depends(get_current_user), 
-    db: Session = Depends(get_db)
-):
-    """Remove a user from a room (admin only)"""
-    try:
-        room_id = data.get("room_id")
-        user_email = data.get("user_email")
-        
-        if not room_id or not user_email:
-            raise HTTPException(status_code=400, detail="Room ID and user email are required")
-        
-        # Check if current user is admin
-        is_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == user.id)
-            )
-        ).first()
-        
-        if not is_admin:
-            raise HTTPException(status_code=403, detail="Only admins can remove users")
-        
-        # Find the user to remove
-        user_to_remove = db.query(PGUser).filter(PGUser.email == user_email).first()
-        if not user_to_remove:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Check if user is a member of the room
-        is_member = db.execute(
-            room_members.select().where(
-                (room_members.c.room_id == room_id) & 
-                (room_members.c.user_id == user_to_remove.id)
-            )
-        ).first()
-        
-        if not is_member:
-            raise HTTPException(status_code=400, detail="User is not a member of this room")
-        
-        # Check if user is an admin
-        is_user_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == user_to_remove.id)
-            )
-        ).first()
-        
-        # If removing an admin, check if this would leave the room without admins
-        if is_user_admin:
-            admin_count = db.execute(
-                room_admins.select().where(room_admins.c.room_id == room_id)
-            ).rowcount
-            
-            if admin_count <= 1:
-                raise HTTPException(status_code=400, detail="Cannot remove the only admin")
-        
-        # Remove user from room
-        db.execute(
-            room_members.delete().where(
-                (room_members.c.room_id == room_id) & 
-                (room_members.c.user_id == user_to_remove.id)
-            )
-        )
-        
-        # Remove admin privileges if applicable
-        if is_user_admin:
-            db.execute(
-                room_admins.delete().where(
-                    (room_admins.c.room_id == room_id) & 
-                    (room_admins.c.user_id == user_to_remove.id)
-                )
-            )
-        
-        db.commit()
-        
-        return {
-            "message": "User removed from room successfully",
-            "user": user_to_remove.to_dict()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to remove user: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to remove user: {str(e)}")
-
-@router.get("/{room_id}/info")
-async def get_room_info(
+@router.post("/{room_id}/promote/{user_id}")
+async def promote_to_admin(
     room_id: str,
-    user: PGUser = Depends(get_current_user),
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get detailed information about a specific room"""
+    """Promote a user to admin (only room admins can do this)"""
     try:
-        # Find room
+        # Check if current user is admin
+        current_participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id,
+            RoomParticipant.user_id == current_user["id"],
+            RoomParticipant.is_admin == True
+        ).first()
+        
+        if not current_participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can promote users"
+            )
+        
+        # Get target user's participation
+        target_participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id,
+            RoomParticipant.user_id == user_id
+        ).first()
+        
+        if not target_participation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User is not a participant in this room"
+            )
+        
+        if target_participation.is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already an admin"
+            )
+        
+        # Promote user
+        target_participation.is_admin = True
+        db.commit()
+        
+        return {"message": "User promoted to admin successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error promoting user: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to promote user"
+        )
+
+@router.delete("/{room_id}/remove/{user_id}")
+async def remove_participant(
+    room_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove a participant from room (only admins can do this)"""
+    try:
+        # Check if current user is admin
+        current_participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id,
+            RoomParticipant.user_id == current_user["id"],
+            RoomParticipant.is_admin == True
+        ).first()
+        
+        if not current_participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can remove participants"
+            )
+        
+        # Prevent removing yourself
+        if user_id == current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot remove yourself. Use leave room instead."
+            )
+        
+        # Get target user's participation
+        target_participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id,
+            RoomParticipant.user_id == user_id
+        ).first()
+        
+        if not target_participation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User is not a participant in this room"
+            )
+        
+        # Remove participant
+        db.delete(target_participation)
+        db.commit()
+        
+        return {"message": "Participant removed successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing participant: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to remove participant"
+        )
+
+@router.delete("/{room_id}")
+async def delete_room(
+    room_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a room (only admins can do this)"""
+    try:
+        # Check if current user is admin
+        participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id,
+            RoomParticipant.user_id == current_user["id"],
+            RoomParticipant.is_admin == True
+        ).first()
+        
+        if not participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can delete rooms"
+            )
+        
+        # Get room
         room = db.query(Room).filter(Room.id == room_id).first()
         if not room:
-            raise HTTPException(status_code=404, detail="Room not found")
-        
-        # Check if user is a member
-        is_member = db.execute(
-            room_members.select().where(
-                (room_members.c.room_id == room_id) & 
-                (room_members.c.user_id == user.id)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Room not found"
             )
-        ).first()
         
-        if not is_member:
-            raise HTTPException(status_code=403, detail="You are not a member of this room")
+        # Delete room (cascade will handle participants and topics)
+        db.delete(room)
+        db.commit()
         
-        # Get members and admins
-        member_ids = db.execute(
-            room_members.select().where(room_members.c.room_id == room_id)
-        ).fetchall()
-        members = db.query(PGUser).filter(
-            PGUser.id.in_([row.user_id for row in member_ids])
-        ).all()
-        
-        admin_ids = db.execute(
-            room_admins.select().where(room_admins.c.room_id == room_id)
-        ).fetchall()
-        admins = db.query(PGUser).filter(
-            PGUser.id.in_([row.user_id for row in admin_ids])
-        ).all()
-        
-        # Check if current user is admin
-        is_current_user_admin = db.execute(
-            room_admins.select().where(
-                (room_admins.c.room_id == room_id) & 
-                (room_admins.c.user_id == user.id)
-            )
-        ).first() is not None
-        
-        return {
-            "room": {
-                "id": room.id,
-                "room_id": room.room_id,
-                "name": room.name,
-                "description": room.description,
-                "created_by": room.created_by,
-                "created_at": room.created_at.isoformat() if room.created_at else None,
-                "members": [member.to_dict() for member in members],
-                "admins": [admin.to_dict() for admin in admins],
-                "member_count": len(members),
-                "admin_count": len(admins),
-                "is_admin": is_current_user_admin
-            }
-        }
+        return {"message": "Room deleted successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to get room info: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to get room info: {str(e)}")
+        logger.error(f"Error deleting room: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete room"
+        )
+
+def _generate_unique_room_id(db: Session) -> str:
+    """Generate a unique 8-digit room ID"""
+    while True:
+        room_id = ''.join(secrets.choice(string.digits) for _ in range(8))
+        # Check if room_id already exists
+        existing_room = db.query(Room).filter(Room.room_id == room_id).first()
+        if not existing_room:
+            return room_id
+
+def _generate_room_password() -> str:
+    """Generate a random 8-digit password"""
+    return ''.join(secrets.choice(string.digits) for _ in range(8))
 
 @router.api_route('/{full_path:path}', methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 async def catch_all_room(full_path: str, request: Request):

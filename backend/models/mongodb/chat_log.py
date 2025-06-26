@@ -36,15 +36,123 @@ class PyObjectId(ObjectId):
         return f"PyObjectId('{str(self)}')"
 
 class ChatMessage(BaseModel):
-    message_id: str = Field(...)
-    user_id: str = Field(...)
-    user_name: str = Field(...)
-    user_picture: Optional[str] = Field(None)
-    content: str = Field(...)
-    message_type: str = Field(default="text")  # text, system, ai
+    """Individual chat message model"""
+    message_id: str = Field(default_factory=lambda: str(ObjectId()))
+    user_id: str
+    user_name: str
+    user_picture: Optional[str] = None
+    content: str
+    message_type: str = "text"  # text, ai, file, system
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    is_ai: bool = Field(default=False)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    is_ai: bool = False
+    metadata: Optional[Dict[str, Any]] = None
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            ObjectId: lambda v: str(v)
+        }
+
+class GroupChatLog(BaseModel):
+    """Group chat log for room topics"""
+    id: Optional[str] = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    room_id: str
+    topic_id: str
+    messages: List[ChatMessage] = []
+    is_active: bool = True
+    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            ObjectId: lambda v: str(v)
+        }
+        allow_population_by_field_name = True
+
+class NoteChatLog(BaseModel):
+    """Chat log for AI conversations in notes"""
+    id: Optional[str] = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    note_id: str
+    user_id: str
+    messages: List[ChatMessage] = []
+    document_context: Optional[str] = None  # Summary or context from uploaded document
+    is_active: bool = True
+    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            ObjectId: lambda v: str(v)
+        }
+        allow_population_by_field_name = True
+
+class AIResponse(BaseModel):
+    """AI-generated response model"""
+    id: Optional[str] = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    request_id: str
+    user_id: str
+    note_id: Optional[str] = None
+    topic_id: Optional[str] = None
+    room_id: Optional[str] = None
+    request_type: str  # summary, quiz, audio, chat
+    prompt: str
+    response: str
+    metadata: Optional[Dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            ObjectId: lambda v: str(v)
+        }
+        allow_population_by_field_name = True
+
+class QuizQuestion(BaseModel):
+    """Quiz question model"""
+    question: str
+    options: List[str]
+    correct_answer: int  # Index of correct option
+    explanation: str
+    difficulty: str = "medium"
+
+class QuizResponse(BaseModel):
+    """Quiz response model"""
+    id: Optional[str] = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    note_id: str
+    user_id: str
+    questions: List[QuizQuestion] = []
+    total_questions: int
+    difficulty: str = "medium"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            ObjectId: lambda v: str(v)
+        }
+        allow_population_by_field_name = True
+
+class AudioResponse(BaseModel):
+    """Audio overview response model"""
+    id: Optional[str] = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    note_id: str
+    user_id: str
+    host_script: str
+    expert_script: str
+    audio_url: Optional[str] = None
+    status: str = "generated"  # generated, processing, completed, failed
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat(),
+            ObjectId: lambda v: str(v)
+        }
+        allow_population_by_field_name = True
 
 class ChatLogBase(BaseModel):
     room_id: str = Field(...)

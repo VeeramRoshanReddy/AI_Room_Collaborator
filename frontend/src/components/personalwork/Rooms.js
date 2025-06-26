@@ -505,22 +505,6 @@ const DeleteChatButton = styled.button`
   }
 `;
 
-// Helper to get cookie value
-function getCookie(name) {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop().split(';').shift();
-}
-
-// Helper to get authentication token for WebSocket
-const getAuthToken = (session) => {
-  if (session?.access_token) return session.access_token;
-  const storedToken = localStorage.getItem('airoom_supabase_token');
-  if (storedToken) return storedToken;
-  const cookieToken = document.cookie.split('; ').find(row => row.startsWith('airoom_session='))?.split('=')[1];
-  return cookieToken;
-};
-
 const Rooms = () => {
   const { user, session, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
   const navigate = useNavigate();
@@ -586,7 +570,7 @@ const Rooms = () => {
     }
 
     const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
-    const token = getAuthToken(session);
+    const token = localStorage.getItem('airoom_jwt_token');
     
     if (!token) {
       toast.error('Authentication token not available');
@@ -1046,7 +1030,7 @@ const Rooms = () => {
 
     try {
       setLoading(true);
-      const token = getAuthToken(session);
+      const token = localStorage.getItem('airoom_jwt_token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/topic/delete`, {
         method: 'DELETE',
         headers: {
@@ -1097,7 +1081,7 @@ const Rooms = () => {
 
     try {
       setLoading(true);
-      const token = getAuthToken(session);
+      const token = localStorage.getItem('airoom_jwt_token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/chat/delete`, {
         method: 'DELETE',
         headers: {
@@ -1143,7 +1127,7 @@ const Rooms = () => {
 
     try {
       setLoading(true);
-      const token = getAuthToken(session);
+      const token = localStorage.getItem('airoom_jwt_token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/room/make-admin`, {
         method: 'POST',
         headers: {
@@ -1195,7 +1179,7 @@ const Rooms = () => {
 
     try {
       setLoading(true);
-      const token = getAuthToken(session);
+      const token = localStorage.getItem('airoom_jwt_token');
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/room/remove-user`, {
         method: 'DELETE',
         headers: {

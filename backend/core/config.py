@@ -26,16 +26,8 @@ class Settings(BaseSettings):
         "127.0.0.1"
     ]
     
-    # Google OAuth2 Settings - From .env
-    GOOGLE_OAUTH2_CLIENT_ID: str = os.getenv("GOOGLE_OAUTH2_CLIENT_ID", "")
-    GOOGLE_OAUTH2_CLIENT_SECRET: str = os.getenv("GOOGLE_OAUTH2_CLIENT_SECRET", "")
-    
     # Database Settings - From .env
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")  # From .env
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")  # From .env
-    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")  # From .env
-    SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")  # From .env
-    SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")  # From .env
     MONGODB_URL: str = os.getenv("MONGODB_URL", "")  # From .env
     MONGODB_DATABASE: str = "ai_room_collaborator"
     
@@ -53,17 +45,6 @@ class Settings(BaseSettings):
     VECTOR_DB_TYPE: str = "pinecone"
     VECTOR_DB_URL: str = os.getenv("VECTOR_DB_URL", "")  # From .env
     VECTOR_DB_API_KEY: str = os.getenv("VECTOR_DB_API_KEY", "")  # From .env
-    
-    # Firebase - From .env
-    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "")  # From .env
-    FIREBASE_PRIVATE_KEY_ID: str = os.getenv("FIREBASE_PRIVATE_KEY_ID", "")  # From .env
-    FIREBASE_PRIVATE_KEY: str = os.getenv("FIREBASE_PRIVATE_KEY", "")  # From .env
-    FIREBASE_CLIENT_EMAIL: str = os.getenv("FIREBASE_CLIENT_EMAIL", "")  # From .env
-    FIREBASE_CLIENT_ID: str = os.getenv("FIREBASE_CLIENT_ID", "")  # From .env
-    FIREBASE_AUTH_URI: str = os.getenv("FIREBASE_AUTH_URI", "")  # From .env
-    FIREBASE_TOKEN_URI: str = os.getenv("FIREBASE_TOKEN_URI", "")  # From .env
-    FIREBASE_AUTH_PROVIDER_X509_CERT_URL: str = os.getenv("FIREBASE_AUTH_PROVIDER_X509_CERT_URL", "")  # From .env
-    FIREBASE_CLIENT_X509_CERT_URL: str = os.getenv("FIREBASE_CLIENT_X509_CERT_URL", "")  # From .env
     
     # Redis - From .env
     REDIS_URL: str = os.getenv("REDIS_URL", "")  # From .env

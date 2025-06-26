@@ -1,81 +1,300 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import List, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import List, Optional
+import logging
+from pydantic import BaseModel
 from core.database import get_db
-from core.config import settings
+from core.security import get_current_user
 from models.postgresql.topic import Topic
-from models.postgresql.room import Room, room_admins
+from models.postgresql.room import Room, RoomParticipant
 from models.postgresql.user import User
-import uuid
-import os
-import base64
-from Crypto.Random import get_random_bytes
 
-router = APIRouter()
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/topics", tags=["Topics"])
 
-# Helper: get current user from session cookie
-async def get_current_user(request: Request, db: Session = Depends(get_db)):
-    token = request.cookies.get("airoom_session")
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    import jwt
+# Pydantic models
+class TopicCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    room_id: str
+
+class TopicResponse(BaseModel):
+    id: str
+    title: str
+    description: Optional[str]
+    room_id: str
+    created_by_user_id: str
+    creator_name: Optional[str]
+    creator_picture: Optional[str]
+    is_active: bool
+    created_at: str
+    updated_at: Optional[str]
+    can_delete: bool = False
+
+@router.post("/create", response_model=TopicResponse)
+async def create_topic(
+    topic_data: TopicCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new topic in a room"""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id = payload["user"]["sub"]
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid session")
+        # Check if user is a participant in the room
+        participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == topic_data.room_id,
+            RoomParticipant.user_id == current_user["id"]
+        ).first()
+        
+        if not participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be a participant in the room to create topics"
+            )
+        
+        # Check if room exists and is active
+        room = db.query(Room).filter(
+            Room.id == topic_data.room_id,
+            Room.is_active == True
+        ).first()
+        
+        if not room:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Room not found or inactive"
+            )
+        
+        # Create topic
+        new_topic = Topic(
+            title=topic_data.title,
+            description=topic_data.description,
+            room_id=topic_data.room_id,
+            created_by_user_id=current_user["id"]
+        )
+        
+        db.add(new_topic)
+        db.commit()
+        db.refresh(new_topic)
+        
+        # Return topic data
+        response_data = new_topic.to_dict()
+        response_data["can_delete"] = True  # Creator can always delete
+        
+        return TopicResponse(**response_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating topic: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create topic"
+        )
 
-def generate_aes256_key() -> str:
-    return base64.urlsafe_b64encode(get_random_bytes(32)).decode()
+@router.get("/room/{room_id}", response_model=List[TopicResponse])
+async def get_room_topics(
+    room_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all topics in a room"""
+    try:
+        # Check if user is a participant in the room
+        participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == room_id,
+            RoomParticipant.user_id == current_user["id"]
+        ).first()
+        
+        if not participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be a participant in the room to view topics"
+            )
+        
+        # Get all active topics in the room
+        topics = db.query(Topic).filter(
+            Topic.room_id == room_id,
+            Topic.is_active == True
+        ).all()
+        
+        # Prepare response with delete permissions
+        response_topics = []
+        for topic in topics:
+            topic_data = topic.to_dict()
+            # Check if user can delete this topic (creator or admin)
+            can_delete = (
+                topic.created_by_user_id == current_user["id"] or 
+                participation.is_admin
+            )
+            topic_data["can_delete"] = can_delete
+            response_topics.append(TopicResponse(**topic_data))
+        
+        return response_topics
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting room topics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get topics"
+        )
 
-@router.post("/create")
-async def create_topic(data: Dict[str, Any], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Create a new topic in a room. Everyone in room auto joins the topic."""
-    room_id = data.get("room_id")
-    title = data.get("title")
-    description = data.get("description", "")
-    if not room_id or not title:
-        raise HTTPException(status_code=400, detail="Room ID and title required")
-    room = db.query(Room).filter(Room.id == room_id).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    # Generate encryption key
-    encryption_key = generate_aes256_key()
-    topic_id = str(uuid.uuid4())
-    topic = Topic(
-        id=topic_id,
-        title=title,
-        description=description,
-        room_id=room_id,
-        created_by=user.id,
-        encryption_key=encryption_key
-    )
-    db.add(topic)
-    db.commit()
-    return {"topic_id": topic_id, "encryption_key": encryption_key, "message": "Topic created"}
+@router.get("/{topic_id}", response_model=TopicResponse)
+async def get_topic(
+    topic_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get a specific topic"""
+    try:
+        # Get topic
+        topic = db.query(Topic).filter(
+            Topic.id == topic_id,
+            Topic.is_active == True
+        ).first()
+        
+        if not topic:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Topic not found"
+            )
+        
+        # Check if user is a participant in the room
+        participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == topic.room_id,
+            RoomParticipant.user_id == current_user["id"]
+        ).first()
+        
+        if not participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be a participant in the room to view this topic"
+            )
+        
+        # Prepare response with delete permissions
+        topic_data = topic.to_dict()
+        can_delete = (
+            topic.created_by_user_id == current_user["id"] or 
+            participation.is_admin
+        )
+        topic_data["can_delete"] = can_delete
+        
+        return TopicResponse(**topic_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting topic: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get topic"
+        )
 
-@router.get("/list/{room_id}")
-async def list_topics(room_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """List all topics in a room."""
-    topics = db.query(Topic).filter(Topic.room_id == room_id).all()
-    return {"topics": [t.to_dict() for t in topics]}
+@router.delete("/{topic_id}")
+async def delete_topic(
+    topic_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a topic (only topic creator or room admin can do this)"""
+    try:
+        # Get topic
+        topic = db.query(Topic).filter(
+            Topic.id == topic_id,
+            Topic.is_active == True
+        ).first()
+        
+        if not topic:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Topic not found"
+            )
+        
+        # Check if user is a participant in the room
+        participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == topic.room_id,
+            RoomParticipant.user_id == current_user["id"]
+        ).first()
+        
+        if not participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be a participant in the room to delete topics"
+            )
+        
+        # Check if user can delete (creator or admin)
+        can_delete = (
+            topic.created_by_user_id == current_user["id"] or 
+            participation.is_admin
+        )
+        
+        if not can_delete:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only topic creator or room admin can delete topics"
+            )
+        
+        # Soft delete the topic
+        topic.is_active = False
+        db.commit()
+        
+        return {"message": "Topic deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting topic: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete topic"
+        )
 
-@router.delete("/delete")
-async def delete_topic(data: Dict[str, Any], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Delete a topic. Only topic creator or room admin can delete."""
-    topic_id = data.get("topic_id")
-    topic = db.query(Topic).filter(Topic.id == topic_id).first()
-    if not topic:
-        raise HTTPException(status_code=404, detail="Topic not found")
-    # Check permissions
-    is_admin = db.execute(room_admins.select().where((room_admins.c.room_id == topic.room_id) & (room_admins.c.user_id == user.id))).rowcount > 0
-    if topic.created_by != user.id and not is_admin:
-        raise HTTPException(status_code=403, detail="Only topic creator or room admin can delete topic")
-    db.delete(topic)
-    db.commit()
-    # TODO: Cascade delete chat logs in MongoDB
-    return {"message": "Topic deleted", "topic_id": topic_id} 
+@router.get("/{topic_id}/encryption-key")
+async def get_topic_encryption_key(
+    topic_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get topic encryption key for WebSocket chat (only room participants)"""
+    try:
+        # Get topic
+        topic = db.query(Topic).filter(
+            Topic.id == topic_id,
+            Topic.is_active == True
+        ).first()
+        
+        if not topic:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Topic not found"
+            )
+        
+        # Check if user is a participant in the room
+        participation = db.query(RoomParticipant).filter(
+            RoomParticipant.room_id == topic.room_id,
+            RoomParticipant.user_id == current_user["id"]
+        ).first()
+        
+        if not participation:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must be a participant in the room to access this topic"
+            )
+        
+        # Return encryption key
+        return {
+            "encryption_key": topic.encryption_key,
+            "topic_id": topic.id,
+            "room_id": topic.room_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting topic encryption key: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get encryption key"
+        ) 
