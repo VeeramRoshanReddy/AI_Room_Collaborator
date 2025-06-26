@@ -14,6 +14,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 import platform
 
+__version__ = '1.0.0'
+
 class Colors:
     """ANSI color codes for terminal output"""
     HEADER = '\033[95m'
