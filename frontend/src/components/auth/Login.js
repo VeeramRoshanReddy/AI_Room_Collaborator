@@ -22,18 +22,33 @@ const PageBackground = styled.div`
   justify-content: center;
 `;
 
+const BrandLogo = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #2563eb;
+  letter-spacing: 2px;
+  user-select: none;
+  text-shadow: 0 2px 16px rgba(37,99,235,0.10);
+`;
+
 const Card = styled.div`
-  background: #fff;
-  border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.18);
-  padding: 48px 36px 36px 36px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 32px;
+  box-shadow: 0 12px 48px 0 rgba(37,99,235,0.18), 0 1.5px 8px 0 rgba(96,165,250,0.10);
+  padding: 56px 40px 40px 40px;
   min-width: 350px;
-  max-width: 400px;
+  max-width: 420px;
   width: 100%;
   animation: ${fadeIn} 0.7s cubic-bezier(0.4,0,0.2,1);
   display: flex;
   flex-direction: column;
   align-items: center;
+  backdrop-filter: blur(16px) saturate(1.2);
+  border: 1.5px solid rgba(37,99,235,0.08);
 `;
 
 const Header = styled.div`
@@ -162,6 +177,54 @@ const SuccessMsg = styled.div`
   text-align: center;
 `;
 
+// Floating label input
+const FloatingLabelGroup = styled.div`
+  position: relative;
+  width: 100%;
+  margin-bottom: 8px;
+`;
+
+const FloatingInput = styled(Input)`
+  background: transparent;
+  padding-top: 22px;
+  padding-bottom: 6px;
+`;
+
+const FloatingLabel = styled.label`
+  position: absolute;
+  left: 44px;
+  top: 18px;
+  color: #b6c2d6;
+  font-size: 1.05rem;
+  font-weight: 500;
+  pointer-events: none;
+  transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+  transform: translateY(0);
+  opacity: 1;
+  ${FloatingInput}:focus ~ &,
+  ${FloatingInput}:not(:placeholder-shown) ~ & {
+    top: 2px;
+    left: 40px;
+    font-size: 0.92rem;
+    color: #2563eb;
+    opacity: 0.95;
+  }
+`;
+
+const AnimatedButton = styled(SubmitButton)`
+  box-shadow: 0 4px 24px rgba(37,99,235,0.10);
+  letter-spacing: 1px;
+  font-size: 1.18rem;
+  font-weight: 800;
+  border-radius: 16px;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+  &:hover {
+    background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
+    box-shadow: 0 8px 32px rgba(37,99,235,0.18);
+    transform: translateY(-2px) scale(1.04);
+  }
+`;
+
 const Login = () => {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -232,6 +295,7 @@ const Login = () => {
   return (
     <PageBackground>
       <Card>
+        <BrandLogo>AI Room</BrandLogo>
         <Header>
           <HeaderTab active={mode === 'login'} onClick={() => { setMode('login'); setError(''); setSuccess(''); }}>Log In</HeaderTab>
           <HeaderTab active={mode === 'signup'} onClick={() => { setMode('signup'); setError(''); setSuccess(''); }}>Sign Up</HeaderTab>
@@ -241,72 +305,82 @@ const Login = () => {
         {success && <SuccessMsg>{success}</SuccessMsg>}
         {mode === 'login' ? (
           <StyledForm onSubmit={handleLogin} autoComplete="on">
-            <InputGroup>
+            <FloatingLabelGroup>
               <InputIcon><FaEnvelope /></InputIcon>
-              <Input
+              <FloatingInput
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="Email"
+                placeholder=" "
                 autoComplete="username"
+                id="login-email"
               />
-            </InputGroup>
-            <InputGroup>
+              <FloatingLabel htmlFor="login-email">Email</FloatingLabel>
+            </FloatingLabelGroup>
+            <FloatingLabelGroup>
               <InputIcon><FaLock /></InputIcon>
-              <Input
+              <FloatingInput
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                placeholder="Password"
+                placeholder=" "
                 autoComplete="current-password"
+                id="login-password"
               />
+              <FloatingLabel htmlFor="login-password">Password</FloatingLabel>
               <PasswordToggle type="button" onClick={() => setShowPassword(v => !v)}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </PasswordToggle>
-            </InputGroup>
-            <SubmitButton type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Log In'}</SubmitButton>
+            </FloatingLabelGroup>
+            <AnimatedButton type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Log In'}</AnimatedButton>
           </StyledForm>
         ) : (
           <StyledForm onSubmit={handleSignup} autoComplete="on">
-            <InputGroup>
+            <FloatingLabelGroup>
               <InputIcon><FaUser /></InputIcon>
-              <Input
+              <FloatingInput
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 required
-                placeholder="Full Name"
+                placeholder=" "
                 autoComplete="name"
+                id="signup-name"
               />
-            </InputGroup>
-            <InputGroup>
+              <FloatingLabel htmlFor="signup-name">Full Name</FloatingLabel>
+            </FloatingLabelGroup>
+            <FloatingLabelGroup>
               <InputIcon><FaEnvelope /></InputIcon>
-              <Input
+              <FloatingInput
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="Email"
+                placeholder=" "
                 autoComplete="username"
+                id="signup-email"
               />
-            </InputGroup>
-            <InputGroup>
+              <FloatingLabel htmlFor="signup-email">Email</FloatingLabel>
+            </FloatingLabelGroup>
+            <FloatingLabelGroup>
               <InputIcon><FaLock /></InputIcon>
-              <Input
+              <FloatingInput
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                placeholder="Password"
+                placeholder=" "
                 autoComplete="new-password"
+                id="signup-password"
               />
+              <FloatingLabel htmlFor="signup-password">Password</FloatingLabel>
               <PasswordToggle type="button" onClick={() => setShowPassword(v => !v)}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </PasswordToggle>
-            </InputGroup>
-            <SubmitButton type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign Up'}</SubmitButton>
+            </FloatingLabelGroup>
+            <AnimatedButton type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign Up'}</AnimatedButton>
           </StyledForm>
         )}
       </Card>
