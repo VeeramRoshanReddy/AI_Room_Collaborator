@@ -20,7 +20,7 @@ except ImportError:
     docx = None
 
 # Set your OpenAI API key here or via environment variable
-openai.api_key = settings.OPENAI_API_KEY
+openai.api_key = settings.OPENAI_KEY
 
 # Initialize Pinecone
 pinecone.init(api_key=settings.PINECONE_API_KEY, environment=settings.PINECONE_ENV)
