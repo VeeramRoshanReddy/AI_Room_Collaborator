@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     
     # Vector Database for RAG - From .env
     VECTOR_DB_TYPE: str = "pinecone"
+    VECTOR_DB_REGION: str = "us-east-1-aws"
     VECTOR_DB_URL: str = os.getenv("VECTOR_DB_URL", "")  # From .env
     VECTOR_DB_API_KEY: str = os.getenv("VECTOR_DB_API_KEY", "")  # From .env
     
