@@ -98,6 +98,3 @@ slowapi==0.1.9
 
 # Background tasks
 celery[redis]==5.3.4
-
-# API documentation
-fastapi-swagger-ui==4.1.3
