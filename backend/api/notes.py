@@ -145,35 +145,63 @@ async def upload_document(
 ):
     """Upload and process a document for RAG-based QA (persistent)"""
     try:
-        # Validate file type
         file_extension = file.filename.split('.')[-1].lower()
         if file_extension not in settings.ALLOWED_FILE_TYPES:
             raise HTTPException(
                 status_code=400, 
                 detail=f"File type {file_extension} not supported. Allowed types: {settings.ALLOWED_FILE_TYPES}"
             )
-        # Save file to disk
         file_bytes = await file.read()
         note_id = rag_service.store_note(db, user.id, file_bytes, file.filename, note_title=file.filename)
+        # After storing, retrieve chunk_ids (assume stored in Note or another table)
+        # chunk_ids = ...
         return {"note_id": note_id, "message": "File uploaded and processed successfully."}
     except Exception as e:
         logger.error(f"Error uploading document: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload and process document.")
 
-@router.post("/query")
-async def query_document(
+@router.post("/{note_id}/ask")
+async def ask_note_question(
     note_id: str,
     question: str,
     user: Any = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Ask a question about an uploaded note (persistent RAG)"""
+    """Ask a question about an uploaded note (RAG chat)"""
     try:
+        # Ensure user owns the note
+        note = db.query(Note).filter(Note.id == note_id, Note.user_id == user.id).first()
+        if not note:
+            raise HTTPException(status_code=404, detail="Note not found or access denied.")
         answer = rag_service.query(db, note_id, question, user.id)
         return {"note_id": note_id, "question": question, "answer": answer}
     except Exception as e:
-        logger.error(f"Error querying document: {e}")
+        logger.error(f"Error answering note question: {e}")
         raise HTTPException(status_code=500, detail="Failed to answer question.")
+
+@router.delete("/{note_id}")
+async def delete_note_and_vectors(
+    note_id: str,
+    user: Any = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a note and all associated vectors from Pinecone."""
+    try:
+        note = db.query(Note).filter(Note.id == note_id, Note.user_id == user.id).first()
+        if not note:
+            raise HTTPException(status_code=404, detail="Note not found or access denied.")
+        # Retrieve chunk_ids for this note (assume stored in Note or related table)
+        chunk_ids = getattr(note, 'chunk_ids', None)
+        if chunk_ids:
+            rag_service.delete_note_vectors(note_id, user.id, chunk_ids)
+        # Delete note and related chat logs
+        db.query(ChatLog).filter(ChatLog.note_id == note_id).delete()
+        db.delete(note)
+        db.commit()
+        return {"message": "Note and associated vectors deleted."}
+    except Exception as e:
+        logger.error(f"Error deleting note: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete note.")
 
 @router.get("/notes")
 async def get_user_notes(user: Any = Depends(get_current_user), db: Session = Depends(get_db)):

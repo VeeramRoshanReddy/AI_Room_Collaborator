@@ -4,6 +4,7 @@ import { FaFileUpload, FaRobot, FaUserCircle, FaTrash, FaBroom, FaPlay, FaDownlo
 import { useUserContext } from '../../context/UserContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import NoteChat from './NoteChat';
 
 const GlassContainer = styled.div`
   display: flex;
@@ -1570,6 +1571,7 @@ const PersonalWork = () => {
           </DocumentView>
         )}
       </PersonalWorkContainer>
+      <NoteChat />
     </>
   );
 }

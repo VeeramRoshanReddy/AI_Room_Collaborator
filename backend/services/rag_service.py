@@ -24,9 +24,7 @@ openai.api_key = settings.OPENAI_KEY
 
 # Initialize Pinecone
 pinecone.init(api_key=settings.VECTOR_DB_API_KEY, environment=settings.VECTOR_DB_REGION)
-INDEX_NAME = 'airoom-notes'
-if INDEX_NAME not in pinecone.list_indexes():
-    pinecone.create_index(INDEX_NAME, dimension=1536)
+INDEX_NAME = 'ai-learning-notes'
 index = pinecone.Index(INDEX_NAME)
 
 class RAGService:
@@ -68,22 +66,33 @@ class RAGService:
         db.add(note)
         db.commit()
         db.refresh(note)
-        # Store chunks in Pinecone
+        # Store chunks in Pinecone (track chunk_ids for deletion)
         pinecone_vectors = []
+        chunk_ids = []
         for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
             chunk_id = f"{note_id}-{i}"
-            pinecone_vectors.append((chunk_id, emb, {"note_id": note_id, "chunk": chunk}))
+            chunk_ids.append(chunk_id)
+            pinecone_vectors.append((chunk_id, emb, {"note_id": note_id, "user_id": user_id, "chunk": chunk}))
         self.index.upsert(vectors=pinecone_vectors)
+        # Optionally, store chunk_ids in your DB for later deletion
         return note_id
 
     def query(self, db: Session, note_id: str, question: str, user_id: str, top_k: int = 3) -> str:
         # Embed the question
         q_emb = self.embed_chunks([question])[0]
-        # Query Pinecone for top_k similar chunks
-        results = self.index.query(vector=q_emb, top_k=top_k, include_metadata=True, filter={"note_id": {"$eq": note_id}})
+        # Query Pinecone for top_k similar chunks (filter by note_id and user_id)
+        results = self.index.query(vector=q_emb, top_k=top_k, include_metadata=True, filter={"note_id": note_id, "user_id": user_id})
         context = '\n'.join([match['metadata']['chunk'] for match in results['matches']])
         # Call LLM with context
-        prompt = f"Answer the question using ONLY the context below.\nContext:\n{context}\n\nQuestion: {question}\nAnswer:"
+        prompt = f"""
+You are a helpful assistant. Only answer based on the context below. 
+If the answer isn't found in the context, reply 'This information is not present in the uploaded file.'
+
+Context:
+{context}
+
+User Question: {question}
+"""
         response = openai.Completion.create(
             model='text-davinci-003',
             prompt=prompt,
@@ -96,5 +105,9 @@ class RAGService:
         db.add(chat_log)
         db.commit()
         return answer
+
+    def delete_note_vectors(self, note_id: str, user_id: str, chunk_ids: List[str]):
+        # Delete all vectors for a note (must track chunk_ids in your DB)
+        self.index.delete(ids=chunk_ids)
 
 rag_service = RAGService() 
