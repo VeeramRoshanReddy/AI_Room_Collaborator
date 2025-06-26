@@ -90,7 +90,7 @@ if not settings.DEBUG:
     )
 
 # Add logging middleware
-app.add_middleware(LoggingMiddleware, app=app)
+app.add_middleware(LoggingMiddleware)
 
 # Request logging and monitoring middleware
 @app.middleware("http")
