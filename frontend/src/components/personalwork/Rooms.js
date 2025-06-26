@@ -1234,6 +1234,14 @@ const Rooms = () => {
     setError(null);
     try {
       const res = await makeAuthenticatedRequest('/api/room/list');
+      
+      if (!res.ok) {
+        // Log the response text to see the actual error (e.g., HTML page)
+        const errorText = await res.text();
+        console.error("Failed to fetch rooms:", errorText);
+        throw new Error(`Server responded with status ${res.status}`);
+      }
+
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
@@ -1257,6 +1265,13 @@ const Rooms = () => {
     setError(null);
     try {
       const res = await makeAuthenticatedRequest(`/api/topic/list/${roomId}`);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Failed to fetch topics:", errorText);
+        throw new Error(`Server responded with status ${res.status}`);
+      }
+
       const data = await res.json();
       setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
     } catch (err) {

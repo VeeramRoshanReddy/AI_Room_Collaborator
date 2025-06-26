@@ -987,10 +987,17 @@ const PersonalWork = () => {
   }, [isAuthenticated, user]);
 
   const fetchNotes = async () => {
-    setFetchingNotes(true);
+    setLoading(true);
     setError(null);
     try {
       const res = await makeAuthenticatedRequest('/api/notes/notes');
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Failed to fetch notes:", errorText);
+        throw new Error(`Server responded with status ${res.status}`);
+      }
+
       const data = await res.json();
       setNotes(data.notes || []);
     } catch (err) {
@@ -998,7 +1005,7 @@ const PersonalWork = () => {
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
-      setFetchingNotes(false);
+      setLoading(false);
     }
   };
 
