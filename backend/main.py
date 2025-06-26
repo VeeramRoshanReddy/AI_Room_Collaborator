@@ -14,6 +14,7 @@ import traceback
 
 from api import auth, user, room, topic, notes, chat, quiz, audio
 from core.config import settings
+from core.database import init_db
 
 # Configure logging for production
 logging.basicConfig(
@@ -170,6 +171,7 @@ async def options_handler(request: Request):
 async def startup_event():
     logger.info("AI Learning Platform API starting up...")
     logger.info(f"CORS origins: {settings.ALLOWED_ORIGINS}")
+    init_db()
 
 # Shutdown event
 @app.on_event("shutdown")
