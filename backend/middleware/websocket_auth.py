@@ -40,4 +40,25 @@ async def get_websocket_user(websocket: WebSocket, db: Session = None):
         return user
     finally:
         if close_db:
+            db.close()
+
+def get_user_from_token(token, db: Session = None):
+    """Verify a JWT token and return the user object, or None if invalid."""
+    payload = verify_token(token)
+    if not payload:
+        return None
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+    close_db = False
+    if db is None:
+        db = next(get_db())
+        close_db = True
+    try:
+        user = db.query(PGUser).filter(PGUser.id == user_id).first()
+        if not user or not user.is_active:
+            return None
+        return user
+    finally:
+        if close_db:
             db.close() 
