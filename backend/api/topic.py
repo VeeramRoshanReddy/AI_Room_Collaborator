@@ -4,7 +4,7 @@ from typing import List, Optional
 import logging
 from pydantic import BaseModel
 from core.database import get_db
-from core.security import get_current_user
+from middleware.auth_middleware import get_current_user
 from models.postgresql.topic import Topic
 from models.postgresql.room import Room, RoomParticipant
 from models.postgresql.user import User
