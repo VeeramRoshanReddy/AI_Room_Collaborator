@@ -13,12 +13,12 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-// Animated background gradient
+// Use a lighter, more inviting background gradient
 const AnimatedBackground = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: linear-gradient(120deg, #0a174e 0%, #2563eb 60%, #19376d 100%);
+  background: linear-gradient(120deg, #1a237e 0%, #3b82f6 60%, #60a5fa 100%);
   background-size: 200% 200%;
   animation: bgMove 8s ease-in-out infinite alternate;
   display: flex;
@@ -31,81 +31,56 @@ const AnimatedBackground = styled.div`
   }
 `;
 
-// Card with hover/scale and fade-in
+// Increase card width and set dynamic height for login/signup
 const Card = styled.div`
-  background: rgba(255,255,255,0.92);
-  border-radius: 36px;
-  box-shadow: 0 16px 64px 0 rgba(37,99,235,0.20), 0 2px 12px 0 rgba(96,165,250,0.12);
-  padding: 44px 32px 32px 32px;
-  min-width: 340px;
-  max-width: 400px;
+  background: rgba(255,255,255,0.94);
+  border-radius: 38px;
+  box-shadow: 0 20px 80px 0 rgba(37,99,235,0.22), 0 2px 12px 0 rgba(96,165,250,0.14);
+  padding: 48px 48px 36px 48px;
+  min-width: 475px;
+  max-width: 650px;
   width: 100%;
+  height: ${({ mode }) => mode === 'signup' ? '62vh' : '58vh'};
   animation: ${fadeIn} 0.9s cubic-bezier(0.4,0,0.2,1);
   display: flex;
   flex-direction: column;
   align-items: center;
-  backdrop-filter: blur(18px) saturate(1.2);
-  border: 1.5px solid rgba(37,99,235,0.10);
-  font-family: 'Montserrat', 'Poppins', 'Inter', sans-serif;
-  font-size: 0.98rem;
-  transition: box-shadow 0.2s, transform 0.18s;
+  justify-content: flex-start;
+  backdrop-filter: blur(20px) saturate(1.2);
+  border: 2.5px solid rgba(59,130,246,0.13);
+  font-family: 'Quicksand', 'Montserrat', 'Poppins', 'Inter', sans-serif;
+  font-size: 1.08rem;
+  transition: box-shadow 0.2s, transform 0.18s, border 0.2s, height 0.2s;
   will-change: transform;
   &:hover {
-    box-shadow: 0 24px 80px 0 rgba(37,99,235,0.22), 0 4px 16px 0 rgba(96,165,250,0.14);
-    transform: scale(1.018);
+    box-shadow: 0 32px 100px 0 rgba(37,99,235,0.25), 0 6px 24px 0 rgba(96,165,250,0.16);
+    border: 2.5px solid #3b82f6;
+    transform: scale(1.025);
   }
 `;
 
-// Animated feature list
-const FeatureList = styled.ul`
-  margin-top: 28px;
-  padding: 0;
-  list-style: none;
-  width: 100%;
-  color: #2563eb;
-  font-size: 1.01rem;
-  font-family: 'Montserrat', 'Poppins', 'Inter', sans-serif;
-  opacity: 0;
-  animation: ${fadeIn} 1.2s 0.2s forwards;
-`;
-const FeatureItem = styled.li`
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 10px;
-  font-size: 1.01rem;
-  color: #2563eb;
-  svg {
-    font-size: 1.18rem;
-    margin-top: 2px;
-    color: #60a5fa;
-    filter: drop-shadow(0 1px 2px rgba(37,99,235,0.10));
-    flex-shrink: 0;
-  }
-`;
-
-// Modern font for headings
+// Use a more attractive font for headings
 const BrandLogo = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 18px;
-  font-size: 2.1rem;
+  font-size: 2.2rem;
   font-weight: 900;
   color: #2563eb;
   letter-spacing: 2px;
   user-select: none;
   text-shadow: 0 2px 16px rgba(37,99,235,0.10);
-  font-family: 'Montserrat', 'Poppins', 'Inter', sans-serif;
+  font-family: 'Quicksand', 'Montserrat', 'Poppins', 'Inter', sans-serif;
 `;
 const Title = styled.h2`
   color: #19376d;
-  font-size: 1.45rem;
+  font-size: 1.55rem;
   font-weight: 800;
   margin-bottom: 12px;
   text-align: center;
   letter-spacing: 0.5px;
-  font-family: 'Montserrat', 'Poppins', 'Inter', sans-serif;
+  font-family: 'Quicksand', 'Montserrat', 'Poppins', 'Inter', sans-serif;
 `;
 
 // Animated tab transitions
@@ -285,6 +260,41 @@ const AnimatedButton = styled(SubmitButton)`
   }
 `;
 
+// Feature grid: 2 columns, 2 rows, small font
+const FeatureList = styled.ul`
+  margin-top: 24px;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px 18px;
+  color: #2563eb;
+  font-size: 0.54rem;
+  font-family: 'Quicksand', 'Montserrat', 'Poppins', 'Inter', sans-serif;
+  opacity: 0;
+  animation: ${fadeIn} 1.2s 0.2s forwards;
+`;
+const FeatureItem = styled.li`
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 0;
+  font-size: 0.54rem;
+  color: #2563eb;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  white-space: nowrap;
+  svg {
+    font-size: 1.1rem;
+    color: #3b82f6;
+    flex-shrink: 0;
+  }
+`;
+
 const Login = () => {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
@@ -354,13 +364,15 @@ const Login = () => {
 
   return (
     <AnimatedBackground>
-      <Card>
+      <Card mode={mode}>
         <BrandLogo>Room Connect</BrandLogo>
         <Header>
           <HeaderTab active={mode === 'login'} onClick={() => { setMode('login'); setError(''); setSuccess(''); }}>Log In</HeaderTab>
           <HeaderTab active={mode === 'signup'} onClick={() => { setMode('signup'); setError(''); setSuccess(''); }}>Sign Up</HeaderTab>
         </Header>
-        <Title>{mode === 'login' ? 'Welcome Back!' : 'Create Your Account'}</Title>
+        <Title style={{fontSize: mode === 'signup' ? '1.25rem' : '1.45rem', marginBottom: mode === 'signup' ? 6 : 12}}>
+          {mode === 'login' ? 'Welcome Back!' : 'Create Your Account'}
+        </Title>
         {error && <ErrorMsg>{error}</ErrorMsg>}
         {success && <SuccessMsg>{success}</SuccessMsg>}
         {mode === 'login' ? (
@@ -444,11 +456,9 @@ const Login = () => {
           </StyledForm>
         )}
         <FeatureList>
-          <FeatureItem><FaUser /> Private, secure user accounts</FeatureItem>
           <FeatureItem><FaFileUpload /> Upload PDFs & DOCX for instant AI learning</FeatureItem>
-          <FeatureItem><FaRobot /> Chatbot answers only from your uploaded files</FeatureItem>
+          <FeatureItem><FaRobot /> Chatbot answers from your uploaded files</FeatureItem>
           <FeatureItem><FaQuestionCircle /> Generate quizzes from your notes</FeatureItem>
-          <FeatureItem><FaVolumeUp /> Get audio overviews of your documents</FeatureItem>
           <FeatureItem><FaLock /> End-to-end encrypted, privacy-first</FeatureItem>
         </FeatureList>
       </Card>
