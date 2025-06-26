@@ -1,6 +1,7 @@
 import os
 from cryptography.fernet import Fernet, InvalidToken
 from core.config import settings
+from models.postgresql.topic import Topic
 
 class EncryptionService:
     """Encrypts and decrypts messages using Fernet symmetric encryption."""
@@ -43,5 +44,12 @@ class EncryptionService:
                 print(f"Decryption error: {e}")
                 self._warned = True
             return "[Decryption failed]"
+
+def get_topic_encryption_key(db, topic_id):
+    """Fetch the encryption key for a topic from the database."""
+    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    if not topic or not getattr(topic, 'encryption_key', None):
+        raise ValueError("Encryption key not found for topic.")
+    return topic.encryption_key
 
 encryption_service = EncryptionService() 
