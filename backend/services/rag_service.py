@@ -44,7 +44,7 @@ class RAGService:
                 raise ImportError('python-docx is required for DOCX extraction')
             doc = docx.Document(io.BytesIO(file_bytes))
             return '\n'.join([para.text for para in doc.paragraphs])
-            else:
+        else:
             raise ValueError('Unsupported file type')
 
     def chunk_text(self, text: str, chunk_size: int = 500) -> List[str]:
