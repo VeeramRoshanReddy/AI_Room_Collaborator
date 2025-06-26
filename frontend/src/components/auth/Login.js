@@ -40,13 +40,27 @@ const Illustration = styled.div`
   justify-content: center;
 `;
 
+const RoomName = styled.span`
+  font-size: 0.95rem;
+  color: #2563eb;
+  font-weight: 600;
+  margin-left: 10px;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+`;
+
 const Title = styled.h2`
   color: ${blue};
-  font-size: 1.45rem;
+  font-size: 1.18rem;
   font-weight: 800;
   margin-bottom: 24px;
   text-align: center;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 `;
 
 const TabRow = styled.div`
@@ -194,7 +208,7 @@ const Login = () => {
   return (
     <MinimalBackground>
       <Card>
-        <Illustration>
+        <Illustration style={{display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
           <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="10" y="30" width="80" height="50" rx="12" fill="#e3eefe"/>
             <rect x="22" y="42" width="56" height="8" rx="4" fill="#2563eb"/>
@@ -203,8 +217,11 @@ const Login = () => {
             <rect x="35" y="18" width="30" height="8" rx="4" fill="#60a5fa"/>
             <rect x="44" y="10" width="12" height="8" rx="4" fill="#2563eb"/>
           </svg>
+          <RoomName>Room Connect</RoomName>
         </Illustration>
-        <Title>Welcome, please authorize</Title>
+        <Title>
+          {mode === 'login' ? 'Login to your account!' : 'Create new account!'}
+        </Title>
         <TabRow>
           <Tab active={mode === 'login'} onClick={() => setMode('login')}>Login</Tab>
           <Tab active={mode === 'signup'} onClick={() => setMode('signup')}>Sign Up</Tab>

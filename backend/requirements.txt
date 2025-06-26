@@ -55,3 +55,4 @@ alembic==1.12.1
 
 # Additional utilities
 motor==3.3.1
+pymongo==3.13.0
