@@ -290,6 +290,47 @@ const EmptyState = styled.div`
   text-align: center;
 `;
 
+const CenteredContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  width: 100%;
+`;
+
+const SectionTitle = styled.h2`
+  color: #2563eb;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  text-align: center;
+`;
+
+const NoScrollWrapper = styled.div`
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+`;
+
+const TwoColumn = styled.div`
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+`;
+
+const MainArea = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: #f8fafc;
+  min-height: 0;
+`;
+
 const Rooms = () => {
   const { user, session, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
   const navigate = useNavigate();

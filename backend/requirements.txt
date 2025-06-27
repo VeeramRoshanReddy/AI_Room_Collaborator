@@ -1,102 +1,102 @@
 # Core web framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+fastapi
+uvicorn[standard]
 
 # Authentication and security
-python-multipart==0.0.6
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-cryptography==41.0.7
-bcrypt==4.1.2
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+cryptography
+bcrypt
 
 # Configuration and utilities  
-python-dotenv==1.0.0
-aiofiles==23.2.1
-requests==2.31.0
-email-validator==2.1.0
+python-dotenv
+aiofiles
+requests
+email-validator
 
 # Database drivers
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-alembic==1.12.1
+sqlalchemy
+psycopg2-binary
+alembic
 
 # MongoDB drivers
-motor==3.3.2
-pymongo==4.6.3
+motor
+pymongo
 
 # Data validation
-pydantic==2.5.0
-pydantic-settings==2.1.0
+pydantic
+pydantic-settings
 
 # HTTP client and WebSocket
-httpx==0.25.2
-websockets==12.0
+httpx
+websockets
 
 # AI/ML and vector DB
-openai==1.3.7
-pinecone-client==2.2.4
-langchain==0.1.0
-langchain-openai==0.0.2
-langchain-community==0.0.10
+openai
+pinecone-client
+langchain
+langchain-openai
+langchain-community
 
 # File processing
-pdfplumber==0.11.7
-python-docx==1.1.0
-PyPDF2==3.0.1
-Pillow==9.5.0
-python-magic==0.4.27
+pdfplumber
+python-docx
+PyPDF2
+Pillow
+python-magic
 
 # Audio processing
-pyttsx3==2.90
-gTTS==2.4.0
-pydub==0.25.1
+pyttsx
+gTTS
+pydub
 
 # Data science and ML
-numpy==1.26.4
-scikit-learn==1.5.2
-pandas==2.1.4
+numpy
+scikit-learn
+pandas
 
 # Text processing
-nltk==3.8.1
-spacy==3.7.2
-transformers==4.36.2
-torch==2.1.2
+nltk
+spacy
+transformers
+torch
 
 # CORS and middleware
-fastapi-cors==0.0.6
+fastapi-cors
 
 # Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.1.0
+pytest
+pytest-asyncio
+pytest-cov
 
 # Additional utilities
-python-dateutil==2.8.2
-pytz==2024.1
-redis==5.0.1
-celery==5.3.4
+python-dateutil
+pytz
+redis
+celery
 
 # Production deployment
-gunicorn==21.2.0
+gunicorn
 
 # Logging and monitoring
-structlog==23.2.0
-sentry-sdk[fastapi]==1.38.0
+structlog
+sentry-sdk[fastapi]
 
 # Environment and secrets management
-python-decouple==3.8
+python-decouple
 
 # Async utilities
-aio-pika==9.3.1
+aio-pika
 
 # File storage
-boto3==1.34.0
-minio==7.2.0
+boto3
+minio
 
 # Rate limiting
-slowapi==0.1.9
+slowapi
 
 # Background tasks
-celery[redis]==5.3.4
+celery[redis]
 
-# System dependency: ffmpeg (required by pydub)
+# System dependency: ffmpeg (required by pydub for audio processing)
