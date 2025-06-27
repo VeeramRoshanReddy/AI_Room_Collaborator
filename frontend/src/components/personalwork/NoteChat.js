@@ -180,6 +180,9 @@ const NoteChat = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [audioStatus, setAudioStatus] = useState(null);
   const chatRef = useRef(null);
 
   const handleFileChange = async (e) => {
@@ -306,6 +309,41 @@ const NoteChat = () => {
     }
   }, [messages]);
 
+  // Audio Overview Generation
+  const handleGenerateAudioOverview = async () => {
+    if (!noteId) return;
+    setAudioLoading(true);
+    setAudioUrl(null);
+    setAudioStatus('Generating script...');
+    try {
+      // Step 1: Generate audio script
+      const genRes = await makeAuthenticatedRequest('/api/v1/audio/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note_id: noteId })
+      });
+      const genData = await genRes.json();
+      if (!genData.id) throw new Error('Failed to generate audio script');
+      setAudioStatus('Synthesizing audio...');
+      // Step 2: Synthesize audio
+      const synthRes = await makeAuthenticatedRequest(`/api/v1/audio/${genData.id}/synthesize`, {
+        method: 'POST'
+      });
+      const synthData = await synthRes.json();
+      if (synthData.audio_url) {
+        setAudioUrl(synthData.audio_url);
+        setAudioStatus('Audio ready!');
+      } else {
+        setAudioStatus('Failed to synthesize audio');
+      }
+    } catch (err) {
+      setAudioStatus('Error generating audio overview');
+      setAudioUrl(null);
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
   return (
     <Container>
       {!noteId && (
@@ -370,6 +408,18 @@ const NoteChat = () => {
               Ask
             </Button>
           </ChatInputArea>
+          
+          <div style={{ margin: '16px 0', textAlign: 'center' }}>
+            <Button onClick={handleGenerateAudioOverview} disabled={audioLoading}>
+              {audioLoading ? 'Generating Audio Overview...' : 'Generate Podcast Audio Overview'}
+            </Button>
+            {audioStatus && <div style={{ marginTop: 8, color: '#2563eb', fontWeight: 500 }}>{audioStatus}</div>}
+            {audioUrl && (
+              <audio controls style={{ marginTop: 16, width: '100%' }} src={audioUrl}>
+                Your browser does not support the audio element.
+              </audio>
+            )}
+          </div>
         </>
       )}
     </Container>
