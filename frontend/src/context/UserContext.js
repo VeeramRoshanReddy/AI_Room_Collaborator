@@ -4,6 +4,7 @@ export const UserContext = createContext();
 
 const TOKEN_KEY = 'airoom_jwt_token';
 const USER_KEY = 'airoom_user_data';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -57,7 +58,9 @@ export const UserProvider = ({ children }) => {
       delete headers['Content-Type'];
     }
 
-    const response = await fetch(url, {
+    // If the url is a relative path, prepend API_BASE
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+    const response = await fetch(fullUrl, {
       ...options,
       headers,
       credentials: 'include',
@@ -93,7 +96,7 @@ export const UserProvider = ({ children }) => {
   // Login function
   const handleLogin = async (email, password) => {
     try {
-      const response = await fetch('/api/v1/auth/login', {
+      const response = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,7 +122,7 @@ export const UserProvider = ({ children }) => {
   // Signup function
   const handleSignup = async (name, email, password) => {
     try {
-      const response = await fetch('/api/v1/auth/signup', {
+      const response = await fetch(`${API_BASE}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +154,7 @@ export const UserProvider = ({ children }) => {
         return;
       }
 
-      const response = await makeAuthenticatedRequest('/api/v1/auth/me');
+      const response = await makeAuthenticatedRequest('/auth/me');
       const data = await response.json();
 
       if (data) {
@@ -174,7 +177,7 @@ export const UserProvider = ({ children }) => {
   // Get current user info
   const getCurrentUser = async () => {
     try {
-      const response = await makeAuthenticatedRequest('/api/v1/auth/me');
+      const response = await makeAuthenticatedRequest('/auth/me');
       const data = await response.json();
       
       if (data) {
@@ -206,7 +209,7 @@ export const UserProvider = ({ children }) => {
     setLoading(true);
     try {
       // Call logout endpoint
-      await makeAuthenticatedRequest('/api/v1/auth/logout', {
+      await makeAuthenticatedRequest('/auth/logout', {
         method: 'POST'
       });
     } catch (error) {
