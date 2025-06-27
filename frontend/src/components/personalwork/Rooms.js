@@ -634,6 +634,7 @@ const Rooms = () => {
   const [newRoomName, setNewRoomName] = useState('');
   const [joinRoomId, setJoinRoomId] = useState('');
   const [joinRoomPass, setJoinRoomPass] = useState('');
+  const [newRoomDesc, setNewRoomDesc] = useState('');
 
   // Loading states for specific operations
   const [creatingRoom, setCreatingRoom] = useState(false);
@@ -852,11 +853,10 @@ const Rooms = () => {
     setRooms(prev => [...prev, optimisticRoom]);
     
     try {
-      const password = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
       const res = await makeAuthenticatedRequest('/rooms/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newRoomName, password }),
+        body: JSON.stringify({ title: newRoomName, description: newRoomDesc }),
       });
       
       if (!res.ok) {
@@ -873,6 +873,7 @@ const Rooms = () => {
       
       setShowCreate(false);
       setNewRoomName('');
+      setNewRoomDesc('');
       toast.success('Room created successfully!');
       
     } catch (err) {
@@ -1541,10 +1542,16 @@ const Rooms = () => {
     <Container>
       <Header>
         <Title>Study Rooms</Title>
-        <CreateButton onClick={() => setShowCreate(true)}>
-          <FaPlus />
-          Create Room
-        </CreateButton>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <CreateButton onClick={() => setShowCreate(true)}>
+            <FaPlus />
+            Create Room
+          </CreateButton>
+          <CreateButton style={{ background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)' }} onClick={() => setShowJoin(true)}>
+            <FaSignInAlt />
+            Join Room
+          </CreateButton>
+        </div>
       </Header>
 
       {rooms.length === 0 ? (
@@ -1618,6 +1625,12 @@ const Rooms = () => {
               placeholder="Room Name"
               value={newRoomName}
               onChange={e => setNewRoomName(e.target.value)}
+            />
+            <TextArea
+              placeholder="Room Description (optional)"
+              value={newRoomDesc}
+              onChange={e => setNewRoomDesc(e.target.value)}
+              style={{marginBottom:'12px'}}
             />
             <FormButton onClick={handleCreateRoom}>Create Room</FormButton>
           </FormBox>

@@ -763,177 +763,20 @@ const NoteCard = styled.div`
   }
 `;
 
-const DocumentView = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  gap: 16px;
-  background: #f8fafc;
-  overflow: hidden;
-  position: relative;
-  height: calc(100vh - 48px); // Add explicit height
-`;
-
-const BackButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #2563eb;
-  color: white;
-  border: none;
-  font-size: 1.2rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-
-  &:hover {
-    background: #1d4ed8;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-  }
-`;
-
-const MenuButton = styled.button`
-  background: none;
-  border: none;
-  color: #64748b;
-  cursor: pointer;
-  padding: 2px;
-  font-size: 14px;
-  &:hover {
-    color: #3b82f6;
-  }
-`;
-
-const AudioDropdownMenu = styled.div`
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  padding: 4px;
-  z-index: 1000;
-  min-width: 140px;
-  border: 1px solid #e2e8f0;
-`;
-
-const AudioMenuItem = styled.div`
-  padding: 10px 18px;
-  color: #2563eb;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  &:hover {
-    background: #f1f5fd;
-  }
-  &.delete {
-    color: #ef4444;
-  }
-`;
-
-const DropdownItem = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  border: none;
-  background: none;
-  color: #374151;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-  &:hover {
-    background-color: #f3f4f6;
-  }
-`;
-
-const CompactSectionTitle = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  h2 {
-    font-size: 16px;
-    font-weight: 700;
-    color: #2563eb;
-  }
-`;
-
-const CompactText = styled.p`
-  margin-bottom: 8px;
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.3;
-`;
-
-const CompactButton = styled(Button)`
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: 8px;
-`;
-
-const CompactAudioControls = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-`;
-
-const AudioSkipControls = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-`;
-
-const CompactPlaybackButton = styled.button`
-  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-  transition: transform 0.1s, box-shadow 0.2s;
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
-  }
-`;
-
-const TimeInfo = styled.div`
-  font-size: 10px;
-  color: #64748b;
-  text-align: center;
-  font-weight: 500;
-`;
-
-const SpeedSubmenu = styled.div`
-  position: absolute;
-  top: 0;
-  left: -140px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  padding: 4px;
-  min-width: 80px;
-  border: 1px solid #e2e8f0;
-`;
+const DocumentView = ({ note, onBack, makeAuthenticatedRequest, user }) => {
+  // State for uploads, quiz, audio, etc. scoped to this note
+  // ... (reuse logic from previous upload, quiz, audio, chat, etc., but scoped to note.id) ...
+  // Render upload, quiz, audio, and chat for this note
+  return (
+    <div>
+      <Button onClick={onBack}><FaChevronLeft /> Back to Notes</Button>
+      <h2>{note.title}</h2>
+      <p>{note.description}</p>
+      {/* Upload, quiz, audio, chat UI for this note only */}
+      {/* ...existing upload, quiz, audio, chat logic, but use note.id ... */}
+    </div>
+  );
+};
 
 const PersonalWork = () => {
   const { user, session, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
@@ -1566,9 +1409,7 @@ const PersonalWork = () => {
             </NotesGrid>
           </NotesView>
         ) : (
-          <DocumentView>
-            {/* ...existing DocumentView code... */}
-          </DocumentView>
+          <DocumentView note={selectedNote} onBack={handleBackToNotes} makeAuthenticatedRequest={makeAuthenticatedRequest} user={user} />
         )}
       </PersonalWorkContainer>
       <NoteChat />
