@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes, FaLock, FaUnlock, FaEdit, FaCog } from 'react-icons/fa';
+import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes, FaLock, FaUnlock, FaEdit, FaCog, FaUsers } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
@@ -329,6 +329,278 @@ const MainArea = styled.div`
   position: relative;
   background: #f8fafc;
   min-height: 0;
+`;
+
+const BackButton = styled.button`
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 1.2rem;
+  cursor: pointer;
+  margin-right: 12px;
+`;
+
+const ChatHeader = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 16px 0 8px 0;
+`;
+
+const ChatTitle = styled.h3`
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+`;
+
+const DeleteChatButton = styled.button`
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-left: 8px;
+`;
+
+const SidebarToggle = styled.button`
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 1.2rem;
+  cursor: pointer;
+`;
+
+const ChatArea = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 16px 16px;
+  overflow-y: auto;
+  background: #f8fafc;
+`;
+
+const ChatMessages = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 12px;
+`;
+
+const Message = styled.div`
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+  flex-direction: ${props => props.isUser ? 'row-reverse' : 'row'};
+`;
+
+const MessageHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const Avatar = styled.div`
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e0e7ef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  font-size: 18px;
+`;
+
+const SenderName = styled.span`
+  font-weight: 600;
+  color: #2563eb;
+  font-size: 0.95rem;
+`;
+
+const MessageContent = styled.div`
+  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : '#e0e7ef'};
+  color: ${props => props.isUser ? 'white' : '#1e293b'};
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.98rem;
+  max-width: 70%;
+  word-break: break-word;
+`;
+
+const MessageTime = styled.span`
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-left: 8px;
+`;
+
+const ChatInput = styled.div`
+  display: flex;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid #e0e7ef;
+`;
+
+const ParticipantsSidebar = styled.div`
+  width: 320px;
+  background: #f1f5f9;
+  border-left: 1px solid #e0e7ef;
+  display: ${props => props.showParticipants ? 'block' : 'none'};
+  height: 100%;
+  overflow-y: auto;
+`;
+
+const MemberSectionTitle = styled.h4`
+  color: #2563eb;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+`;
+
+const MemberRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  cursor: pointer;
+`;
+
+const MemberName = styled.span`
+  font-weight: 500;
+  color: #1e293b;
+`;
+
+const SectionDivider = styled.hr`
+  border: none;
+  border-top: 1px solid #e0e7ef;
+  margin: 16px 0;
+`;
+
+const MemberActionMenu = styled.div`
+  position: absolute;
+  background: white;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  z-index: 10;
+  padding: 8px 0;
+`;
+
+const MemberActionItem = styled.div`
+  padding: 8px 18px;
+  cursor: pointer;
+  color: #1e293b;
+  &:hover { background: #f1f5f9; }
+`;
+
+const DropdownMenuItem = styled.div`
+  padding: 8px 18px;
+  cursor: pointer;
+  color: #1e293b;
+  &:hover { background: #f1f5f9; }
+`;
+
+const TopicList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+`;
+
+const TopicBox = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid #e0e7ef;
+  position: relative;
+`;
+
+const ThreeDotsIcon = styled.div`
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  cursor: pointer;
+  color: #64748b;
+`;
+
+const DropdownMenu = styled.div`
+  position: absolute;
+  top: 36px;
+  right: 0;
+  background: white;
+  border: 1px solid #e0e7ef;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  z-index: 10;
+  min-width: 160px;
+`;
+
+const TopicTitle = styled.h4`
+  color: #2563eb;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+`;
+
+const TopicMeta = styled.div`
+  color: #64748b;
+  font-size: 0.92rem;
+  margin-bottom: 4px;
+`;
+
+const TopicActions = styled.div`
+  margin-top: 12px;
+`;
+
+const FormOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const FormBox = styled.div`
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+`;
+
+const FormTitle = styled.h3`
+  color: #2563eb;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 20px 0;
+`;
+
+const FormInput = styled.input`
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+`;
+
+const FormButton = styled.button`
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  background: #2563eb;
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-top: 8px;
+  &:hover { background: #1d4ed8; }
 `;
 
 const Rooms = () => {
