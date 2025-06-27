@@ -3,7 +3,7 @@ from typing import List, Optional
 from uuid import uuid4
 import openai
 import numpy as np
-import pinecone
+from pinecone import Pinecone
 from sqlalchemy.orm import Session
 from models.postgresql.note import Note
 from models.postgresql.user import User
@@ -22,10 +22,10 @@ except ImportError:
 # Set your OpenAI API key here or via environment variable
 openai.api_key = settings.OPENAI_KEY
 
-# Initialize Pinecone
-pinecone.init(api_key=settings.VECTOR_DB_API_KEY, environment=settings.VECTOR_DB_REGION)
+# Initialize Pinecone (new SDK)
+pc = Pinecone(api_key=settings.VECTOR_DB_API_KEY)
 INDEX_NAME = 'ai-learning-notes'
-index = pinecone.Index(INDEX_NAME)
+index = pc.Index(INDEX_NAME)
 
 class RAGService:
     def __init__(self):
