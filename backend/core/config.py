@@ -20,11 +20,7 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     
     # CORS Settings - Hardcoded values
-    ALLOWED_ORIGINS: List[str] = [
-        "https://room-connect-eight.vercel.app",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ]
+    ALLOWED_ORIGINS: List[str] = ['*']
     ALLOWED_HOSTS: List[str] = [
         "ai-room-collaborator.onrender.com",
         "localhost",

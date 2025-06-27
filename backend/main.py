@@ -73,12 +73,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - allow all origins
+# CORS middleware - allow all origins, no credentials
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -216,71 +216,6 @@ async def api_health_check():
         "api_status": "healthy",
         "version": "1.0.0",
         "timestamp": time.time()
-    }
-
-# Handle preflight OPTIONS requests
-@app.options("/{path:path}")
-async def options_handler(request: Request):
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-        "Access-Control-Allow-Headers": "*",
-        "Access-Control-Allow-Credentials": "true"
-    }
-    return JSONResponse(content={"message": "OK"}, headers=headers)
-
-# API documentation customization
-@app.get("/api/v1")
-async def api_info():
-    """API information and available endpoints"""
-    return {
-        "api_name": "AI Room Collaborator API",
-        "version": "1.0.0",
-        "description": "A comprehensive platform for collaborative learning with AI-powered features",
-        "features": {
-            "authentication": {
-                "description": "Multiple authentication methods (Google OAuth2, Supabase, Email/Password)",
-                "endpoints": ["/auth/signup", "/auth/login", "/auth/google", "/auth/supabase"]
-            },
-            "rooms": {
-                "description": "Collaborative rooms with 8-digit IDs and passwords",
-                "endpoints": ["/rooms/create", "/rooms/join", "/rooms/my-rooms"]
-            },
-            "topics": {
-                "description": "Topics within rooms for focused discussions",
-                "endpoints": ["/topics/create", "/topics/room/{room_id}"]
-            },
-            "notes": {
-                "description": "Private notes with file upload and AI features",
-                "endpoints": ["/notes/create", "/notes/my-notes", "/notes/{note_id}/upload-file"]
-            },
-            "chat": {
-                "description": "Real-time encrypted chat with AI integration",
-                "endpoints": ["/chat/group/{room_id}/{topic_id}", "/chat/note/{note_id}"]
-            },
-            "ai_features": {
-                "description": "AI-powered document analysis, quiz generation, and audio overviews",
-                "endpoints": ["/notes/{note_id}/generate-quiz", "/notes/{note_id}/generate-audio"]
-            }
-        },
-        "websocket_endpoints": {
-            "group_chat": "/api/v1/chat/group/{room_id}/{topic_id}",
-            "note_chat": "/api/v1/chat/note/{note_id}"
-        },
-        "authentication": {
-            "methods": ["Google OAuth2", "Supabase Auth", "Email/Password"],
-            "token_type": "JWT Bearer Token"
-        },
-        "database": {
-            "postgresql": "Structured data (users, rooms, topics, notes)",
-            "mongodb": "Chat logs and AI responses",
-            "redis": "Real-time features and caching"
-        },
-        "security": {
-            "encryption": "End-to-end encryption for chat messages",
-            "authentication": "JWT-based authentication",
-            "authorization": "Role-based access control"
-        }
     }
 
 # Error handling for 404
