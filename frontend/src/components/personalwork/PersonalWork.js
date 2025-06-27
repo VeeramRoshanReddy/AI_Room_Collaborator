@@ -991,7 +991,7 @@ const PersonalWork = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest('/api/v1/notes/my-notes');
+      const res = await makeAuthenticatedRequest('/notes/my-notes');
 
       if (!res.ok) {
         const errorText = await res.text();
@@ -1027,7 +1027,7 @@ const PersonalWork = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await makeAuthenticatedRequest('/api/v1/notes/upload', {
+      const res = await makeAuthenticatedRequest('/notes/upload', {
         method: 'POST',
         body: formData,
       });
@@ -1068,7 +1068,7 @@ const PersonalWork = () => {
     const originalMessages = [...messages];
     setMessages(prev => [...prev, optimisticMessage]);
     try {
-      const res = await makeAuthenticatedRequest('/api/v1/notes/query', {
+      const res = await makeAuthenticatedRequest('/notes/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1112,7 +1112,7 @@ const PersonalWork = () => {
     setError(null);
 
     try {
-      const res = await makeAuthenticatedRequest('/api/audio/generate', {
+      const res = await makeAuthenticatedRequest('/audio/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1149,7 +1149,7 @@ const PersonalWork = () => {
     setError(null);
 
     try {
-      const res = await makeAuthenticatedRequest('/api/quiz/generate', {
+      const res = await makeAuthenticatedRequest('/quiz/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1194,7 +1194,7 @@ const PersonalWork = () => {
     setNotes(prev => prev.filter(note => note.id !== id));
 
     try {
-      const res = await makeAuthenticatedRequest(`/api/v1/notes/note/${id}`, {
+      const res = await makeAuthenticatedRequest(`/notes/note/${id}`, {
         method: 'DELETE',
       });
 
@@ -1376,7 +1376,7 @@ const PersonalWork = () => {
     setNotes(prev => [optimisticNote, ...prev]);
 
     try {
-      const res = await makeAuthenticatedRequest('/api/v1/notes/create', {
+      const res = await makeAuthenticatedRequest('/notes/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1444,7 +1444,7 @@ const PersonalWork = () => {
 
   const fetchChatHistory = async (noteId) => {
     try {
-      const res = await makeAuthenticatedRequest(`/api/v1/notes/${noteId}/chat-history`, {
+      const res = await makeAuthenticatedRequest(`/notes/${noteId}/chat-history`, {
         method: 'GET',
       });
       if (res.ok) {
