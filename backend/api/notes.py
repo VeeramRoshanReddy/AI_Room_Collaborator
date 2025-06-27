@@ -249,7 +249,7 @@ async def create_note(
     try:
         new_note = Note(
             title=note_data.title,
-            description=note_data.description,
+            content=note_data.description,
             user_id=(current_user['id'] if isinstance(current_user, dict) else current_user.id)
         )
         
@@ -341,7 +341,7 @@ async def update_note(
         if note_data.title is not None:
             note.title = note_data.title
         if note_data.description is not None:
-            note.description = note_data.description
+            note.content = note_data.description
         
         note.updated_at = datetime.utcnow()
         db.commit()

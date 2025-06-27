@@ -73,11 +73,11 @@ async def create_room(
         
         # Create room
         new_room = Room(
-            name=room_data.name,
+            title=room_data.name,
             description=room_data.description,
             room_id=room_id,
             password=password,
-            owner_id=current_user['id'] if isinstance(current_user, dict) else current_user.id
+            created_by_user_id=current_user['id'] if isinstance(current_user, dict) else current_user.id
         )
         
         db.add(new_room)
