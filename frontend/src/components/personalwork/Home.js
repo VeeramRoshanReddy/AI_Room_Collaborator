@@ -273,14 +273,14 @@ const Home = () => {
   const fetchDashboardData = async () => {
     try {
       // Fetch user stats
-      const statsResponse = await makeAuthenticatedRequest('/api/v1/users/stats');
-      const statsData = await statsResponse.json();
-      setStats(statsData);
+      // const statsResponse = await makeAuthenticatedRequest('/api/v1/users/stats');
+      // const statsData = await statsResponse.json();
+      // setStats(statsData);
 
       // Fetch recent activities
-      const activitiesResponse = await makeAuthenticatedRequest('/api/v1/users/recent-activities');
-      const activitiesData = await activitiesResponse.json();
-      setRecentActivities(activitiesData.activities || []);
+      // const activitiesResponse = await makeAuthenticatedRequest('/api/v1/users/recent-activities');
+      // const activitiesData = await activitiesResponse.json();
+      // setRecentActivities(activitiesData.activities || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       // Set default stats if API fails
@@ -384,7 +384,7 @@ const Home = () => {
       </Header>
 
       <StatsGrid>
-        <StatCard>
+        {/* <StatCard>
           <StatHeader>
             <StatIcon type="rooms">
               <FaUsers />
@@ -434,7 +434,7 @@ const Home = () => {
             </StatContent>
           </StatHeader>
           <StatNumber>{stats.recentActivity}</StatNumber>
-        </StatCard>
+        </StatCard> */}
       </StatsGrid>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>

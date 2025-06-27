@@ -174,27 +174,22 @@ async def get_my_rooms(
 ):
     """Get all rooms where current user is a participant"""
     try:
-        # Get user's room participations
         participations = db.query(RoomParticipant).filter(
             RoomParticipant.user_id == current_user["id"]
         ).all()
-        
         rooms = []
+        if not participations:
+            return rooms
         for participation in participations:
-            room = participation.room
-            if room and room.is_active:
+            room = getattr(participation, 'room', None)
+            if room and getattr(room, 'is_active', False):
                 room_data = room.to_dict_without_password()
                 room_data["is_admin"] = participation.is_admin
                 rooms.append(RoomResponse(**room_data))
-        
         return rooms
-        
     except Exception as e:
         logger.error(f"Error getting user rooms: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get rooms"
-        )
+        return []
 
 @router.get("/{room_id}/participants", response_model=List[ParticipantResponse])
 async def get_room_participants(

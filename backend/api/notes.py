@@ -278,15 +278,12 @@ async def get_my_notes(
             Note.user_id == current_user["id"],
             Note.is_active == True
         ).order_by(Note.updated_at.desc()).all()
-        
+        if not notes:
+            return []
         return [NoteResponse(**note.to_dict()) for note in notes]
-        
     except Exception as e:
         logger.error(f"Error getting user notes: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get notes"
-        )
+        return []
 
 @router.get("/{note_id}", response_model=NoteResponse)
 async def get_note(
