@@ -4,7 +4,7 @@ export const UserContext = createContext();
 
 const TOKEN_KEY = 'airoom_jwt_token';
 const USER_KEY = 'airoom_user_data';
-const API_BASE = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com/api/v1';
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
