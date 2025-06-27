@@ -868,13 +868,16 @@ const Rooms = () => {
       
       // Replace optimistic room with real room
       setRooms(prev => prev.map(room => 
-        room.id === optimisticRoom.id ? { ...room, id: data.room_id } : room
+        room.id === optimisticRoom.id ? { ...room, id: data.id } : room
       ));
       
       setShowCreate(false);
       setNewRoomName('');
       setNewRoomDesc('');
       toast.success('Room created successfully!');
+      
+      // Refresh rooms list to ensure persistence
+      await fetchRooms(setRooms, setLoading, setError);
       
     } catch (err) {
       // Rollback optimistic update
@@ -1323,7 +1326,8 @@ const Rooms = () => {
         return;
       }
       const data = await res.json();
-      setRooms(data.rooms || []);
+      // Backend returns direct array, not { rooms: [...] }
+      setRooms(Array.isArray(data) ? data : []);
     } catch (err) {
       const errorMessage = err.message || 'Error fetching rooms';
       setError(errorMessage);
@@ -1579,16 +1583,16 @@ const Rooms = () => {
               <RoomStats>
                 <MemberCount>
                   <FaUsers />
-                  {room.member_count || 0} members
+                  {room.participant_count || 0} members
                 </MemberCount>
                 
                 <RoomActions>
                   <ActionButton 
                     className="join" 
-                    onClick={() => handleJoinRoom(room)}
+                    onClick={() => handleEnterRoom(room)}
                   >
                     <FaSignInAlt />
-                    Join
+                    Enter
                   </ActionButton>
                   
                   {room.owner_id === user?.id && (

@@ -241,7 +241,7 @@ async def get_room_participants(
             RoomParticipant.room_id == room_id
         ).all()
         
-        return {"rooms": [ParticipantResponse(**participant.to_dict()) for participant in participants]}
+        return [ParticipantResponse(**participant.to_dict()) for participant in participants]
         
     except HTTPException:
         raise
