@@ -63,7 +63,6 @@ export const UserProvider = ({ children }) => {
     const response = await fetch(fullUrl, {
       ...options,
       headers,
-      credentials: 'include',
     });
 
     if (response.status === 401) {

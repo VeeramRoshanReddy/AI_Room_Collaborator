@@ -312,7 +312,7 @@ const Home = () => {
         window.location.href = '/rooms';
         break;
       case 'view-notes':
-        window.location.href = '/personal-work';
+        window.location.href = '/notes';
         break;
       default:
         break;
