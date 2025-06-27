@@ -8,7 +8,7 @@ const NavbarContainer = styled.nav`
   top: 0;
   left: 0;
   right: 0;
-  height: 64px;
+  height: 86px;
   background: ${props => props.theme.colors.surface};
   border-bottom: 1px solid ${props => props.theme.colors.border};
   display: flex;
@@ -204,8 +204,8 @@ const Navbar = ({ user, onSidebarToggle, onLogout }) => {
           <FaBars />
         </MenuButton>
         <Logo>
-          <span>AI Room</span>
-          <span style={{ color: '#06b6d4' }}>Collaborator</span>
+          <span>Room Connect</span>
+          <span style={{ color: '#06b6d4' }}>Where Collaboration Meets Intelligence.</span>
         </Logo>
       </LeftSection>
 
@@ -243,14 +243,6 @@ const Navbar = ({ user, onSidebarToggle, onLogout }) => {
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <DropdownItem>
-                    <FaUser size={14} />
-                    Profile
-                  </DropdownItem>
-                  <DropdownItem>
-                    <FaCog size={14} />
-                    Settings
-                  </DropdownItem>
                   <LogoutButton onClick={handleLogout}>
                     <FaSignOutAlt size={14} />
                     Logout

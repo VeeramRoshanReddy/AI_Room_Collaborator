@@ -10,7 +10,7 @@ const SidebarContainer = styled(motion.div)`
   position: fixed;
   top: 64px;
   left: 0;
-  width: ${props => props.isOpen ? '220px' : '60px'};
+  width: ${props => props.isOpen ? '160px' : '60px'};
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 24px rgba(37, 99, 235, 0.10);
   z-index: 900;
@@ -124,7 +124,7 @@ const Sidebar = ({ isOpen, onToggle }) => {
     <SidebarContainer
       isOpen={isOpen}
       initial={false}
-      animate={{ width: isOpen ? 220 : 60 }}
+      animate={{ width: isOpen ? 160 : 60 }}
     >
       <NavSection>
         {navItems.map((item) => (
@@ -152,24 +152,6 @@ const Sidebar = ({ isOpen, onToggle }) => {
           </NavItem>
         ))}
       </NavSection>
-      <BottomSection>
-        <UserInfo>
-          <UserAvatar>RV</UserAvatar>
-          <AnimatePresence>
-            {isOpen && (
-              <UserDetails
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <UserName>Roshan Veeram</UserName>
-                <UserRole>Student</UserRole>
-              </UserDetails>
-            )}
-          </AnimatePresence>
-        </UserInfo>
-      </BottomSection>
     </SidebarContainer>
   );
 };

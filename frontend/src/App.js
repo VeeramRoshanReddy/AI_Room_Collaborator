@@ -62,9 +62,9 @@ const AuthenticatedLayout = styled.div`
 const MainContent = styled.main`
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
-  margin-left: ${props => props.isSidebarOpen ? '220px' : '60px'};
-  margin-top: 64px;
+  height: calc(100vh - 86px);
+  margin-left: ${props => props.isSidebarOpen ? '160px' : '60px'};
+  margin-top: 86px;
   transition: margin-left ${props => props.theme.transitions.default};
   padding: 24px;
   background: ${props => props.theme.colors.background};
