@@ -853,7 +853,7 @@ const Rooms = () => {
     
     try {
       const password = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-4);
-      const res = await makeAuthenticatedRequest('/api/room/create', {
+      const res = await makeAuthenticatedRequest('/api/v1/rooms/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newRoomName, password }),
@@ -897,7 +897,7 @@ const Rooms = () => {
     setError(null);
     
     try {
-      const res = await makeAuthenticatedRequest('/api/room/join', {
+      const res = await makeAuthenticatedRequest('/api/v1/rooms/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: joinRoomId, password: joinRoomPass }),
@@ -991,10 +991,10 @@ const Rooms = () => {
     setError(null);
     
     try {
-      const res = await makeAuthenticatedRequest('/api/room/leave', {
+      const res = await makeAuthenticatedRequest(`/api/v1/rooms/${roomId}/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_id: roomId }),
+        body: JSON.stringify({ }),
       });
       
       if (!res.ok) {
@@ -1027,10 +1027,8 @@ const Rooms = () => {
     setError(null);
     
     try {
-      const res = await makeAuthenticatedRequest('/api/room/delete', {
+      const res = await makeAuthenticatedRequest(`/api/v1/rooms/${roomId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_id: roomId }),
       });
       
       if (!res.ok) {
@@ -1079,7 +1077,7 @@ const Rooms = () => {
     } : prev);
     
     try {
-      const res = await makeAuthenticatedRequest('/api/topic/create', {
+      const res = await makeAuthenticatedRequest('/api/v1/topics/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -1129,16 +1127,12 @@ const Rooms = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('airoom_jwt_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/topic/delete`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v1/topics/${topic.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          room_id: selectedRoom.id,
-          topic_title: topic.title
-        })
       });
 
       if (response.ok) {
@@ -1180,16 +1174,12 @@ const Rooms = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('airoom_jwt_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/chat/delete`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/v1/chat/${selectedRoom.id}/${selectedTopic.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          room_id: selectedRoom.id,
-          topic_title: selectedTopic.title
-        })
       });
 
       if (response.ok) {
@@ -1315,7 +1305,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest('/api/room/list');
+      const res = await makeAuthenticatedRequest('/api/v1/rooms/my-rooms');
       
       if (!res.ok) {
         // Log the response text to see the actual error (e.g., HTML page)
@@ -1346,7 +1336,7 @@ const Rooms = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await makeAuthenticatedRequest(`/api/topic/list/${roomId}`);
+      const res = await makeAuthenticatedRequest(`/api/v1/topics/room/${roomId}`);
       
       if (!res.ok) {
         const errorText = await res.text();
