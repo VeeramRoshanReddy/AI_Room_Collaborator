@@ -25,7 +25,7 @@ except ImportError:
 
 # Pydantic models
 class RoomCreate(BaseModel):
-    title: str
+    name: str
     description: Optional[str] = None
 
 class RoomJoin(BaseModel):
@@ -34,10 +34,10 @@ class RoomJoin(BaseModel):
 
 class RoomResponse(BaseModel):
     id: str
-    title: str
+    name: str
     description: Optional[str]
     room_id: str
-    created_by_user_id: str
+    owner_id: str
     creator_name: Optional[str]
     is_active: bool
     created_at: str
@@ -45,6 +45,10 @@ class RoomResponse(BaseModel):
     participant_count: int
     topic_count: int
     is_admin: bool = False
+    is_private: bool
+    members: List[str]
+    admins: List[str]
+    topics: List[str]
 
 class ParticipantResponse(BaseModel):
     id: str
@@ -69,11 +73,11 @@ async def create_room(
         
         # Create room
         new_room = Room(
-            title=room_data.title,
+            name=room_data.name,
             description=room_data.description,
             room_id=room_id,
             password=password,
-            created_by_user_id=getattr(current_user, 'id', current_user.get('id'))
+            owner_id=current_user['id'] if isinstance(current_user, dict) else current_user.id
         )
         
         db.add(new_room)
@@ -83,7 +87,7 @@ async def create_room(
         # Add creator as admin participant
         participant = RoomParticipant(
             room_id=new_room.id,
-            user_id=getattr(current_user, 'id', current_user.get('id')),
+            user_id=current_user['id'] if isinstance(current_user, dict) else current_user.id,
             is_admin=True
         )
         db.add(participant)
@@ -93,6 +97,10 @@ async def create_room(
         response_data = new_room.to_dict()
         response_data["password"] = password  # Include password for creator
         response_data["is_admin"] = True
+        response_data["is_private"] = False
+        response_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+        response_data["admins"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+        response_data["topics"] = []
         
         return RoomResponse(**response_data)
         
@@ -134,7 +142,7 @@ async def join_room(
         # Check if user is already a participant
         existing_participant = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room.id,
-            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id'))
+            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
         ).first()
         
         if existing_participant:
@@ -144,7 +152,7 @@ async def join_room(
             # Add user as participant
             participant = RoomParticipant(
                 room_id=room.id,
-                user_id=getattr(current_user, 'id', current_user.get('id')),
+                user_id=(current_user['id'] if isinstance(current_user, dict) else current_user.id),
                 is_admin=False
             )
             db.add(participant)
@@ -154,6 +162,10 @@ async def join_room(
         # Return room data
         response_data = room.to_dict_without_password()
         response_data["is_admin"] = is_admin
+        response_data["is_private"] = False
+        response_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+        response_data["admins"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+        response_data["topics"] = []
         
         return RoomResponse(**response_data)
         
@@ -175,7 +187,7 @@ async def get_my_rooms(
     """Get all rooms where current user is a participant"""
     try:
         participations = db.query(RoomParticipant).filter(
-            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id'))
+            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
         ).all()
         rooms = []
         if not participations:
@@ -185,11 +197,15 @@ async def get_my_rooms(
             if room and getattr(room, 'is_active', False):
                 room_data = room.to_dict_without_password()
                 room_data["is_admin"] = participation.is_admin
+                room_data["is_private"] = False
+                room_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+                room_data["admins"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+                room_data["topics"] = []
                 rooms.append(RoomResponse(**room_data))
-        return rooms
+        return {"rooms": rooms}
     except Exception as e:
         logger.error(f"Error getting user rooms: {e}")
-        return []
+        return {"rooms": []}
 
 @router.get("/{room_id}/participants", response_model=List[ParticipantResponse])
 async def get_room_participants(
@@ -202,7 +218,7 @@ async def get_room_participants(
         # Check if user is participant in this room
         user_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id'))
+            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
         ).first()
         
         if not user_participation:
@@ -216,7 +232,7 @@ async def get_room_participants(
             RoomParticipant.room_id == room_id
         ).all()
         
-        return [ParticipantResponse(**participant.to_dict()) for participant in participants]
+        return {"rooms": [ParticipantResponse(**participant.to_dict()) for participant in participants]}
         
     except HTTPException:
         raise
@@ -238,7 +254,7 @@ async def leave_room(
         # Get user's participation
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id'))
+            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
         ).first()
         
         if not participation:
@@ -288,7 +304,7 @@ async def promote_to_admin(
         # Check if current user is admin
         current_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id')),
+            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id),
             RoomParticipant.is_admin == True
         ).first()
         
@@ -344,7 +360,7 @@ async def remove_participant(
         # Check if current user is admin
         current_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id')),
+            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id),
             RoomParticipant.is_admin == True
         ).first()
         
@@ -355,7 +371,7 @@ async def remove_participant(
             )
         
         # Prevent removing yourself
-        if user_id == getattr(current_user, 'id', current_user.get('id')):
+        if user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot remove yourself. Use leave room instead."
@@ -400,7 +416,7 @@ async def delete_room(
         # Check if current user is admin
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id')),
+            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id),
             RoomParticipant.is_admin == True
         ).first()
         
