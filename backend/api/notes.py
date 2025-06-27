@@ -55,11 +55,11 @@ class QueryResponse(BaseModel):
 
 class NoteCreate(BaseModel):
     title: str
-    description: Optional[str] = None
+    content: Optional[str] = None
 
 class NoteUpdate(BaseModel):
     title: Optional[str] = None
-    description: Optional[str] = None
+    content: Optional[str] = None
 
 class NoteResponse(BaseModel):
     id: str
@@ -245,11 +245,11 @@ async def create_note(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new note (private to user)"""
+    """Create a new note"""
     try:
         new_note = Note(
             title=note_data.title,
-            content=note_data.description,
+            content=note_data.content,
             user_id=(current_user['id'] if isinstance(current_user, dict) else current_user.id)
         )
         
@@ -257,7 +257,11 @@ async def create_note(
         db.commit()
         db.refresh(new_note)
         
-        return NoteResponse(**new_note.to_dict())
+        # Convert to response format
+        note_dict = new_note.to_dict()
+        note_dict["description"] = note_dict.pop("content", None)  # Map content to description for frontend
+        
+        return NoteResponse(**note_dict)
         
     except Exception as e:
         logger.error(f"Error creating note: {e}")
@@ -277,13 +281,23 @@ async def get_my_notes(
         notes = db.query(Note).filter(
             Note.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id),
             Note.is_active == True
-        ).order_by(Note.updated_at.desc()).all()
-        if not notes:
-            return []
-        return [NoteResponse(**note.to_dict()) for note in notes]
+        ).all()
+        
+        # Convert to response format
+        note_responses = []
+        for note in notes:
+            note_dict = note.to_dict()
+            note_dict["description"] = note_dict.pop("content", None)  # Map content to description for frontend
+            note_responses.append(NoteResponse(**note_dict))
+        
+        return note_responses
+        
     except Exception as e:
         logger.error(f"Error getting user notes: {e}")
-        return []
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get notes"
+        )
 
 @router.get("/{note_id}", response_model=NoteResponse)
 async def get_note(
@@ -291,7 +305,7 @@ async def get_note(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get a specific note (only owner can access)"""
+    """Get a specific note by ID"""
     try:
         note = db.query(Note).filter(
             Note.id == note_id,
@@ -305,7 +319,11 @@ async def get_note(
                 detail="Note not found"
             )
         
-        return NoteResponse(**note.to_dict())
+        # Convert to response format
+        note_dict = note.to_dict()
+        note_dict["description"] = note_dict.pop("content", None)  # Map content to description for frontend
+        
+        return NoteResponse(**note_dict)
         
     except HTTPException:
         raise
@@ -340,14 +358,18 @@ async def update_note(
         # Update fields
         if note_data.title is not None:
             note.title = note_data.title
-        if note_data.description is not None:
-            note.content = note_data.description
+        if note_data.content is not None:
+            note.content = note_data.content
         
         note.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(note)
         
-        return NoteResponse(**note.to_dict())
+        # Convert to response format
+        note_dict = note.to_dict()
+        note_dict["description"] = note_dict.pop("content", None)  # Map content to description for frontend
+        
+        return NoteResponse(**note_dict)
         
     except HTTPException:
         raise

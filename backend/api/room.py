@@ -25,7 +25,7 @@ except ImportError:
 
 # Pydantic models
 class RoomCreate(BaseModel):
-    name: str
+    title: str
     description: Optional[str] = None
 
 class RoomJoin(BaseModel):
@@ -34,10 +34,10 @@ class RoomJoin(BaseModel):
 
 class RoomResponse(BaseModel):
     id: str
-    name: str
+    name: str  # Keep as 'name' for frontend compatibility
     description: Optional[str]
     room_id: str
-    owner_id: str
+    owner_id: str  # Keep as 'owner_id' for frontend compatibility
     creator_name: Optional[str]
     is_active: bool
     created_at: str
@@ -73,7 +73,7 @@ async def create_room(
         
         # Create room
         new_room = Room(
-            title=room_data.name,
+            title=room_data.title,
             description=room_data.description,
             room_id=room_id,
             password=password,
@@ -96,6 +96,8 @@ async def create_room(
         # Return room with password (only for creator)
         response_data = new_room.to_dict()
         response_data["password"] = password  # Include password for creator
+        response_data["name"] = response_data.pop("title", "")  # Map title to name for frontend
+        response_data["owner_id"] = response_data.pop("created_by_user_id", "")  # Map created_by_user_id to owner_id for frontend
         response_data["is_admin"] = True
         response_data["is_private"] = False
         response_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
@@ -161,6 +163,8 @@ async def join_room(
         
         # Return room data
         response_data = room.to_dict_without_password()
+        response_data["name"] = response_data.pop("title", "")  # Map title to name for frontend
+        response_data["owner_id"] = response_data.pop("created_by_user_id", "")  # Map created_by_user_id to owner_id for frontend
         response_data["is_admin"] = is_admin
         response_data["is_private"] = False
         response_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
@@ -196,16 +200,21 @@ async def get_my_rooms(
             room = getattr(participation, 'room', None)
             if room and getattr(room, 'is_active', False):
                 room_data = room.to_dict_without_password()
+                room_data["name"] = room_data.pop("title", "")  # Map title to name for frontend
+                room_data["owner_id"] = room_data.pop("created_by_user_id", "")  # Map created_by_user_id to owner_id for frontend
                 room_data["is_admin"] = participation.is_admin
                 room_data["is_private"] = False
                 room_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
                 room_data["admins"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
                 room_data["topics"] = []
                 rooms.append(RoomResponse(**room_data))
-        return {"rooms": rooms}
+        return rooms
     except Exception as e:
         logger.error(f"Error getting user rooms: {e}")
-        return {"rooms": []}
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get rooms"
+        )
 
 @router.get("/{room_id}/participants", response_model=List[ParticipantResponse])
 async def get_room_participants(
