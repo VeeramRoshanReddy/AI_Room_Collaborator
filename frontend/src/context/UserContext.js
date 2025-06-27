@@ -205,23 +205,10 @@ export const UserProvider = ({ children }) => {
   };
 
   // Logout function
-  const handleLogout = async () => {
-    setLoading(true);
-    try {
-      // Call logout endpoint
-      await makeAuthenticatedRequest('/auth/logout', {
-        method: 'POST'
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Continue with logout even if API call fails
-    } finally {
-      // Clear local data
-      setUser(null);
-      removeAuthData();
-      setLoading(false);
-      window.location.href = '/login';
-    }
+  const handleLogout = () => {
+    setUser(null);
+    removeAuthData();
+    window.location.href = '/login';
   };
 
   // Initialize authentication on mount

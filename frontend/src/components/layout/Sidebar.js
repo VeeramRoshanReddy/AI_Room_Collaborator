@@ -114,7 +114,7 @@ const UserRole = styled.div`
 const navItems = [
   { icon: <FaHome />, label: 'Home', path: '/dashboard' },
   { icon: <FaUsers />, label: 'Rooms', path: '/rooms' },
-  { icon: <FaBook />, label: 'Personal Work', path: '/personalwork' },
+  { icon: <FaBook />, label: 'Notes', path: '/notes' },
 ];
 
 const Sidebar = ({ isOpen, onToggle }) => {

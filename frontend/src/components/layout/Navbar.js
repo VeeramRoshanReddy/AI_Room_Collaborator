@@ -47,6 +47,7 @@ const Logo = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 16px;
 `;
 
 const RightSection = styled.div`
@@ -90,6 +91,7 @@ const ProfilePicture = styled.img`
   cursor: pointer;
   border: 2px solid ${props => props.theme.colors.border};
   transition: border-color 0.2s;
+  margin-top: 16px;
   
   &:hover {
     border-color: ${props => props.theme.colors.primary};
@@ -109,6 +111,7 @@ const DefaultAvatar = styled.div`
   cursor: pointer;
   border: 2px solid ${props => props.theme.colors.border};
   transition: border-color 0.2s;
+  margin-top: 16px;
   
   &:hover {
     border-color: ${props => props.theme.colors.primary};
