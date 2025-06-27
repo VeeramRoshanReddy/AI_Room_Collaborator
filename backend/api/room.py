@@ -73,7 +73,7 @@ async def create_room(
             description=room_data.description,
             room_id=room_id,
             password=password,
-            created_by_user_id=current_user["id"]
+            created_by_user_id=getattr(current_user, 'id', current_user.get('id'))
         )
         
         db.add(new_room)
@@ -83,7 +83,7 @@ async def create_room(
         # Add creator as admin participant
         participant = RoomParticipant(
             room_id=new_room.id,
-            user_id=current_user["id"],
+            user_id=getattr(current_user, 'id', current_user.get('id')),
             is_admin=True
         )
         db.add(participant)
@@ -134,7 +134,7 @@ async def join_room(
         # Check if user is already a participant
         existing_participant = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room.id,
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id'))
         ).first()
         
         if existing_participant:
@@ -144,7 +144,7 @@ async def join_room(
             # Add user as participant
             participant = RoomParticipant(
                 room_id=room.id,
-                user_id=current_user["id"],
+                user_id=getattr(current_user, 'id', current_user.get('id')),
                 is_admin=False
             )
             db.add(participant)
@@ -175,7 +175,7 @@ async def get_my_rooms(
     """Get all rooms where current user is a participant"""
     try:
         participations = db.query(RoomParticipant).filter(
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id'))
         ).all()
         rooms = []
         if not participations:
@@ -202,7 +202,7 @@ async def get_room_participants(
         # Check if user is participant in this room
         user_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id'))
         ).first()
         
         if not user_participation:
@@ -238,7 +238,7 @@ async def leave_room(
         # Get user's participation
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id'))
         ).first()
         
         if not participation:
@@ -288,7 +288,7 @@ async def promote_to_admin(
         # Check if current user is admin
         current_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == current_user["id"],
+            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id')),
             RoomParticipant.is_admin == True
         ).first()
         
@@ -344,7 +344,7 @@ async def remove_participant(
         # Check if current user is admin
         current_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == current_user["id"],
+            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id')),
             RoomParticipant.is_admin == True
         ).first()
         
@@ -355,7 +355,7 @@ async def remove_participant(
             )
         
         # Prevent removing yourself
-        if user_id == current_user["id"]:
+        if user_id == getattr(current_user, 'id', current_user.get('id')):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot remove yourself. Use leave room instead."
@@ -400,7 +400,7 @@ async def delete_room(
         # Check if current user is admin
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == current_user["id"],
+            RoomParticipant.user_id == getattr(current_user, 'id', current_user.get('id')),
             RoomParticipant.is_admin == True
         ).first()
         

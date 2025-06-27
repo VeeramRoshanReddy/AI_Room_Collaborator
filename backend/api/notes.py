@@ -152,7 +152,7 @@ async def upload_document(
                 detail=f"File type {file_extension} not supported. Allowed types: {settings.ALLOWED_FILE_TYPES}"
             )
         file_bytes = await file.read()
-        note_id = rag_service.store_note(db, user.id, file_bytes, file.filename, note_title=file.filename)
+        note_id = rag_service.store_note(db, getattr(user, 'id', user.get('id')), file_bytes, file.filename, note_title=file.filename)
         # After storing, retrieve chunk_ids (assume stored in Note or another table)
         # chunk_ids = ...
         return {"note_id": note_id, "message": "File uploaded and processed successfully."}
@@ -170,10 +170,10 @@ async def ask_note_question(
     """Ask a question about an uploaded note (RAG chat)"""
     try:
         # Ensure user owns the note
-        note = db.query(Note).filter(Note.id == note_id, Note.user_id == user.id).first()
+        note = db.query(Note).filter(Note.id == note_id, Note.user_id == getattr(user, 'id', user.get('id'))).first()
         if not note:
             raise HTTPException(status_code=404, detail="Note not found or access denied.")
-        answer = rag_service.query(db, note_id, question, user.id)
+        answer = rag_service.query(db, note_id, question, getattr(user, 'id', user.get('id')))
         return {"note_id": note_id, "question": question, "answer": answer}
     except Exception as e:
         logger.error(f"Error answering note question: {e}")
@@ -187,13 +187,13 @@ async def delete_note_and_vectors(
 ):
     """Delete a note and all associated vectors from Pinecone."""
     try:
-        note = db.query(Note).filter(Note.id == note_id, Note.user_id == user.id).first()
+        note = db.query(Note).filter(Note.id == note_id, Note.user_id == getattr(user, 'id', user.get('id'))).first()
         if not note:
             raise HTTPException(status_code=404, detail="Note not found or access denied.")
         # Retrieve chunk_ids for this note (assume stored in Note or related table)
         chunk_ids = getattr(note, 'chunk_ids', None)
         if chunk_ids:
-            rag_service.delete_note_vectors(note_id, user.id, chunk_ids)
+            rag_service.delete_note_vectors(note_id, getattr(user, 'id', user.get('id')), chunk_ids)
         # Delete note and related chat logs
         db.query(ChatLog).filter(ChatLog.note_id == note_id).delete()
         db.delete(note)
@@ -209,7 +209,7 @@ async def get_user_notes(user: Any = Depends(get_current_user), db: Session = De
         mongo_db = get_mongo_db()
         if mongo_db is None:
             raise HTTPException(status_code=500, detail="MongoDB connection not available")
-        notes_cursor = mongo_db.notes.find({"user_id": user.id})
+        notes_cursor = mongo_db.notes.find({"user_id": getattr(user, 'id', user.get('id'))})
         notes = []
         async for note in notes_cursor:
             note["_id"] = str(note["_id"])
@@ -226,10 +226,10 @@ async def delete_note(file_id: str, user: Any = Depends(get_current_user), db: S
         mongo_db = get_mongo_db()
         if mongo_db is None:
             raise HTTPException(status_code=500, detail="MongoDB connection not available")
-        note = await mongo_db.notes.find_one({"_id": file_id, "user_id": user.id})
+        note = await mongo_db.notes.find_one({"_id": file_id, "user_id": getattr(user, 'id', user.get('id'))})
         if not note:
             raise HTTPException(status_code=404, detail="Note not found or access denied")
-        await mongo_db.notes.delete_one({"_id": file_id, "user_id": user.id})
+        await mongo_db.notes.delete_one({"_id": file_id, "user_id": getattr(user, 'id', user.get('id'))})
         # Delete AI/quiz/audio logs in MongoDB
         await mongo_db.ai_responses.delete_many({"document_id": file_id})
         await mongo_db.quiz_responses.delete_many({"document_id": file_id})
@@ -250,7 +250,7 @@ async def create_note(
         new_note = Note(
             title=note_data.title,
             content=note_data.content,
-            user_id=current_user["id"]
+            user_id=getattr(current_user, 'id', current_user.get('id'))
         )
         
         db.add(new_note)
@@ -275,7 +275,7 @@ async def get_my_notes(
     """Get all notes for the current user"""
     try:
         notes = db.query(Note).filter(
-            Note.user_id == current_user["id"],
+            Note.user_id == getattr(current_user, 'id', current_user.get('id')),
             Note.is_active == True
         ).order_by(Note.updated_at.desc()).all()
         if not notes:
@@ -295,7 +295,7 @@ async def get_note(
     try:
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == getattr(current_user, 'id', current_user.get('id')),
             Note.is_active == True
         ).first()
         
@@ -327,7 +327,7 @@ async def update_note(
     try:
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == getattr(current_user, 'id', current_user.get('id')),
             Note.is_active == True
         ).first()
         
@@ -369,7 +369,7 @@ async def delete_note(
     try:
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == getattr(current_user, 'id', current_user.get('id')),
             Note.is_active == True
         ).first()
         
@@ -407,7 +407,7 @@ async def upload_file_to_note(
         # Check if note exists and user owns it
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == getattr(current_user, 'id', current_user.get('id')),
             Note.is_active == True
         ).first()
         
@@ -438,7 +438,7 @@ async def upload_file_to_note(
         
         # Upload to Firebase Storage
         file_id = str(uuid.uuid4())
-        file_path = f"notes/{current_user['id']}/{file_id}/{file.filename}"
+        file_path = f"notes/{getattr(current_user, 'id', current_user.get('id'))}/{file_id}/{file.filename}"
         
         upload_result = await firebase_service.upload_bytes(
             file_content,
@@ -497,7 +497,7 @@ async def remove_file_from_note(
     try:
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == getattr(current_user, 'id', current_user.get('id')),
             Note.is_active == True
         ).first()
         
@@ -557,7 +557,7 @@ async def generate_quiz(
     try:
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == getattr(current_user, 'id', current_user.get('id')),
             Note.is_active == True
         ).first()
         
@@ -649,7 +649,7 @@ async def generate_audio_overview(
     try:
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == getattr(current_user, 'id', current_user.get('id')),
             Note.is_active == True
         ).first()
         
@@ -749,5 +749,5 @@ async def get_note_chat_history(
     db: Session = Depends(get_db)
 ):
     """Get chat history for a note (persistent, PostgreSQL)"""
-    logs = db.query(ChatLog).filter(ChatLog.note_id == note_id, ChatLog.user_id == user.id).order_by(ChatLog.created_at).all()
+    logs = db.query(ChatLog).filter(ChatLog.note_id == note_id, ChatLog.user_id == getattr(user, 'id', user.get('id'))).order_by(ChatLog.created_at).all()
     return [log.to_dict() for log in logs]
