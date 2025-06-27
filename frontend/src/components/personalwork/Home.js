@@ -384,7 +384,7 @@ const Home = () => {
       </Header>
 
       <StatsGrid>
-        {/* <StatCard>
+        <StatCard>
           <StatHeader>
             <StatIcon type="rooms">
               <FaUsers />
@@ -394,7 +394,7 @@ const Home = () => {
               <StatValue>Active rooms</StatValue>
             </StatContent>
           </StatHeader>
-          <StatNumber>{stats.totalRooms}</StatNumber>
+          <StatNumber>{stats.totalRooms || 0}</StatNumber>
         </StatCard>
 
         <StatCard>
@@ -407,7 +407,7 @@ const Home = () => {
               <StatValue>Total notes</StatValue>
             </StatContent>
           </StatHeader>
-          <StatNumber>{stats.totalNotes}</StatNumber>
+          <StatNumber>{stats.totalNotes || 0}</StatNumber>
         </StatCard>
 
         <StatCard>
@@ -420,7 +420,7 @@ const Home = () => {
               <StatValue>Total messages</StatValue>
             </StatContent>
           </StatHeader>
-          <StatNumber>{stats.totalChats}</StatNumber>
+          <StatNumber>{stats.totalChats || 0}</StatNumber>
         </StatCard>
 
         <StatCard>
@@ -433,8 +433,8 @@ const Home = () => {
               <StatValue>This week</StatValue>
             </StatContent>
           </StatHeader>
-          <StatNumber>{stats.recentActivity}</StatNumber>
-        </StatCard> */}
+          <StatNumber>{stats.recentActivity || 0}</StatNumber>
+        </StatCard>
       </StatsGrid>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>

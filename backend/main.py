@@ -73,10 +73,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - configured for production
+# CORS middleware - allow all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
@@ -221,10 +221,8 @@ async def api_health_check():
 # Handle preflight OPTIONS requests
 @app.options("/{path:path}")
 async def options_handler(request: Request):
-    origin = request.headers.get("origin")
-    allowed_origins = settings.ALLOWED_ORIGINS
     headers = {
-        "Access-Control-Allow-Origin": origin if origin in allowed_origins else "*",
+        "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
         "Access-Control-Allow-Headers": "*",
         "Access-Control-Allow-Credentials": "true"
