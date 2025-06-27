@@ -7,12 +7,17 @@ load_dotenv()
 
 class Settings(BaseSettings):
     # Application Settings - Hardcoded values
-    APP_NAME: str = "AI Learning Platform"
+    APP_NAME: str = "RoomConnect - AI Learning Platform"
+    VERSION: str = "1.0.0"
+    DESCRIPTION: str = "An AI-powered platform for collaborative learning and knowledge sharing."
     DEBUG: bool = True
+    ENVIRONMENT: str = "development"
     SECRET_KEY: str = os.getenv("SECRET_KEY", "")  # From .env
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     FRONTEND_URL: str = "https://room-connect-eight.vercel.app"
+    API_V1_PREFIX: str = "/api/v1"
     
     # CORS Settings - Hardcoded values
     ALLOWED_ORIGINS: List[str] = [
@@ -46,6 +51,7 @@ class Settings(BaseSettings):
     VECTOR_DB_REGION: str = "us-east-1-aws"
     VECTOR_DB_URL: str = os.getenv("VECTOR_DB_URL", "")  # From .env
     VECTOR_DB_API_KEY: str = os.getenv("VECTOR_DB_API_KEY", "")  # From .env
+    VECTOR_DB_INDEX_NAME: str = "ai-learning-notes"
     
     # Redis - From .env
     REDIS_URL: str = os.getenv("REDIS_URL", "")  # From .env
@@ -63,6 +69,29 @@ class Settings(BaseSettings):
     QUIZ_DIFFICULTY: str = "medium"
     QUIZ_QUESTIONS_PER_QUIZ: int = 10
     
+    #Audio Processing - Hardcoded values
+    AUDIO_OUTPUT_DIR: str = "audio_outputs"
+    AUDIO_FORMAT: str = "mp3"
+    AUDIO_QUALITY: str = "high"
+    
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_PER_HOUR: int = 1000
+    
+    # WebSocket Configuration
+    WS_HEARTBEAT_INTERVAL: int = 30
+    WS_MAX_CONNECTIONS: int = 1000
+    
+    # File Processing
+    CHUNK_SIZE: int = 1000
+    OVERLAP_SIZE: int = 200
+    MAX_CHUNKS_PER_DOCUMENT: int = 50
+    
+    # AI Model Configuration
+    CHAT_MODEL: str = "gpt-4"
+    SUMMARY_MODEL: str= "gpt-3.5-turbo"
+    QUIZ_MODEL: str= "gpt-4"
+
     class Config:
         env_file = ".env"
         case_sensitive = True

@@ -10,6 +10,11 @@ from models.mongodb.ai_response import AudioResponse
 from services.ai_service import ai_service
 from datetime import datetime
 import os
+from services.elevenlabs_service import elevenlabs_service
+from pydub import AudioSegment
+import tempfile
+import boto3
+from botocore.exceptions import NoCredentialsError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/audio", tags=["Audio"])
@@ -123,7 +128,7 @@ async def synthesize_audio(
     current_user: dict = Depends(get_current_user),
     mongo_db = Depends(get_mongo_db)
 ):
-    """Synthesize audio from generated script"""
+    """Synthesize audio from generated script using ElevenLabs and stitch as podcast"""
     try:
         # Get audio response
         audio = await mongo_db.audio_responses.find_one({
@@ -149,34 +154,67 @@ async def synthesize_audio(
             {"$set": {"status": "processing"}}
         )
         
-        # Here you would integrate with ElevenLabs or another TTS service
-        # For now, we'll simulate the process
         try:
-            # Simulate audio synthesis
-            # In a real implementation, you would:
-            # 1. Call ElevenLabs API with the script
-            # 2. Get the audio file URL
-            # 3. Store the URL in the database
+            # Get voice IDs from env
+            host_voice_id = os.getenv("ELEVENLABS_HOST_VOICE_ID")
+            expert_voice_id = os.getenv("ELEVENLABS_EXPERT_VOICE_ID")
+            if not host_voice_id or not expert_voice_id:
+                raise Exception("Voice IDs for host and expert must be set in environment.")
             
-            # For demo purposes, we'll just update the status
-            audio_url = f"/api/audio/{audio_id}/download"  # Placeholder URL
+            # Synthesize host and expert lines
+            host_audio = elevenlabs_service.synthesize(audio["host_script"], host_voice_id)
+            expert_audio = elevenlabs_service.synthesize(audio["expert_script"], expert_voice_id)
+            
+            # Save to temp files
+            with tempfile.NamedTemporaryFile(delete=False, suffix="_host.mp3") as host_file:
+                host_file.write(host_audio)
+                host_path = host_file.name
+            with tempfile.NamedTemporaryFile(delete=False, suffix="_expert.mp3") as expert_file:
+                expert_file.write(expert_audio)
+                expert_path = expert_file.name
+            
+            # Stitch audio
+            host_segment = AudioSegment.from_file(host_path, format="mp3")
+            expert_segment = AudioSegment.from_file(expert_path, format="mp3")
+            podcast_audio = host_segment + expert_segment
+            
+            # Save final podcast locally first
+            static_audio_dir = os.path.join(os.getcwd(), "static", "audio")
+            os.makedirs(static_audio_dir, exist_ok=True)
+            podcast_path = os.path.join(static_audio_dir, f"podcast_{audio_id}.mp3")
+            podcast_audio.export(podcast_path, format="mp3")
+
+            # Upload to AWS S3
+            aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+            aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+            aws_bucket = os.getenv("AWS_S3_BUCKET")
+            aws_region = os.getenv("AWS_REGION", "us-east-1")
+            s3_client = boto3.client(
+                's3',
+                aws_access_key_id=aws_access_key,
+                aws_secret_access_key=aws_secret_key,
+                region_name=aws_region
+            )
+            s3_key = f"audio/podcast_{audio_id}.mp3"
+            try:
+                s3_client.upload_file(podcast_path, aws_bucket, s3_key, ExtraArgs={'ACL': 'public-read', 'ContentType': 'audio/mpeg'})
+                audio_url = f"https://{aws_bucket}.s3.{aws_region}.amazonaws.com/{s3_key}"
+            except NoCredentialsError:
+                raise Exception("AWS credentials not found. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY.")
+            except Exception as e:
+                raise Exception(f"Failed to upload audio to S3: {e}")
             
             await mongo_db.audio_responses.update_one(
                 {"_id": audio_id},
-                {
-                    "$set": {
-                        "status": "completed",
-                        "audio_url": audio_url
-                    }
-                }
+                {"$set": {"status": "completed", "audio_url": audio_url}}
             )
             
             return {
-                "message": "Audio synthesis started",
+                "message": "Audio synthesis completed",
                 "audio_id": audio_id,
-                "status": "processing"
+                "status": "completed",
+                "audio_url": audio_url
             }
-            
         except Exception as e:
             # Update status to failed
             await mongo_db.audio_responses.update_one(
