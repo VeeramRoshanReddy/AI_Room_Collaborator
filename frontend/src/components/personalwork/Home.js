@@ -378,7 +378,6 @@ const Home = () => {
           <UserInfo>Here's what's happening with your study sessions</UserInfo>
         </div>
       </Header>
-
       <StatsGrid>
         <StatCard>
           <StatHeader>
@@ -422,32 +421,59 @@ const Home = () => {
           </div>
         </StatCard>
       </StatsGrid>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-        {/* Your Rooms Section */}
-        <Section>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginTop: 24 }}>
+        {/* Quick Actions Section - now more prominent */}
+        <Section style={{boxShadow:'0 4px 24px rgba(37,99,235,0.07)', border:'2px solid #e0e8f0'}}>
           <SectionTitle>
-            <FaUsers />
-            Your Rooms
+            <FaStar />
+            Quick Actions
           </SectionTitle>
-          {userRooms.length === 0 ? (
-            <EmptyState>
-              <FaUsers size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-              <p>You're not a member of any rooms yet.</p>
-            </EmptyState>
-          ) : (
-            <div style={{display:'flex', flexDirection:'column', gap:16}}>
-              {userRooms.map(room => (
-                <div key={room.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:'#f8fafc', borderRadius:10, padding:'14px 18px', boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
-                  <div>
-                    <div style={{fontWeight:600, color:'#2563eb', fontSize:'1.05rem'}}>{room.name}</div>
-                    <div style={{fontSize:'0.92rem', color:'#64748b'}}>Room ID: <b>{room.room_id}</b></div>
-                  </div>
-                  <button style={{background:'#2563eb', color:'#fff', border:'none', borderRadius:8, padding:'8px 18px', fontWeight:500, cursor:'pointer'}} onClick={() => navigate('/rooms')}>Enter</button>
-                </div>
-              ))}
-            </div>
-          )}
+          <QuickActions>
+            <ActionCard onClick={() => handleQuickAction('create-room')}>
+              <ActionHeader>
+                <ActionIcon type="create-room">
+                  <FaUsers />
+                </ActionIcon>
+                <ActionTitle>Create Room</ActionTitle>
+              </ActionHeader>
+              <ActionDescription>
+                Start a new study session with your peers
+              </ActionDescription>
+            </ActionCard>
+            <ActionCard onClick={() => handleQuickAction('upload-note')}>
+              <ActionHeader>
+                <ActionIcon type="upload-note">
+                  <FaFileAlt />
+                </ActionIcon>
+                <ActionTitle>Upload Note</ActionTitle>
+              </ActionHeader>
+              <ActionDescription>
+                Add a new document to your collection
+              </ActionDescription>
+            </ActionCard>
+            <ActionCard onClick={() => handleQuickAction('join-room')}>
+              <ActionHeader>
+                <ActionIcon type="join-room">
+                  <FaUsers />
+                </ActionIcon>
+                <ActionTitle>Join Room</ActionTitle>
+              </ActionHeader>
+              <ActionDescription>
+                Find and join existing study rooms
+              </ActionDescription>
+            </ActionCard>
+            <ActionCard onClick={() => handleQuickAction('view-notes')}>
+              <ActionHeader>
+                <ActionIcon type="view-notes">
+                  <FaFileAlt />
+                </ActionIcon>
+                <ActionTitle>View Notes</ActionTitle>
+              </ActionHeader>
+              <ActionDescription>
+                Browse and manage your notes
+              </ActionDescription>
+            </ActionCard>
+          </QuickActions>
         </Section>
         {/* Motivation Section */}
         <Section>
@@ -462,59 +488,6 @@ const Home = () => {
           <div style={{marginTop:18, color:'#2563eb', fontWeight:600, fontSize:'1.05rem'}}>Stay consistent and keep collaborating!</div>
         </Section>
       </div>
-      {/* Quick Actions Section remains unchanged */}
-      <Section>
-        <SectionTitle>
-          <FaStar />
-          Quick Actions
-        </SectionTitle>
-        <QuickActions>
-          <ActionCard onClick={() => handleQuickAction('create-room')}>
-            <ActionHeader>
-              <ActionIcon type="create-room">
-                <FaUsers />
-              </ActionIcon>
-              <ActionTitle>Create Room</ActionTitle>
-            </ActionHeader>
-            <ActionDescription>
-              Start a new study session with your peers
-            </ActionDescription>
-          </ActionCard>
-          <ActionCard onClick={() => handleQuickAction('upload-note')}>
-            <ActionHeader>
-              <ActionIcon type="upload-note">
-                <FaFileAlt />
-              </ActionIcon>
-              <ActionTitle>Upload Note</ActionTitle>
-            </ActionHeader>
-            <ActionDescription>
-              Add a new document to your collection
-            </ActionDescription>
-          </ActionCard>
-          <ActionCard onClick={() => handleQuickAction('join-room')}>
-            <ActionHeader>
-              <ActionIcon type="join-room">
-                <FaUsers />
-              </ActionIcon>
-              <ActionTitle>Join Room</ActionTitle>
-            </ActionHeader>
-            <ActionDescription>
-              Find and join existing study rooms
-            </ActionDescription>
-          </ActionCard>
-          <ActionCard onClick={() => handleQuickAction('view-notes')}>
-            <ActionHeader>
-              <ActionIcon type="view-notes">
-                <FaFileAlt />
-              </ActionIcon>
-              <ActionTitle>View Notes</ActionTitle>
-            </ActionHeader>
-            <ActionDescription>
-              Browse and manage your notes
-            </ActionDescription>
-          </ActionCard>
-        </QuickActions>
-      </Section>
     </Container>
   );
 };

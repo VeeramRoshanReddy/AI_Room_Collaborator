@@ -519,19 +519,21 @@ const TopicBox = styled.div`
 
 const ThreeDotsIcon = styled.div`
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 18px;
+  right: 18px;
   cursor: pointer;
-  color: #222c3a; // darker for visibility
-  font-size: 1.5rem;
-  background: rgba(255,255,255,0.85);
+  color: #1e293b;
+  font-size: 2rem;
+  background: #f1f5f9;
+  border: 2px solid #e2e8f0;
   border-radius: 50%;
-  padding: 4px;
+  padding: 6px;
   z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   transition: background 0.2s, box-shadow 0.2s;
   &:hover {
     background: #e0e7ef;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 16px rgba(37,99,235,0.10);
   }
 `;
 
