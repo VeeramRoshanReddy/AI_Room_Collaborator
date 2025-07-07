@@ -1625,36 +1625,58 @@ const Rooms = () => {
             return (
               <RoomCard
                 key={room.id}
-                style={{position:'relative', cursor: userIsMember ? 'pointer' : 'not-allowed', opacity: userIsMember ? 1 : 0.7}}
-                onClick={userIsMember ? () => handleEnterRoom(room) : undefined}
+                style={{position:'relative', cursor: 'pointer', opacity: 1}}
+                onClick={() => {
+                  if (userIsMember) {
+                    handleEnterRoom(room);
+                  } else {
+                    setJoinRoomId(room.room_id);
+                    setShowJoin(true);
+                    setTimeout(() => {
+                      const pwInput = document.querySelector('input[placeholder="Room Password (8 digits)"]');
+                      if (pwInput) pwInput.focus();
+                    }, 100);
+                  }
+                }}
                 tabIndex={0}
-                aria-disabled={!userIsMember}
+                aria-disabled={false}
               >
                 <RoomHeader>
                   <RoomTitle>{room.name}</RoomTitle>
-                  {/* 3-dot menu always visible for members/admins, top right */}
-                  {userIsMember && (
-                    <div style={{position:'absolute', top: 18, right: 18, zIndex: 20}} onClick={e => e.stopPropagation()}>
-                      <ThreeDotsIcon onClick={() => setOpenRoomMenu(openRoomMenu === room.id ? null : room.id)} title="Room Actions">
-                        <FaEllipsisV />
-                      </ThreeDotsIcon>
-                      {openRoomMenu === room.id && (
-                        <DropdownMenu style={{right:0, top:32, zIndex:20}}>
-                          {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleRevealPassword(room); }}>Reveal Password</DropdownMenuItem>}
+                  {/* 3-dot menu always visible, top right */}
+                  <div style={{position:'absolute', top: 18, right: 18, zIndex: 20}} onClick={e => e.stopPropagation()}>
+                    <ThreeDotsIcon onClick={() => setOpenRoomMenu(openRoomMenu === room.id ? null : room.id)} title="Room Actions">
+                      <FaEllipsisV />
+                    </ThreeDotsIcon>
+                    {openRoomMenu === room.id && (
+                      <DropdownMenu style={{right:0, top:32, zIndex:20}}>
+                        {userIsMember ? (
+                          <>
+                            {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleRevealPassword(room); }}>Reveal Password</DropdownMenuItem>}
+                            <DropdownMenuItem onClick={() => {
+                              setOpenRoomMenu(null);
+                              if (userIsAdmin && adminCount === 1) {
+                                setAdminLeavePrompt(true);
+                              } else {
+                                handleLeaveRoom(room.id);
+                              }
+                            }} style={{color:'#ef4444'}}>Leave Room</DropdownMenuItem>
+                            {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleDeleteRoom(room.id); }} style={{color:'#ef4444'}}>Delete Room</DropdownMenuItem>}
+                          </>
+                        ) : (
                           <DropdownMenuItem onClick={() => {
                             setOpenRoomMenu(null);
-                            // Admin leave constraint
-                            if (userIsAdmin && adminCount === 1) {
-                              setAdminLeavePrompt(true);
-                            } else {
-                              handleLeaveRoom(room.id);
-                            }
-                          }} style={{color:'#ef4444'}}>Leave Room</DropdownMenuItem>
-                          {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleDeleteRoom(room.id); }} style={{color:'#ef4444'}}>Delete Room</DropdownMenuItem>}
-                        </DropdownMenu>
-                      )}
-                    </div>
-                  )}
+                            setJoinRoomId(room.room_id);
+                            setShowJoin(true);
+                            setTimeout(() => {
+                              const pwInput = document.querySelector('input[placeholder="Room Password (8 digits)"]');
+                              if (pwInput) pwInput.focus();
+                            }, 100);
+                          }}>Join Room</DropdownMenuItem>
+                        )}
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </RoomHeader>
                 <div style={{fontSize:'0.95rem',color:'#2563eb',marginBottom:4}}>
                   Room ID: <b>{room.room_id}</b>
