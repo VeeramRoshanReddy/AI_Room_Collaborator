@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes, FaLock, FaUnlock, FaEdit, FaCog, FaUsers } from 'react-icons/fa';
+import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes, FaLock, FaUnlock, FaEdit, FaCog, FaUsers, FaSignOutAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
@@ -1626,33 +1626,22 @@ const Rooms = () => {
               <RoomCard
                 key={room.id}
                 style={{position:'relative', cursor: 'pointer', opacity: 1}}
-                onClick={() => {
-                  if (userIsMember) {
-                    handleEnterRoom(room);
-                  } else {
-                    setJoinRoomId(room.room_id);
-                    setShowJoin(true);
-                    setTimeout(() => {
-                      const pwInput = document.querySelector('input[placeholder="Room Password (8 digits)"]');
-                      if (pwInput) pwInput.focus();
-                    }, 100);
-                  }
-                }}
+                onClick={() => handleEnterRoom(room)}
                 tabIndex={0}
                 aria-disabled={false}
               >
                 <RoomHeader>
                   <RoomTitle>{room.name}</RoomTitle>
-                  {/* 3-dot menu always visible, top right */}
-                  <div style={{position:'absolute', top: 18, right: 18, zIndex: 20}} onClick={e => e.stopPropagation()}>
-                    <ThreeDotsIcon onClick={() => setOpenRoomMenu(openRoomMenu === room.id ? null : room.id)} title="Room Actions">
-                      <FaEllipsisV />
+                  {/* 3-dot menu always visible, top right, small size */}
+                  <div style={{position:'absolute', top: 14, right: 14, zIndex: 20}} onClick={e => e.stopPropagation()}>
+                    <ThreeDotsIcon style={{fontSize:'1.1rem', width: '24px', height: '24px', display:'flex', alignItems:'center', justifyContent:'center'}} onClick={() => setOpenRoomMenu(openRoomMenu === room.id ? null : room.id)} title="Room Actions">
+                      <FaEllipsisV style={{fontSize:'1.1rem'}} />
                     </ThreeDotsIcon>
                     {openRoomMenu === room.id && (
-                      <DropdownMenu style={{right:0, top:32, zIndex:20}}>
-                        {userIsMember ? (
+                      <DropdownMenu style={{right:0, top:28, zIndex:20}}>
+                        {userIsAdmin ? (
                           <>
-                            {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleRevealPassword(room); }}>Reveal Password</DropdownMenuItem>}
+                            <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleRevealPassword(room); }}><FaLock style={{marginRight:8}}/> Reveal Password</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                               setOpenRoomMenu(null);
                               if (userIsAdmin && adminCount === 1) {
@@ -1660,19 +1649,14 @@ const Rooms = () => {
                               } else {
                                 handleLeaveRoom(room.id);
                               }
-                            }} style={{color:'#ef4444'}}>Leave Room</DropdownMenuItem>
-                            {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleDeleteRoom(room.id); }} style={{color:'#ef4444'}}>Delete Room</DropdownMenuItem>}
+                            }} style={{color:'#ef4444'}}><FaSignOutAlt style={{marginRight:8}}/> Leave Room</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleDeleteRoom(room.id); }} style={{color:'#ef4444'}}><FaTrash style={{marginRight:8}}/> Delete Room</DropdownMenuItem>
                           </>
                         ) : (
                           <DropdownMenuItem onClick={() => {
                             setOpenRoomMenu(null);
-                            setJoinRoomId(room.room_id);
-                            setShowJoin(true);
-                            setTimeout(() => {
-                              const pwInput = document.querySelector('input[placeholder="Room Password (8 digits)"]');
-                              if (pwInput) pwInput.focus();
-                            }, 100);
-                          }}>Join Room</DropdownMenuItem>
+                            handleLeaveRoom(room.id);
+                          }} style={{color:'#ef4444'}}><FaSignOutAlt style={{marginRight:8}}/> Leave Room</DropdownMenuItem>
                         )}
                       </DropdownMenu>
                     )}
