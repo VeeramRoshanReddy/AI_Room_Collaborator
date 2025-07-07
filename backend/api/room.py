@@ -131,14 +131,7 @@ async def join_room(
         if not room:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Room not found"
-            )
-        
-        # Verify password
-        if room.password != join_data.password:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid room password"
+                detail="Room ID does not exist. Please check and try again."
             )
         
         # Check if user is already a participant
@@ -148,18 +141,27 @@ async def join_room(
         ).first()
         
         if existing_participant:
-            # User is already in the room
-            is_admin = existing_participant.is_admin
-        else:
-            # Add user as participant
-            participant = RoomParticipant(
-                room_id=room.id,
-                user_id=(current_user['id'] if isinstance(current_user, dict) else current_user.id),
-                is_admin=False
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You are already a member of this room."
             )
-            db.add(participant)
-            db.commit()
-            is_admin = False
+        
+        # Verify password
+        if room.password != join_data.password:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password. Please try again."
+            )
+        
+        # Add user as participant
+        participant = RoomParticipant(
+            room_id=room.id,
+            user_id=(current_user['id'] if isinstance(current_user, dict) else current_user.id),
+            is_admin=False
+        )
+        db.add(participant)
+        db.commit()
+        is_admin = False
         
         # Return room data
         response_data = room.to_dict_without_password()
@@ -180,7 +182,7 @@ async def join_room(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to join room"
+            detail="Failed to join room. Please try again later."
         )
 
 @router.get("/my-rooms", response_model=List[RoomResponse])
@@ -458,6 +460,24 @@ async def delete_room(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete room"
         )
+
+@router.get("/{room_id}/reveal-password", response_model=Dict[str, str])
+async def reveal_room_password(
+    room_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Allow only admins to reveal the room password."""
+    room = db.query(Room).filter(Room.room_id == room_id, Room.is_active == True).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room ID does not exist.")
+    participant = db.query(RoomParticipant).filter(
+        RoomParticipant.room_id == room.id,
+        RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
+    ).first()
+    if not participant or not participant.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can view the room password.")
+    return {"room_id": room.room_id, "password": room.password}
 
 def _generate_unique_room_id(db: Session) -> str:
     """Generate a unique 8-digit room ID"""

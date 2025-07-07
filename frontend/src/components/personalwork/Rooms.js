@@ -893,37 +893,29 @@ const Rooms = () => {
   // Join room with optimistic update
   const handleJoinRoom = async () => {
     if (!joinRoomId.trim() || !joinRoomPass.trim()) {
-      toast.error('Room ID and password are required');
+      setErrorPopup('Room ID and password are required');
       return;
     }
-    
     setJoiningRoom(true);
     setError(null);
-    
     try {
       const res = await makeAuthenticatedRequest('/rooms/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ room_id: joinRoomId, password: joinRoomPass }),
       });
-      
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        setErrorPopup(errorData.detail || 'Failed to join room');
         throw new Error(errorData.detail || 'Failed to join room');
       }
-      
       setShowJoin(false);
       setJoinRoomId('');
       setJoinRoomPass('');
-      
-      // Refresh rooms list
       await fetchRooms(setRooms, setLoading, setError);
       toast.success('Successfully joined room!');
-      
     } catch (err) {
-      const errorMessage = err.message || 'Error joining room';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      // errorPopup already set above
     } finally {
       setJoiningRoom(false);
     }
@@ -1366,6 +1358,33 @@ const Rooms = () => {
     }
   }, [isAuthenticated]);
 
+  // Add state for password modal and error popup
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [revealedPassword, setRevealedPassword] = useState(null);
+  const [errorPopup, setErrorPopup] = useState(null);
+
+  // Helper: check if user is a member of a room
+  const isMember = (room) => room.members && room.members.some(m => m.id === user?.id);
+
+  // Helper: fetch and show password for admin
+  const handleRevealPassword = async (room) => {
+    try {
+      const res = await makeAuthenticatedRequest(`/rooms/${room.room_id}/reveal-password`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to fetch password');
+      }
+      const data = await res.json();
+      setRevealedPassword(data.password);
+      setShowPasswordModal(true);
+    } catch (err) {
+      setErrorPopup(err.message || 'Error revealing password');
+    }
+  };
+
   // Main render
   if (!isAuthenticated) {
     return <CenteredContent><SectionTitle>Please log in to access rooms.</SectionTitle></CenteredContent>;
@@ -1574,45 +1593,31 @@ const Rooms = () => {
                   {room.is_private ? <FaLock /> : <FaUnlock />}
                   {room.is_private ? 'Private' : 'Public'}
                 </RoomStatus>
+                {/* Admin 3-dot menu for password reveal */}
+                {isAdmin(room) && (
+                  <ThreeDotsIcon onClick={() => handleRevealPassword(room)} title="Show Room Password">
+                    <FaEllipsisV />
+                  </ThreeDotsIcon>
+                )}
               </RoomHeader>
-              
+              <div style={{fontSize:'0.95rem',color:'#2563eb',marginBottom:4}}>
+                Room ID: <b>{room.room_id}</b>
+              </div>
               <RoomDescription>
                 {room.description || 'No description available'}
               </RoomDescription>
-              
               <RoomStats>
                 <MemberCount>
                   <FaUsers />
                   {room.participant_count || 0} members
                 </MemberCount>
-                
                 <RoomActions>
-                  <ActionButton 
-                    className="join" 
-                    onClick={() => handleEnterRoom(room)}
-                  >
-                    <FaSignInAlt />
-                    Enter
-                  </ActionButton>
-                  
-                  {room.owner_id === user?.id && (
-                    <>
-                      <ActionButton 
-                        className="edit" 
-                        onClick={() => setShowCreate(true)}
-                      >
-                        <FaEdit />
-                        Edit
-                      </ActionButton>
-                      <ActionButton 
-                        className="delete" 
-                        onClick={() => handleDeleteRoom(room.id)}
-                      >
-                        <FaTrash />
-                        Delete
-                      </ActionButton>
-                    </>
-                  )}
+                  {isMember(room) ? (
+                    <ActionButton className="join" onClick={() => handleEnterRoom(room)}>
+                      <FaSignInAlt />
+                      Enter
+                    </ActionButton>
+                  ) : null}
                 </RoomActions>
               </RoomStats>
             </RoomCard>
@@ -1650,7 +1655,7 @@ const Rooms = () => {
               onChange={e => setJoinRoomId(e.target.value)}
             />
             <FormInput
-              placeholder="Room Password (16 chars)"
+              placeholder="Room Password (8 digits)"
               value={joinRoomPass}
               onChange={e => setJoinRoomPass(e.target.value)}
             />
@@ -1678,6 +1683,24 @@ const Rooms = () => {
               You do not have the necessary authorization to delete this topic.
             </p>
             <FormButton onClick={() => setShowAuthError(false)}>OK</FormButton>
+          </FormBox>
+        </FormOverlay>
+      )}
+      {showPasswordModal && (
+        <FormOverlay onClick={() => setShowPasswordModal(false)}>
+          <FormBox onClick={e => e.stopPropagation()}>
+            <FormTitle>Room Password</FormTitle>
+            <div style={{fontSize:'1.3rem',textAlign:'center',margin:'18px 0'}}><b>{revealedPassword}</b></div>
+            <FormButton onClick={() => setShowPasswordModal(false)}>Close</FormButton>
+          </FormBox>
+        </FormOverlay>
+      )}
+      {errorPopup && (
+        <FormOverlay onClick={() => setErrorPopup(null)}>
+          <FormBox onClick={e => e.stopPropagation()}>
+            <FormTitle style={{color:'#ef4444'}}>Error</FormTitle>
+            <p style={{textAlign:'center', marginBottom:'20px', color:'#4b5563'}}>{errorPopup}</p>
+            <FormButton onClick={() => setErrorPopup(null)}>OK</FormButton>
           </FormBox>
         </FormOverlay>
       )}
