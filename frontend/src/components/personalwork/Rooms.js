@@ -1355,7 +1355,7 @@ const Rooms = () => {
       }
 
       const data = await res.json();
-      setSelectedRoom(prev => prev ? { ...prev, topics: data.topics || [] } : prev);
+      setSelectedRoom(prev => prev ? { ...prev, topics: data || [] } : prev);
     } catch (err) {
       const errorMessage = err.message || 'Error fetching topics';
       setError(errorMessage);

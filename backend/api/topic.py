@@ -120,25 +120,26 @@ async def get_room_topics(
         # Prepare response with delete permissions
         response_topics = []
         for topic in topics:
-            topic_data = topic.to_dict()
-            # Check if user can delete this topic (creator or admin)
-            can_delete = (
-                topic.created_by_user_id == current_user["id"] or 
-                participation.is_admin
-            )
-            topic_data["can_delete"] = can_delete
-            response_topics.append(TopicResponse(**topic_data))
-        
+            try:
+                topic_data = topic.to_dict()
+                # Check if user can delete this topic (creator or admin)
+                can_delete = (
+                    topic.created_by_user_id == current_user["id"] or 
+                    participation.is_admin
+                )
+                topic_data["can_delete"] = can_delete
+                response_topics.append(TopicResponse(**topic_data))
+            except Exception as topic_err:
+                logger.error(f"Error serializing topic {getattr(topic, 'id', None)}: {topic_err}")
+                continue
         return response_topics
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting room topics: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get topics"
-        )
+        # Instead of raising, return an empty list with a warning
+        return []
 
 @router.get("/{topic_id}", response_model=TopicResponse)
 async def get_topic(
