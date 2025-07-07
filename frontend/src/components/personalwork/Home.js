@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { FaUsers, FaFileAlt, FaComments, FaChartLine, FaClock, FaStar, FaArrowRight } from 'react-icons/fa';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 const Container = styled.div`
   display: flex;
@@ -261,36 +262,31 @@ const EmptyState = styled.div`
 
 const Home = () => {
   const { makeAuthenticatedRequest, user } = useUserContext();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalRooms: 0,
     totalNotes: 0,
-    totalChats: 0,
-    recentActivity: 0
   });
-  const [recentActivities, setRecentActivities] = useState([]);
+  const [userRooms, setUserRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch user stats
-      // const statsResponse = await makeAuthenticatedRequest('/api/v1/users/stats');
-      // const statsData = await statsResponse.json();
-      // setStats(statsData);
-
-      // Fetch recent activities
-      // const activitiesResponse = await makeAuthenticatedRequest('/api/v1/users/recent-activities');
-      // const activitiesData = await activitiesResponse.json();
-      // setRecentActivities(activitiesData.activities || []);
+      // Fetch user's rooms
+      const roomsRes = await makeAuthenticatedRequest('/rooms/my-rooms');
+      let rooms = [];
+      if (roomsRes.ok) {
+        rooms = await roomsRes.json();
+      }
+      setUserRooms(rooms);
+      setStats(prev => ({
+        ...prev,
+        totalRooms: rooms.length,
+      }));
+      // Optionally fetch notes count if needed
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      // Set default stats if API fails
-      setStats({
-        totalRooms: 0,
-        totalNotes: 0,
-        totalChats: 0,
-        recentActivity: 0
-      });
-      setRecentActivities([]);
+      setStats({ totalRooms: 0, totalNotes: 0 });
+      setUserRooms([]);
     } finally {
       setLoading(false);
     }
@@ -391,12 +387,11 @@ const Home = () => {
             </StatIcon>
             <StatContent>
               <StatTitle>Study Rooms</StatTitle>
-              <StatValue>Active rooms</StatValue>
+              <StatValue>Rooms you're a part of</StatValue>
             </StatContent>
           </StatHeader>
           <StatNumber>{stats.totalRooms || 0}</StatNumber>
         </StatCard>
-
         <StatCard>
           <StatHeader>
             <StatIcon type="notes">
@@ -409,120 +404,117 @@ const Home = () => {
           </StatHeader>
           <StatNumber>{stats.totalNotes || 0}</StatNumber>
         </StatCard>
-
-        <StatCard>
-          <StatHeader>
-            <StatIcon type="chats">
-              <FaComments />
-            </StatIcon>
-            <StatContent>
-              <StatTitle>Chat Messages</StatTitle>
-              <StatValue>Total messages</StatValue>
-            </StatContent>
-          </StatHeader>
-          <StatNumber>{stats.totalChats || 0}</StatNumber>
-        </StatCard>
-
         <StatCard>
           <StatHeader>
             <StatIcon type="activity">
-              <FaChartLine />
+              <FaStar />
             </StatIcon>
             <StatContent>
-              <StatTitle>Activity</StatTitle>
-              <StatValue>This week</StatValue>
+              <StatTitle>Motivation</StatTitle>
+              <StatValue>Keep up the great work!</StatValue>
             </StatContent>
           </StatHeader>
-          <StatNumber>{stats.recentActivity || 0}</StatNumber>
+          <div style={{marginTop: 16}}>
+            <div style={{fontWeight:600, color:'#2563eb', fontSize:'1.1rem'}}>You're making progress!</div>
+            <div style={{background:'#e0e7ef', borderRadius:8, height:10, marginTop:8, width:'100%'}}>
+              <div style={{width: `${Math.min(100, stats.totalRooms * 10)}%`, background:'#2563eb', height:10, borderRadius:8, transition:'width 0.5s'}}></div>
+            </div>
+          </div>
         </StatCard>
       </StatsGrid>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+        {/* Your Rooms Section */}
         <Section>
           <SectionTitle>
-            <FaClock />
-            Recent Activity
+            <FaUsers />
+            Your Rooms
           </SectionTitle>
-          
-          {recentActivities.length === 0 ? (
+          {userRooms.length === 0 ? (
             <EmptyState>
-              <FaClock size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
-              <p>No recent activity</p>
+              <FaUsers size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
+              <p>You're not a member of any rooms yet.</p>
             </EmptyState>
           ) : (
-            <RecentActivity>
-              {recentActivities.slice(0, 5).map((activity, index) => (
-                <ActivityItem key={index}>
-                  <ActivityIcon type={getActivityType(activity.type)}>
-                    {getActivityIcon(activity.type)}
-                  </ActivityIcon>
-                  <ActivityContent>
-                    <ActivityTitle>{activity.description}</ActivityTitle>
-                    <ActivityTime>{formatDate(activity.timestamp)}</ActivityTime>
-                  </ActivityContent>
-                </ActivityItem>
+            <div style={{display:'flex', flexDirection:'column', gap:16}}>
+              {userRooms.map(room => (
+                <div key={room.id} style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:'#f8fafc', borderRadius:10, padding:'14px 18px', boxShadow:'0 1px 4px rgba(0,0,0,0.04)'}}>
+                  <div>
+                    <div style={{fontWeight:600, color:'#2563eb', fontSize:'1.05rem'}}>{room.name}</div>
+                    <div style={{fontSize:'0.92rem', color:'#64748b'}}>Room ID: <b>{room.room_id}</b></div>
+                  </div>
+                  <button style={{background:'#2563eb', color:'#fff', border:'none', borderRadius:8, padding:'8px 18px', fontWeight:500, cursor:'pointer'}} onClick={() => navigate('/rooms')}>Enter</button>
+                </div>
               ))}
-            </RecentActivity>
+            </div>
           )}
         </Section>
-
+        {/* Motivation Section */}
         <Section>
           <SectionTitle>
             <FaStar />
-            Quick Actions
+            Motivation
           </SectionTitle>
-          
-          <QuickActions>
-            <ActionCard onClick={() => handleQuickAction('create-room')}>
-              <ActionHeader>
-                <ActionIcon type="create-room">
-                  <FaUsers />
-                </ActionIcon>
-                <ActionTitle>Create Room</ActionTitle>
-              </ActionHeader>
-              <ActionDescription>
-                Start a new study session with your peers
-              </ActionDescription>
-            </ActionCard>
-
-            <ActionCard onClick={() => handleQuickAction('upload-note')}>
-              <ActionHeader>
-                <ActionIcon type="upload-note">
-                  <FaFileAlt />
-                </ActionIcon>
-                <ActionTitle>Upload Note</ActionTitle>
-              </ActionHeader>
-              <ActionDescription>
-                Add a new document to your collection
-              </ActionDescription>
-            </ActionCard>
-
-            <ActionCard onClick={() => handleQuickAction('join-room')}>
-              <ActionHeader>
-                <ActionIcon type="join-room">
-                  <FaUsers />
-                </ActionIcon>
-                <ActionTitle>Join Room</ActionTitle>
-              </ActionHeader>
-              <ActionDescription>
-                Find and join existing study rooms
-              </ActionDescription>
-            </ActionCard>
-
-            <ActionCard onClick={() => handleQuickAction('view-notes')}>
-              <ActionHeader>
-                <ActionIcon type="view-notes">
-                  <FaFileAlt />
-                </ActionIcon>
-                <ActionTitle>View Notes</ActionTitle>
-              </ActionHeader>
-              <ActionDescription>
-                Browse and manage your notes
-              </ActionDescription>
-            </ActionCard>
-          </QuickActions>
+          <div style={{fontSize:'1.1rem', color:'#374151', marginBottom:12}}>
+            "Success is the sum of small efforts, repeated day in and day out."<br/>
+            <span style={{fontSize:'0.95rem', color:'#64748b'}}>— Robert Collier</span>
+          </div>
+          <div style={{marginTop:18, color:'#2563eb', fontWeight:600, fontSize:'1.05rem'}}>Stay consistent and keep collaborating!</div>
         </Section>
       </div>
+      {/* Quick Actions Section remains unchanged */}
+      <Section>
+        <SectionTitle>
+          <FaStar />
+          Quick Actions
+        </SectionTitle>
+        <QuickActions>
+          <ActionCard onClick={() => handleQuickAction('create-room')}>
+            <ActionHeader>
+              <ActionIcon type="create-room">
+                <FaUsers />
+              </ActionIcon>
+              <ActionTitle>Create Room</ActionTitle>
+            </ActionHeader>
+            <ActionDescription>
+              Start a new study session with your peers
+            </ActionDescription>
+          </ActionCard>
+          <ActionCard onClick={() => handleQuickAction('upload-note')}>
+            <ActionHeader>
+              <ActionIcon type="upload-note">
+                <FaFileAlt />
+              </ActionIcon>
+              <ActionTitle>Upload Note</ActionTitle>
+            </ActionHeader>
+            <ActionDescription>
+              Add a new document to your collection
+            </ActionDescription>
+          </ActionCard>
+          <ActionCard onClick={() => handleQuickAction('join-room')}>
+            <ActionHeader>
+              <ActionIcon type="join-room">
+                <FaUsers />
+              </ActionIcon>
+              <ActionTitle>Join Room</ActionTitle>
+            </ActionHeader>
+            <ActionDescription>
+              Find and join existing study rooms
+            </ActionDescription>
+          </ActionCard>
+          <ActionCard onClick={() => handleQuickAction('view-notes')}>
+            <ActionHeader>
+              <ActionIcon type="view-notes">
+                <FaFileAlt />
+              </ActionIcon>
+              <ActionTitle>View Notes</ActionTitle>
+            </ActionHeader>
+            <ActionDescription>
+              Browse and manage your notes
+            </ActionDescription>
+          </ActionCard>
+        </QuickActions>
+      </Section>
     </Container>
   );
 };

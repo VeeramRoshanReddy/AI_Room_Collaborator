@@ -73,6 +73,7 @@ const RoomHeader = styled.div`
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 12px;
+  position: relative; // ensure absolute children are positioned correctly
 `;
 
 const RoomTitle = styled.h3`
@@ -521,7 +522,17 @@ const ThreeDotsIcon = styled.div`
   top: 12px;
   right: 12px;
   cursor: pointer;
-  color: #64748b;
+  color: #222c3a; // darker for visibility
+  font-size: 1.5rem;
+  background: rgba(255,255,255,0.85);
+  border-radius: 50%;
+  padding: 4px;
+  z-index: 10;
+  transition: background 0.2s, box-shadow 0.2s;
+  &:hover {
+    background: #e0e7ef;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
 `;
 
 const DropdownMenu = styled.div`
