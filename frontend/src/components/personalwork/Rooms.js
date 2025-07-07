@@ -1363,6 +1363,9 @@ const Rooms = () => {
   const [revealedPassword, setRevealedPassword] = useState(null);
   const [errorPopup, setErrorPopup] = useState(null);
 
+  // Add state for which room's menu is open
+  const [openRoomMenu, setOpenRoomMenu] = useState(null);
+
   // Helper: check if user is a member of a room
   const isMember = (room) => room.members && room.members.some(m => m.id === user?.id);
 
@@ -1384,6 +1387,17 @@ const Rooms = () => {
       setErrorPopup(err.message || 'Error revealing password');
     }
   };
+
+  // Add a useEffect to close the dropdown when clicking outside
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (openRoomMenu !== null) setOpenRoomMenu(null);
+    };
+    if (openRoomMenu !== null) {
+      window.addEventListener('click', handleClick);
+      return () => window.removeEventListener('click', handleClick);
+    }
+  }, [openRoomMenu]);
 
   // Main render
   if (!isAuthenticated) {
@@ -1585,43 +1599,65 @@ const Rooms = () => {
         </EmptyState>
       ) : (
         <RoomsGrid>
-          {rooms.map((room) => (
-            <RoomCard key={room.id}>
-              <RoomHeader>
-                <RoomTitle>{room.name}</RoomTitle>
-                <RoomStatus isPrivate={room.is_private}>
-                  {room.is_private ? <FaLock /> : <FaUnlock />}
-                  {room.is_private ? 'Private' : 'Public'}
-                </RoomStatus>
-                {/* Admin 3-dot menu for password reveal */}
-                {isAdmin(room) && (
-                  <ThreeDotsIcon onClick={() => handleRevealPassword(room)} title="Show Room Password">
-                    <FaEllipsisV />
-                  </ThreeDotsIcon>
-                )}
-              </RoomHeader>
-              <div style={{fontSize:'0.95rem',color:'#2563eb',marginBottom:4}}>
-                Room ID: <b>{room.room_id}</b>
-              </div>
-              <RoomDescription>
-                {room.description || 'No description available'}
-              </RoomDescription>
-              <RoomStats>
-                <MemberCount>
-                  <FaUsers />
-                  {room.participant_count || 0} members
-                </MemberCount>
-                <RoomActions>
-                  {isMember(room) ? (
-                    <ActionButton className="join" onClick={() => handleEnterRoom(room)}>
-                      <FaSignInAlt />
-                      Enter
-                    </ActionButton>
-                  ) : null}
-                </RoomActions>
-              </RoomStats>
-            </RoomCard>
-          ))}
+          {rooms.map((room) => {
+            const userIsAdmin = isAdmin(room);
+            const userIsMember = isMember(room);
+            const adminCount = room.admins ? room.admins.length : 0;
+            return (
+              <RoomCard key={room.id} style={{position:'relative'}}>
+                <RoomHeader>
+                  <RoomTitle>{room.name}</RoomTitle>
+                  <RoomStatus isPrivate={room.is_private}>
+                    {room.is_private ? <FaLock /> : <FaUnlock />}
+                    {room.is_private ? 'Private' : 'Public'}
+                  </RoomStatus>
+                  {/* 3-dot menu for all members */}
+                  {userIsMember && (
+                    <div style={{position:'relative'}}>
+                      <ThreeDotsIcon onClick={e => { e.stopPropagation(); setOpenRoomMenu(openRoomMenu === room.id ? null : room.id); }} title="Room Actions">
+                        <FaEllipsisV />
+                      </ThreeDotsIcon>
+                      {openRoomMenu === room.id && (
+                        <DropdownMenu style={{right:0, top:32, zIndex:20}}>
+                          {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleRevealPassword(room); }}>Reveal Password</DropdownMenuItem>}
+                          {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleDeleteRoom(room.id); }} style={{color:'#ef4444'}}>Delete Room</DropdownMenuItem>}
+                          <DropdownMenuItem onClick={() => {
+                            setOpenRoomMenu(null);
+                            // Admin leave constraint
+                            if (userIsAdmin && adminCount === 1) {
+                              setAdminLeavePrompt(true);
+                            } else {
+                              handleLeaveRoom(room.id);
+                            }
+                          }} style={{color:'#ef4444'}}>Leave Room</DropdownMenuItem>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  )}
+                </RoomHeader>
+                <div style={{fontSize:'0.95rem',color:'#2563eb',marginBottom:4}}>
+                  Room ID: <b>{room.room_id}</b>
+                </div>
+                <RoomDescription>
+                  {room.description || 'No description available'}
+                </RoomDescription>
+                <RoomStats>
+                  <MemberCount>
+                    <FaUsers />
+                    {room.participant_count || 0} members
+                  </MemberCount>
+                  <RoomActions>
+                    {userIsMember ? (
+                      <ActionButton className="join" onClick={() => handleEnterRoom(room)}>
+                        <FaSignInAlt />
+                        Enter
+                      </ActionButton>
+                    ) : null}
+                  </RoomActions>
+                </RoomStats>
+              </RoomCard>
+            );
+          })}
         </RoomsGrid>
       )}
 
