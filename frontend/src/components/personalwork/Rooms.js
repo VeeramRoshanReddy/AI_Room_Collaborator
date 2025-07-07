@@ -1623,23 +1623,24 @@ const Rooms = () => {
             const userIsMember = isMember(room);
             const adminCount = room.admins ? room.admins.length : 0;
             return (
-              <RoomCard key={room.id} style={{position:'relative'}}>
+              <RoomCard
+                key={room.id}
+                style={{position:'relative', cursor: userIsMember ? 'pointer' : 'not-allowed', opacity: userIsMember ? 1 : 0.7}}
+                onClick={userIsMember ? () => handleEnterRoom(room) : undefined}
+                tabIndex={0}
+                aria-disabled={!userIsMember}
+              >
                 <RoomHeader>
                   <RoomTitle>{room.name}</RoomTitle>
-                  <RoomStatus isPrivate={room.is_private}>
-                    {room.is_private ? <FaLock /> : <FaUnlock />}
-                    {room.is_private ? 'Private' : 'Public'}
-                  </RoomStatus>
-                  {/* 3-dot menu only for members */}
+                  {/* 3-dot menu always visible for members/admins, top right */}
                   {userIsMember && (
-                    <div style={{position:'relative'}}>
-                      <ThreeDotsIcon onClick={e => { e.stopPropagation(); setOpenRoomMenu(openRoomMenu === room.id ? null : room.id); }} title="Room Actions">
+                    <div style={{position:'absolute', top: 18, right: 18, zIndex: 20}} onClick={e => e.stopPropagation()}>
+                      <ThreeDotsIcon onClick={() => setOpenRoomMenu(openRoomMenu === room.id ? null : room.id)} title="Room Actions">
                         <FaEllipsisV />
                       </ThreeDotsIcon>
                       {openRoomMenu === room.id && (
                         <DropdownMenu style={{right:0, top:32, zIndex:20}}>
                           {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleRevealPassword(room); }}>Reveal Password</DropdownMenuItem>}
-                          {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleDeleteRoom(room.id); }} style={{color:'#ef4444'}}>Delete Room</DropdownMenuItem>}
                           <DropdownMenuItem onClick={() => {
                             setOpenRoomMenu(null);
                             // Admin leave constraint
@@ -1649,6 +1650,7 @@ const Rooms = () => {
                               handleLeaveRoom(room.id);
                             }
                           }} style={{color:'#ef4444'}}>Leave Room</DropdownMenuItem>
+                          {userIsAdmin && <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleDeleteRoom(room.id); }} style={{color:'#ef4444'}}>Delete Room</DropdownMenuItem>}
                         </DropdownMenu>
                       )}
                     </div>
@@ -1665,20 +1667,7 @@ const Rooms = () => {
                     <FaUsers />
                     {room.participant_count || 0} members
                   </MemberCount>
-                  <RoomActions>
-                    {userIsMember ? (
-                      <ActionButton className="join" onClick={() => handleEnterRoom(room)}>
-                        <FaSignInAlt />
-                        Enter
-                      </ActionButton>
-                    ) : null}
-                  </RoomActions>
                 </RoomStats>
-                {!userIsMember && (
-                  <div style={{color:'#ef4444', fontSize:'0.95rem', marginTop:8}}>
-                    (You are not detected as a member of this room. If this is incorrect, please refresh or contact support.)
-                  </div>
-                )}
               </RoomCard>
             );
           })}
