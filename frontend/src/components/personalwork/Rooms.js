@@ -1379,8 +1379,14 @@ const Rooms = () => {
   // Add state for which room's menu is open
   const [openRoomMenu, setOpenRoomMenu] = useState(null);
 
-  // Helper: check if user is a member of a room
-  const isMember = (room) => room.members && room.members.some(m => m.id === user?.id);
+  // Helper: check if user is a member of a room (robust)
+  const isMember = (room) => {
+    if (!room.members || !user) return false;
+    return room.members.some(m =>
+      String(m.id) === String(user.id) ||
+      (m.email && m.email === user.email)
+    );
+  };
 
   // Helper: fetch and show password for admin
   const handleRevealPassword = async (room) => {
@@ -1624,7 +1630,7 @@ const Rooms = () => {
                     {room.is_private ? <FaLock /> : <FaUnlock />}
                     {room.is_private ? 'Private' : 'Public'}
                   </RoomStatus>
-                  {/* 3-dot menu for all members */}
+                  {/* 3-dot menu only for members */}
                   {userIsMember && (
                     <div style={{position:'relative'}}>
                       <ThreeDotsIcon onClick={e => { e.stopPropagation(); setOpenRoomMenu(openRoomMenu === room.id ? null : room.id); }} title="Room Actions">
@@ -1668,6 +1674,11 @@ const Rooms = () => {
                     ) : null}
                   </RoomActions>
                 </RoomStats>
+                {!userIsMember && (
+                  <div style={{color:'#ef4444', fontSize:'0.95rem', marginTop:8}}>
+                    (You are not detected as a member of this room. If this is incorrect, please refresh or contact support.)
+                  </div>
+                )}
               </RoomCard>
             );
           })}
