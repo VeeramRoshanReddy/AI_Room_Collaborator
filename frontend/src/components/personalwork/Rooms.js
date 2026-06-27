@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { FaPlus, FaSignInAlt, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes, FaLock, FaUsers, FaSignOutAlt } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
 import { buildWsUrl, formatTopicDate } from '../../utils/api';
@@ -160,53 +159,6 @@ const ActionButton = styled.button`
   }
 `;
 
-const Modal = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-`;
-
-const ModalTitle = styled.h3`
-  color: #1e293b;
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin: 0 0 20px 0;
-`;
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-`;
-
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`;
-
-const Label = styled.label`
-  color: #374151;
-  font-weight: 500;
-  font-size: 0.9rem;
-`;
-
 const Input = styled.input`
   padding: 10px 12px;
   border: 1px solid #d1d5db;
@@ -229,58 +181,6 @@ const TextArea = styled.textarea`
     outline: none;
     border-color: #2563eb;
   }
-`;
-
-const CheckboxGroup = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const Checkbox = styled.input`
-  width: 16px;
-  height: 16px;
-`;
-
-const ModalActions = styled.div`
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 20px;
-`;
-
-const Button = styled.button`
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  
-  &.primary {
-    background: #2563eb;
-    color: white;
-    &:hover {
-      background: #1d4ed8;
-    }
-  }
-  
-  &.secondary {
-    background: #6b7280;
-    color: white;
-    &:hover {
-      background: #4b5563;
-    }
-  }
-`;
-
-const LoadingSpinner = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 200px;
-  color: #2563eb;
-  font-size: 1.1rem;
 `;
 
 const EmptyState = styled.div`
@@ -621,7 +521,6 @@ const FormButton = styled.button`
 
 const Rooms = () => {
   const { user, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
-  const navigate = useNavigate();
   const [view, setView] = useState('rooms'); // rooms | topics | chat
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [selectedTopic, setSelectedTopic] = useState(null);
@@ -631,22 +530,17 @@ const Rooms = () => {
   const [loading, setLoading] = useState(true);
   const [roomLoading, setRoomLoading] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // Chat state
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, text: 'Welcome to the topic group chat!', isUser: false }
-  ]);
   const [chatInput, setChatInput] = useState('');
   const [showParticipants, setShowParticipants] = useState(true);
   const [memberAction, setMemberAction] = useState({ show: false, user: null, anchor: null });
   const [newTopicTitle, setNewTopicTitle] = useState('');
   const [newTopicDesc, setNewTopicDesc] = useState('');
-  const [showRoomMenu, setShowRoomMenu] = useState(null);
   const [showTopicMenu, setShowTopicMenu] = useState(null);
   const [showCreateTopicForm, setShowCreateTopicForm] = useState(false);
   const [showAuthError, setShowAuthError] = useState(false);
   const [adminLeavePrompt, setAdminLeavePrompt] = useState(false);
-  const [leavingRoomId, setLeavingRoomId] = useState(null);
   const [roomChatMessages, setRoomChatMessages] = useState({});
   const [newRoomName, setNewRoomName] = useState('');
   const [joinRoomId, setJoinRoomId] = useState('');
@@ -1101,7 +995,7 @@ const Rooms = () => {
       
       setSelectedRoom(null);
       setView('rooms');
-      setShowRoomMenu(null);
+      setOpenRoomMenu(null);
       await fetchRooms(setRooms, setLoading, setError);
       toast.success('Successfully left room');
       
@@ -1135,7 +1029,7 @@ const Rooms = () => {
       
       setSelectedRoom(null);
       setView('rooms');
-      setShowRoomMenu(null);
+      setOpenRoomMenu(null);
       await fetchRooms(setRooms, setLoading, setError);
       toast.success('Room deleted successfully');
       
