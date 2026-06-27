@@ -4,10 +4,12 @@ uvicorn[standard]
 python-multipart
 
 # Authentication and security
+# bcrypt is pinned below 4.1 because passlib 1.7.4's version-sniffing code
+# reads bcrypt.__about__.__version__, which bcrypt removed in 4.1+.
 python-jose[cryptography]
 passlib[bcrypt]
 cryptography
-bcrypt
+bcrypt<4.1.0
 
 # Configuration and utilities
 python-dotenv
