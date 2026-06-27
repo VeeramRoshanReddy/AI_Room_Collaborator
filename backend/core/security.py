@@ -37,28 +37,4 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password against hash"""
-    return pwd_context.verify(plain_password, hashed_password)
-
-# Middleware for logging requests
-class LoggingMiddleware:
-    def __init__(self, app):
-        self.app = app
-    
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http":
-            start_time = datetime.utcnow()
-            
-            async def send_wrapper(message):
-                if message["type"] == "http.response.end":
-                    end_time = datetime.utcnow()
-                    duration = (end_time - start_time).total_seconds()
-                    logger.info(
-                        f"{scope['method']} {scope['path']} - "
-                        f"Status: {message.get('status', 'N/A')} - "
-                        f"Duration: {duration:.3f}s"
-                    )
-                await send(message)
-            
-            await self.app(scope, receive, send_wrapper)
-        else:
-            await self.app(scope, receive, send) 
+    return pwd_context.verify(plain_password, hashed_password) 

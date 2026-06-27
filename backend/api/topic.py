@@ -7,10 +7,15 @@ from core.database import get_db
 from middleware.auth_middleware import get_current_user
 from models.postgresql.topic import Topic
 from models.postgresql.room import Room, RoomParticipant
-from models.postgresql.user import User
+from models.postgresql.user import User as PGUser
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/topics", tags=["Topics"])
+
+
+def _user_id(current_user: PGUser) -> str:
+    """get_current_user always returns a PGUser object, never a dict."""
+    return current_user.id
 
 # Pydantic models
 class TopicCreate(BaseModel):
@@ -34,15 +39,16 @@ class TopicResponse(BaseModel):
 @router.post("/create", response_model=TopicResponse)
 async def create_topic(
     topic_data: TopicCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new topic in a room"""
     try:
+        user_id = _user_id(current_user)
         # Check if user is a participant in the room
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == topic_data.room_id,
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == user_id
         ).first()
         
         if not participation:
@@ -68,7 +74,7 @@ async def create_topic(
             title=topic_data.title,
             description=topic_data.description,
             room_id=topic_data.room_id,
-            created_by_user_id=current_user["id"]
+            created_by_user_id=user_id
         )
         
         db.add(new_topic)
@@ -94,15 +100,16 @@ async def create_topic(
 @router.get("/room/{room_id}", response_model=List[TopicResponse])
 async def get_room_topics(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all topics in a room"""
     try:
+        user_id = _user_id(current_user)
         # Check if user is a participant in the room
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == user_id
         ).first()
         
         if not participation:
@@ -124,7 +131,7 @@ async def get_room_topics(
                 topic_data = topic.to_dict()
                 # Check if user can delete this topic (creator or admin)
                 can_delete = (
-                    topic.created_by_user_id == current_user["id"] or 
+                    topic.created_by_user_id == user_id or 
                     participation.is_admin
                 )
                 topic_data["can_delete"] = can_delete
@@ -144,11 +151,12 @@ async def get_room_topics(
 @router.get("/{topic_id}", response_model=TopicResponse)
 async def get_topic(
     topic_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get a specific topic"""
     try:
+        user_id = _user_id(current_user)
         # Get topic
         topic = db.query(Topic).filter(
             Topic.id == topic_id,
@@ -164,7 +172,7 @@ async def get_topic(
         # Check if user is a participant in the room
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == topic.room_id,
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == user_id
         ).first()
         
         if not participation:
@@ -176,7 +184,7 @@ async def get_topic(
         # Prepare response with delete permissions
         topic_data = topic.to_dict()
         can_delete = (
-            topic.created_by_user_id == current_user["id"] or 
+            topic.created_by_user_id == user_id or 
             participation.is_admin
         )
         topic_data["can_delete"] = can_delete
@@ -195,11 +203,12 @@ async def get_topic(
 @router.delete("/{topic_id}")
 async def delete_topic(
     topic_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete a topic (only topic creator or room admin can do this)"""
     try:
+        user_id = _user_id(current_user)
         # Get topic
         topic = db.query(Topic).filter(
             Topic.id == topic_id,
@@ -215,7 +224,7 @@ async def delete_topic(
         # Check if user is a participant in the room
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == topic.room_id,
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == user_id
         ).first()
         
         if not participation:
@@ -226,7 +235,7 @@ async def delete_topic(
         
         # Check if user can delete (creator or admin)
         can_delete = (
-            topic.created_by_user_id == current_user["id"] or 
+            topic.created_by_user_id == user_id or 
             participation.is_admin
         )
         
@@ -255,11 +264,12 @@ async def delete_topic(
 @router.get("/{topic_id}/encryption-key")
 async def get_topic_encryption_key(
     topic_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get topic encryption key for WebSocket chat (only room participants)"""
     try:
+        user_id = _user_id(current_user)
         # Get topic
         topic = db.query(Topic).filter(
             Topic.id == topic_id,
@@ -275,7 +285,7 @@ async def get_topic_encryption_key(
         # Check if user is a participant in the room
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == topic.room_id,
-            RoomParticipant.user_id == current_user["id"]
+            RoomParticipant.user_id == user_id
         ).first()
         
         if not participation:

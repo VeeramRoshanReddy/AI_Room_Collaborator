@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaUsers, FaFileAlt, FaComments, FaChartLine, FaClock, FaStar, FaArrowRight } from 'react-icons/fa';
+import { FaUsers, FaFileAlt, FaComments, FaClock, FaStar } from 'react-icons/fa';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
+import Spinner from '../common/Spinner';
 
 const Container = styled.div`
   display: flex;
@@ -243,21 +244,13 @@ const ActionDescription = styled.p`
 
 const LoadingSpinner = styled.div`
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: 12px;
   height: 200px;
   color: #2563eb;
   font-size: 1.1rem;
-`;
-
-const EmptyState = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  color: #64748b;
-  text-align: center;
 `;
 
 const Home = () => {
@@ -267,26 +260,28 @@ const Home = () => {
     totalRooms: 0,
     totalNotes: 0,
   });
-  const [userRooms, setUserRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch user's rooms
       const roomsRes = await makeAuthenticatedRequest('/rooms/my-rooms');
-      let rooms = [];
-      if (roomsRes.ok) {
-        rooms = await roomsRes.json();
+      const rooms = await roomsRes.json();
+
+      let notesCount = 0;
+      try {
+        const notesRes = await makeAuthenticatedRequest('/notes/my-notes');
+        const notes = await notesRes.json();
+        notesCount = Array.isArray(notes) ? notes.length : (notes.notes?.length || 0);
+      } catch {
+        notesCount = 0;
       }
-      setUserRooms(rooms);
-      setStats(prev => ({
-        ...prev,
-        totalRooms: rooms.length,
-      }));
-      // Optionally fetch notes count if needed
-    } catch (error) {
+
+      setStats({
+        totalRooms: Array.isArray(rooms) ? rooms.length : 0,
+        totalNotes: notesCount,
+      });
+    } catch {
       setStats({ totalRooms: 0, totalNotes: 0 });
-      setUserRooms([]);
     } finally {
       setLoading(false);
     }
@@ -299,16 +294,12 @@ const Home = () => {
   const handleQuickAction = (action) => {
     switch (action) {
       case 'create-room':
-        window.location.href = '/rooms';
+      case 'join-room':
+        navigate('/rooms');
         break;
       case 'upload-note':
-        window.location.href = '/personal-work';
-        break;
-      case 'join-room':
-        window.location.href = '/rooms';
-        break;
       case 'view-notes':
-        window.location.href = '/notes';
+        navigate('/personalwork');
         break;
       default:
         break;
@@ -365,7 +356,10 @@ const Home = () => {
   if (loading) {
     return (
       <Container>
-        <LoadingSpinner>Loading dashboard...</LoadingSpinner>
+        <LoadingSpinner>
+          <Spinner />
+          Loading dashboard...
+        </LoadingSpinner>
       </Container>
     );
   }

@@ -1,23 +1,23 @@
-from fastapi import WebSocket, WebSocketDisconnect, HTTPException, Depends
-from typing import Dict, List, Optional
+from fastapi import WebSocket, WebSocketDisconnect
+from typing import Dict
 import json
 import logging
 from datetime import datetime
-from core.database import get_mongo_db
+from core.database import get_mongo_db, SessionLocal
 from models.mongodb.chat_log import ChatLog, ChatMessage
-from services.encryption_service import EncryptionService
+from models.postgresql.room import RoomParticipant
+from services.encryption_service import encryption_service
 from middleware.websocket_auth import get_user_from_token
-import asyncio
 
 logger = logging.getLogger(__name__)
 
 class ConnectionManager:
     """Manages WebSocket connections for real-time chat"""
-    
+
     def __init__(self):
         # Store active connections by room_id -> topic_id -> user_id -> WebSocket
         self.active_connections: Dict[str, Dict[str, Dict[str, WebSocket]]] = {}
-        self.encryption_service = EncryptionService()
+        self.encryption_service = encryption_service
     
     async def connect(self, websocket: WebSocket, room_id: str, topic_id: str, user_id: str):
         """Connect a user to a specific topic in a room"""
@@ -304,7 +304,7 @@ class ChatWebSocket:
     async def save_message_to_db(self, chat_message: ChatMessage):
         """Save message to MongoDB"""
         try:
-            if not self.mongo_db:
+            if self.mongo_db is None:
                 logger.error("MongoDB connection not available")
                 return
                 
@@ -375,7 +375,7 @@ class ChatWebSocket:
     async def load_chat_history(self, limit: int = 50):
         """Load recent chat history"""
         try:
-            if not self.mongo_db:
+            if self.mongo_db is None:
                 logger.error("MongoDB connection not available")
                 return
                 
@@ -400,13 +400,14 @@ class ChatWebSocket:
                         # Keep encrypted content if decryption fails
                         decrypted_messages.append(msg)
                 
-                # Send history to client
+                # Send history to client (default=str handles the datetime
+                # objects Motor returns for each message's timestamp field)
                 history_data = {
                     "type": "chat_history",
                     "messages": decrypted_messages,
                     "timestamp": datetime.utcnow().isoformat()
                 }
-                await self.websocket.send_text(json.dumps(history_data))
+                await self.websocket.send_text(json.dumps(history_data, default=str))
                 
         except Exception as e:
             logger.error(f"Error loading chat history: {e}")
@@ -424,7 +425,20 @@ async def websocket_endpoint(
         if not user:
             await websocket.close(code=4001, reason="Authentication failed")
             return
-        
+
+        # Authorize: only room participants may join this room's chat
+        db = SessionLocal()
+        try:
+            is_member = db.query(RoomParticipant).filter(
+                RoomParticipant.room_id == room_id,
+                RoomParticipant.user_id == user["id"]
+            ).first() is not None
+        finally:
+            db.close()
+        if not is_member:
+            await websocket.close(code=4003, reason="Not a member of this room")
+            return
+
         # Connect to the chat
         chat_ws = ChatWebSocket(websocket, room_id, topic_id, user["id"])
         await manager.connect(websocket, room_id, topic_id, user["id"])

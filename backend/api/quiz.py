@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from core.database import get_db, get_mongo_db
 from middleware.auth_middleware import get_current_user
 from models.postgresql.note import Note
-from models.mongodb.ai_response import QuizResponse, QuizQuestion
+from models.postgresql.user import User as PGUser
 from services.ai_service import ai_service
 from datetime import datetime
 
@@ -45,7 +45,7 @@ class QuizResult(BaseModel):
 @router.post("/generate", response_model=QuizResponse)
 async def generate_quiz(
     request: QuizGenerateRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Generate a quiz from a note's content"""
@@ -53,22 +53,22 @@ async def generate_quiz(
         # Check if note exists and user owns it
         note = db.query(Note).filter(
             Note.id == request.note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == current_user.id,
             Note.is_active == True
         ).first()
-        
+
         if not note:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Note not found or access denied"
             )
-        
+
         if not note.has_file_uploaded():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Note must have an uploaded file to generate quiz"
             )
-        
+
         # Get document content for quiz generation
         document_content = note.content or ""
         if not document_content:
@@ -76,47 +76,49 @@ async def generate_quiz(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Note must have content to generate quiz"
             )
-        
+
         # Generate quiz questions using AI service
         questions = await ai_service.generate_quiz_questions(
             document_content=document_content,
             num_questions=request.num_questions,
             difficulty=request.difficulty
         )
-        
+
         if not questions:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to generate quiz questions"
             )
-        
-        # Store quiz in MongoDB
+
+        # Store quiz as a plain dict first (the QuizResponse model requires id/created_at,
+        # which only exist once Mongo assigns them), then build the typed response.
         mongo_db = get_mongo_db()
-        quiz_data = QuizResponse(
-            note_id=request.note_id,
-            user_id=current_user["id"],
-            questions=questions,
-            total_questions=len(questions),
-            difficulty=request.difficulty
-        )
-        
-        result = await mongo_db.quiz_responses.insert_one(quiz_data.dict())
-        quiz_data.id = str(result.inserted_id)
-        
+        created_at = datetime.utcnow()
+        quiz_doc = {
+            "note_id": request.note_id,
+            "user_id": current_user.id,
+            "questions": questions,
+            "total_questions": len(questions),
+            "difficulty": request.difficulty,
+            "created_at": created_at,
+        }
+
+        result = await mongo_db.quiz_responses.insert_one(quiz_doc)
+
         # Update note to mark quiz as generated
         note.quiz_generated = True
         db.commit()
-        
+
         return QuizResponse(
-            id=quiz_data.id,
-            note_id=quiz_data.note_id,
-            user_id=quiz_data.user_id,
-            questions=quiz_data.questions,
-            total_questions=quiz_data.total_questions,
-            difficulty=quiz_data.difficulty,
-            created_at=quiz_data.created_at.isoformat()
+            id=str(result.inserted_id),
+            note_id=request.note_id,
+            user_id=current_user.id,
+            questions=questions,
+            total_questions=len(questions),
+            difficulty=request.difficulty,
+            created_at=created_at.isoformat()
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -130,7 +132,7 @@ async def generate_quiz(
 @router.get("/note/{note_id}", response_model=List[QuizResponse])
 async def get_note_quizzes(
     note_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all quizzes for a specific note"""
@@ -138,7 +140,7 @@ async def get_note_quizzes(
         # Check if note exists and user owns it
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == current_user.id,
             Note.is_active == True
         ).first()
         
@@ -152,7 +154,7 @@ async def get_note_quizzes(
         mongo_db = get_mongo_db()
         quizzes = await mongo_db.quiz_responses.find({
             "note_id": note_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         }).sort("created_at", -1).to_list(length=50)
         
         return [
@@ -180,14 +182,14 @@ async def get_note_quizzes(
 @router.get("/{quiz_id}", response_model=QuizResponse)
 async def get_quiz(
     quiz_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     mongo_db = Depends(get_mongo_db)
 ):
     """Get a specific quiz by ID"""
     try:
         quiz = await mongo_db.quiz_responses.find_one({
             "_id": quiz_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         })
         
         if not quiz:
@@ -219,7 +221,7 @@ async def get_quiz(
 async def submit_quiz(
     quiz_id: str,
     submission: QuizSubmission,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     mongo_db = Depends(get_mongo_db)
 ):
     """Submit quiz answers and get results"""
@@ -227,7 +229,7 @@ async def submit_quiz(
         # Get quiz
         quiz = await mongo_db.quiz_responses.find_one({
             "_id": quiz_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         })
         
         if not quiz:
@@ -282,14 +284,14 @@ async def submit_quiz(
 @router.delete("/{quiz_id}")
 async def delete_quiz(
     quiz_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     mongo_db = Depends(get_mongo_db)
 ):
     """Delete a quiz"""
     try:
         result = await mongo_db.quiz_responses.delete_one({
             "_id": quiz_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         })
         
         if result.deleted_count == 0:

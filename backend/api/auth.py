@@ -12,6 +12,7 @@ from core.database import get_db
 from core.config import settings
 from core.security import create_access_token, verify_token, hash_password, verify_password
 from models.postgresql.user import User
+from middleware.auth_middleware import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -25,10 +26,27 @@ class UserSignup(BaseModel):
     name: str
     email: EmailStr
     password: str
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "John Doe",
+                "email": "john@example.com",
+                "password": "securepassword123"
+            }
+        }
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "email": "john@example.com",
+                "password": "securepassword123"
+            }
+        }
 
 class AuthResponse(BaseModel):
     access_token: str
@@ -43,6 +61,13 @@ class TokenResponse(BaseModel):
 async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
     """Sign up a new user with email and password"""
     try:
+        # Validate password strength
+        if len(user_data.password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long"
+            )
+        
         # Check if user already exists
         existing_user = db.query(User).filter(User.email == user_data.email).first()
         if existing_user:
@@ -72,6 +97,8 @@ async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
             user=new_user.to_dict()
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in signup: {e}")
         db.rollback()
@@ -124,51 +151,9 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
         )
 
 @router.get("/me", response_model=dict)
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    """Get current authenticated user"""
-    try:
-        # Verify token
-        payload = verify_token(credentials.credentials)
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
-            )
-        
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload"
-            )
-        
-        # Get user from database
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found"
-            )
-        
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Account is deactivated"
-            )
-        
-        return user.to_dict()
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting current user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication failed"
-        )
+async def get_user_profile(current_user: User = Depends(get_current_user)):
+    """Get current authenticated user profile"""
+    return current_user.to_dict()
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(

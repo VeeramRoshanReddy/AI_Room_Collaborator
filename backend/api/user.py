@@ -86,7 +86,7 @@ def list_all_users(
 
 @router.put("/admin/users/{user_id}/status")
 def update_user_status(
-    user_id: int,
+    user_id: str,
     status_data: dict,
     admin_user: PGUser = Depends(verify_admin_user),
     db: Session = Depends(get_db)

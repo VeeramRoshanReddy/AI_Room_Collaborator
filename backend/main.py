@@ -20,7 +20,6 @@ from api import auth, user, room, topic, notes, chat, quiz, audio
 from core.config import settings
 from core.database import init_db, connect_to_mongo, close_mongo_connection
 from core.websocket import websocket_endpoint
-from core.security import LoggingMiddleware
 
 # Configure logging for production
 logging.basicConfig(
@@ -29,7 +28,7 @@ logging.basicConfig(
     handlers=[
         logging.StreamHandler(),
         # Add file handler for production
-        # logging.FileHandler('/var/log/airoom/app.log')
+        # logging.FileHandler('/var/log/studybuddy/app.log')
     ]
 )
 logger = logging.getLogger(__name__)
@@ -38,7 +37,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
-    logger.info("Starting AI Room Collaborator application...")
+    logger.info("Starting StudyBuddy application...")
     
     try:
         # Initialize database
@@ -67,16 +66,16 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
-    description="AI Room Collaborator - A comprehensive platform for collaborative learning with AI-powered features",
-    version="1.0.0",
+    description=settings.DESCRIPTION,
+    version=settings.VERSION,
     debug=settings.DEBUG,
     lifespan=lifespan
 )
 
-# CORS middleware - allow all origins
+# CORS middleware - explicit origin allowlist (required since credentials are allowed)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -88,9 +87,6 @@ if not settings.DEBUG:
         TrustedHostMiddleware,
         allowed_hosts=settings.ALLOWED_HOSTS
     )
-
-# Add logging middleware
-app.add_middleware(LoggingMiddleware)
 
 # Request logging and monitoring middleware
 @app.middleware("http")
@@ -182,7 +178,7 @@ async def websocket_endpoint_route(
 async def root():
     """Root endpoint with API information"""
     return {
-        "message": "AI Room Collaborator API",
+        "message": "StudyBuddy API",
         "version": "1.0.0",
         "description": "A comprehensive platform for collaborative learning with AI-powered features",
         "endpoints": {

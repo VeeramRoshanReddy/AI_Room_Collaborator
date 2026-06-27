@@ -1,30 +1,34 @@
 import openai
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from core.config import settings
 import logging
-import time
-from models.mongodb.ai_response import AIResponse, QuizQuestion, QuizResponse, AudioResponse
-from services.encryption_service import encryption_service
 import json
 import re
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# Configure OpenAI
-client = openai.OpenAI(api_key=settings.OPENAI_KEY)
-
 class AIService:
     def __init__(self):
-        self.client = openai.OpenAI(api_key=settings.OPENAI_KEY)
+        if not settings.OPENAI_KEY:
+            logger.warning("OpenAI API key not configured")
+            self.client = None
+        else:
+            self.client = openai.OpenAI(api_key=settings.OPENAI_KEY)
         self.model = settings.OPENAI_MODEL
         self.max_tokens = settings.OPENAI_MAX_TOKENS
         self.temperature = settings.OPENAI_TEMPERATURE
     
+    def _check_configured(self):
+        """Check if AI service is properly configured"""
+        if not self.client or not settings.OPENAI_KEY:
+            logger.error("AI service is not configured")
+            return False
+        return True
+    
     async def get_chatbot_response(self, question: str, context: str = "", chat_history: List[Dict] = None) -> str:
         """Get AI chatbot response for a question"""
         try:
-            if not settings.OPENAI_KEY:
+            if not self._check_configured():
                 return "AI service is not configured. Please set OPENAI_KEY in environment."
             
             # Prepare system message
@@ -66,7 +70,7 @@ class AIService:
     async def generate_document_summary(self, document_content: str) -> str:
         """Generate a summary of uploaded document"""
         try:
-            if not settings.OPENAI_KEY:
+            if not self._check_configured():
                 return "AI service is not configured. Please set OPENAI_KEY in environment."
             
             system_message = """You are an expert at summarizing documents. 

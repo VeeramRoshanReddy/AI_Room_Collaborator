@@ -1,18 +1,16 @@
 # Core web framework
 fastapi
 uvicorn[standard]
+python-multipart
 
 # Authentication and security
-python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
 cryptography
 bcrypt
 
-# Configuration and utilities  
+# Configuration and utilities
 python-dotenv
-aiofiles
-requests
 email-validator
 
 # Database drivers
@@ -28,75 +26,32 @@ pymongo
 pydantic
 pydantic-settings
 
-# HTTP client and WebSocket
-httpx
+# WebSocket support
 websockets
 
-# AI/ML and vector DB
+# AI and vector DB
 openai
 pinecone
-langchain
-langchain-openai
-langchain-community
 
 # File processing
 pdfplumber
 python-docx
 PyPDF2
-Pillow
-python-magic
 
 # Audio processing
-pyttsx
-gTTS
+elevenlabs
 pydub
 
-# Data science and ML
-numpy
-scikit-learn
-pandas
+# File storage
+boto3
 
-# Text processing
-nltk
-spacy
-transformers
-torch
-
-# CORS and middleware
-fastapi-cors
+# Production deployment
+gunicorn
 
 # Testing
 pytest
 pytest-asyncio
 pytest-cov
-
-# Additional utilities
-python-dateutil
-pytz
-redis
-celery
-
-# Production deployment
-gunicorn
-
-# Logging and monitoring
-structlog
-sentry-sdk[fastapi]
-
-# Environment and secrets management
-python-decouple
-
-# Async utilities
-aio-pika
-
-# File storage
-boto3
-minio
-
-# Rate limiting
-slowapi
-
-# Background tasks
-celery[redis]
+httpx
 
 # System dependency: ffmpeg (required by pydub for audio processing)

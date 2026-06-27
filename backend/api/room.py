@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from core.database import get_db
 from core.config import settings
-from models.postgresql.room import Room, room_members, room_admins, RoomParticipant
+from models.postgresql.room import Room, RoomParticipant
 from models.postgresql.user import User as PGUser
 from models.postgresql.topic import Topic
 import uuid
@@ -17,12 +17,6 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
-try:
-    import jwt
-except ImportError:
-    # jwt is required for authentication. Please install with 'pip install PyJWT'
-    jwt = None
-
 # Pydantic models
 class RoomCreate(BaseModel):
     title: str
@@ -31,6 +25,12 @@ class RoomCreate(BaseModel):
 class RoomJoin(BaseModel):
     room_id: str  # 8-digit room ID
     password: str  # 8-digit password
+
+class ParticipantInfo(BaseModel):
+    id: str
+    name: str
+    email: str
+    picture: Optional[str] = None
 
 class RoomResponse(BaseModel):
     id: str
@@ -46,9 +46,10 @@ class RoomResponse(BaseModel):
     topic_count: int
     is_admin: bool = False
     is_private: bool
-    members: List[str]
-    admins: List[str]
-    topics: List[str]
+    members: List[ParticipantInfo] = []
+    admins: List[ParticipantInfo] = []
+    topics: List[str] = []
+    password: Optional[str] = None
 
 class ParticipantResponse(BaseModel):
     id: str
@@ -62,7 +63,7 @@ class ParticipantResponse(BaseModel):
 @router.post("/create", response_model=RoomResponse)
 async def create_room(
     room_data: RoomCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create a new room"""
@@ -77,7 +78,7 @@ async def create_room(
             description=room_data.description,
             room_id=room_id,
             password=password,
-            created_by_user_id=current_user['id'] if isinstance(current_user, dict) else current_user.id
+            created_by_user_id=current_user.id
         )
         
         db.add(new_room)
@@ -87,7 +88,7 @@ async def create_room(
         # Add creator as admin participant
         participant = RoomParticipant(
             room_id=new_room.id,
-            user_id=current_user['id'] if isinstance(current_user, dict) else current_user.id,
+            user_id=current_user.id,
             is_admin=True
         )
         db.add(participant)
@@ -100,8 +101,9 @@ async def create_room(
         response_data["owner_id"] = response_data.pop("created_by_user_id", "")  # Map created_by_user_id to owner_id for frontend
         response_data["is_admin"] = True
         response_data["is_private"] = False
-        response_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
-        response_data["admins"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+        members, admins = _room_participants(db, new_room.id)
+        response_data["members"] = members
+        response_data["admins"] = admins
         response_data["topics"] = []
         
         return RoomResponse(**response_data)
@@ -117,7 +119,7 @@ async def create_room(
 @router.post("/join", response_model=RoomResponse)
 async def join_room(
     join_data: RoomJoin,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Join a room using room ID and password"""
@@ -137,7 +139,7 @@ async def join_room(
         # Check if user is already a participant
         existing_participant = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room.id,
-            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
+            RoomParticipant.user_id == current_user.id
         ).first()
         
         if existing_participant:
@@ -156,7 +158,7 @@ async def join_room(
         # Add user as participant
         participant = RoomParticipant(
             room_id=room.id,
-            user_id=(current_user['id'] if isinstance(current_user, dict) else current_user.id),
+            user_id=current_user.id,
             is_admin=False
         )
         db.add(participant)
@@ -169,8 +171,9 @@ async def join_room(
         response_data["owner_id"] = response_data.pop("created_by_user_id", "")  # Map created_by_user_id to owner_id for frontend
         response_data["is_admin"] = is_admin
         response_data["is_private"] = False
-        response_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
-        response_data["admins"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+        members, admins = _room_participants(db, room.id)
+        response_data["members"] = members
+        response_data["admins"] = admins
         response_data["topics"] = []
         
         return RoomResponse(**response_data)
@@ -187,13 +190,13 @@ async def join_room(
 
 @router.get("/my-rooms", response_model=List[RoomResponse])
 async def get_my_rooms(
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all rooms where current user is a participant"""
     try:
         participations = db.query(RoomParticipant).filter(
-            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
+            RoomParticipant.user_id == current_user.id
         ).all()
         rooms = []
         if not participations:
@@ -206,8 +209,9 @@ async def get_my_rooms(
                 room_data["owner_id"] = room_data.pop("created_by_user_id", "")  # Map created_by_user_id to owner_id for frontend
                 room_data["is_admin"] = participation.is_admin
                 room_data["is_private"] = False
-                room_data["members"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
-                room_data["admins"] = [current_user['id'] if isinstance(current_user, dict) else current_user.id]
+                members, admins = _room_participants(db, room.id)
+                room_data["members"] = members
+                room_data["admins"] = admins
                 room_data["topics"] = []
                 rooms.append(RoomResponse(**room_data))
         return rooms
@@ -221,7 +225,7 @@ async def get_my_rooms(
 @router.get("/{room_id}/participants", response_model=List[ParticipantResponse])
 async def get_room_participants(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all participants in a room"""
@@ -229,7 +233,7 @@ async def get_room_participants(
         # Check if user is participant in this room
         user_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
+            RoomParticipant.user_id == current_user.id
         ).first()
         
         if not user_participation:
@@ -257,7 +261,7 @@ async def get_room_participants(
 @router.post("/{room_id}/leave")
 async def leave_room(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Leave a room"""
@@ -265,7 +269,7 @@ async def leave_room(
         # Get user's participation
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
+            RoomParticipant.user_id == current_user.id
         ).first()
         
         if not participation:
@@ -307,15 +311,16 @@ async def leave_room(
 async def promote_to_admin(
     room_id: str,
     user_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Promote a user to admin (only room admins can do this)"""
     try:
+        current_user_id = _user_id(current_user)
         # Check if current user is admin
         current_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id),
+            RoomParticipant.user_id == current_user_id,
             RoomParticipant.is_admin == True
         ).first()
         
@@ -363,15 +368,16 @@ async def promote_to_admin(
 async def remove_participant(
     room_id: str,
     user_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Remove a participant from room (only admins can do this)"""
     try:
+        current_user_id = _user_id(current_user)
         # Check if current user is admin
         current_participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id),
+            RoomParticipant.user_id == current_user_id,
             RoomParticipant.is_admin == True
         ).first()
         
@@ -382,7 +388,7 @@ async def remove_participant(
             )
         
         # Prevent removing yourself
-        if user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id):
+        if user_id == current_user_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot remove yourself. Use leave room instead."
@@ -419,7 +425,7 @@ async def remove_participant(
 @router.delete("/{room_id}")
 async def delete_room(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Delete a room (only admins can do this)"""
@@ -427,7 +433,7 @@ async def delete_room(
         # Check if current user is admin
         participation = db.query(RoomParticipant).filter(
             RoomParticipant.room_id == room_id,
-            RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id),
+            RoomParticipant.user_id == _user_id(current_user),
             RoomParticipant.is_admin == True
         ).first()
         
@@ -464,7 +470,7 @@ async def delete_room(
 @router.get("/{room_id}/reveal-password", response_model=Dict[str, str])
 async def reveal_room_password(
     room_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Allow only admins to reveal the room password."""
@@ -473,7 +479,7 @@ async def reveal_room_password(
         raise HTTPException(status_code=404, detail="Room ID does not exist.")
     participant = db.query(RoomParticipant).filter(
         RoomParticipant.room_id == room.id,
-        RoomParticipant.user_id == (current_user['id'] if isinstance(current_user, dict) else current_user.id)
+        RoomParticipant.user_id == _user_id(current_user)
     ).first()
     if not participant or not participant.is_admin:
         raise HTTPException(status_code=403, detail="Only admins can view the room password.")
@@ -491,6 +497,35 @@ def _generate_unique_room_id(db: Session) -> str:
 def _generate_room_password() -> str:
     """Generate a random 8-digit password"""
     return ''.join(secrets.choice(string.digits) for _ in range(8))
+
+
+def _user_id(current_user: PGUser) -> str:
+    """get_current_user always returns a PGUser object, never a dict."""
+    return current_user.id
+
+
+def _participant_info(participant: RoomParticipant) -> Dict[str, Any]:
+    user = participant.user
+    return {
+        "id": participant.user_id,
+        "name": user.name if user else "Unknown",
+        "email": user.email if user else "",
+        "picture": user.picture if user else None,
+    }
+
+
+def _room_participants(db: Session, room_id: str) -> tuple:
+    participants = db.query(RoomParticipant).filter(
+        RoomParticipant.room_id == room_id
+    ).all()
+    members = []
+    admins = []
+    for p in participants:
+        info = _participant_info(p)
+        members.append(info)
+        if p.is_admin:
+            admins.append(info)
+    return members, admins
 
 @router.api_route('/{full_path:path}', methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
 async def catch_all_room(full_path: str, request: Request):

@@ -1,40 +1,13 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, Table, Integer
+from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from core.database import Base
 import uuid
-import random
 import secrets
 import string
 
-def generate_uuid():
-    return str(uuid.uuid4())
-
-def generate_room_id():
-    """Generate a random 8-digit room ID"""
-    return str(random.randint(10000000, 99999999))
-
-def generate_room_password():
-    """Generate a random 8-digit room password"""
-    return str(random.randint(10000000, 99999999))
-
-# Association table for room members
-room_members = Table(
-    'room_members',
-    Base.metadata,
-    Column('room_id', String, ForeignKey('rooms.id'), primary_key=True),
-    Column('user_id', String, ForeignKey('users.id'), primary_key=True),
-    Column('joined_at', DateTime(timezone=True), server_default=func.now())
-)
-
-# Association table for room admins
-room_admins = Table(
-    'room_admins',
-    Base.metadata,
-    Column('room_id', String, ForeignKey('rooms.id'), primary_key=True),
-    Column('user_id', String, ForeignKey('users.id'), primary_key=True),
-    Column('assigned_at', DateTime(timezone=True), server_default=func.now())
-)
+# Room membership and per-room admin status both live on RoomParticipant
+# (room_id, user_id, is_admin) below — that's the single source of truth.
 
 class Room(Base):
     __tablename__ = "rooms"
@@ -125,26 +98,4 @@ class RoomParticipant(Base):
             "user_picture": self.user.picture if self.user else None,
             "is_admin": self.is_admin,
             "joined_at": self.joined_at.isoformat() if self.joined_at else None
-        }
-
-    @classmethod
-    def create_room(cls, name, description, created_by, db):
-        """Create a new room with unique room_id and room_password"""
-        max_attempts = 10
-        for attempt in range(max_attempts):
-            room_id = generate_room_id()
-            room_password = generate_room_password()
-            
-            # Check if room_id already exists
-            existing_room = db.query(cls).filter(cls.room_id == room_id).first()
-            if not existing_room:
-                room = cls(
-                    room_id=room_id,
-                    password=room_password,
-                    title=name,
-                    description=description,
-                    created_by_user_id=created_by
-                )
-                return room
-        
-        raise ValueError("Could not generate unique room ID after multiple attempts") 
+        } 

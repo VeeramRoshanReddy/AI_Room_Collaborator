@@ -56,8 +56,14 @@ def get_mongo_db():
 def init_db():
     """Initialize database tables"""
     try:
-        # Import all models here to ensure they are registered
-        from models.postgresql import user, room, topic, note, chat_log
+        # Import all models here to ensure they are registered with SQLAlchemy
+        from models.postgresql.user import User
+        from models.postgresql.room import Room, RoomParticipant
+        from models.postgresql.topic import Topic
+        from models.postgresql.note import Note
+        from models.postgresql.chat_log import ChatLog
+        
+        # Create all tables
         Base.metadata.create_all(bind=engine)
         logger.info("Database tables created successfully")
     except Exception as e:

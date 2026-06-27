@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaFileUpload, FaRobot, FaUserCircle, FaTimes } from 'react-icons/fa';
+import { FaFileUpload, FaRobot, FaUserCircle, FaTimes, FaQuestionCircle, FaVolumeUp } from 'react-icons/fa';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
 
@@ -8,8 +8,37 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: 100%;
   height: 100%;
+  min-height: 0;
+`;
+
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const Panel = styled.div`
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+`;
+
+const PanelHeader = styled.div`
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: #0f172a;
 `;
 
 const UploadArea = styled.label`
@@ -17,413 +46,399 @@ const UploadArea = styled.label`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  border: 2.5px dashed #60a5fa;
-  border-radius: 24px;
-  background: rgba(224,231,239,0.7);
+  padding: 32px;
+  margin: 20px;
+  border: 2px dashed #93c5fd;
+  border-radius: 16px;
+  background: #f8fafc;
   cursor: pointer;
-  width: 100%;
-  min-height: 180px;
-  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+  text-align: center;
   &:hover {
-    border-color: #3b82f6;
-    background: rgba(224,231,239,0.95);
+    border-color: #2563eb;
+    background: #eff6ff;
   }
 `;
 
 const ChatArea = styled.div`
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
   overflow-y: auto;
-  background: transparent;
-  min-width: 0;
-`;
-
-const ChatInputArea = styled.div`
-  padding: 16px;
-  border-top: 1.5px solid #e0e7ef;
-  display: flex;
-  gap: 12px;
-  background: transparent;
-`;
-
-const Input = styled.input`
-  flex: 1;
-  padding: 14px 18px;
-  border: 1.5px solid #60a5fa;
-  border-radius: 16px;
-  font-size: 15px;
-  background: rgba(255,255,255,0.9);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
-  transition: border 0.2s, box-shadow 0.2s;
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.12);
-  }
-`;
-
-const Button = styled.button`
-  padding: 12px 24px;
-  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
-  color: white;
-  border: none;
-  border-radius: 16px;
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.10);
-  transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
-  &:hover {
-    background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%);
-    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.18);
-    transform: translateY(-2px) scale(1.03);
-  }
-  &:active {
-    transform: scale(0.98);
-  }
-  &:disabled {
-    background: #e0e7ef;
-    color: #b6c2d6;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
+  padding: 16px 20px;
 `;
 
 const Message = styled.div`
   display: flex;
-  gap: 14px;
-  margin-bottom: 18px;
-  align-items: flex-end;
-  flex-direction: ${props => props.isUser ? 'row-reverse' : 'row'};
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-direction: ${(p) => (p.$isUser ? 'row-reverse' : 'row')};
 `;
 
-const MessageContent = styled.div`
-  max-width: 70%;
-  padding: 14px 18px;
-  border-radius: 18px;
-  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : 'rgba(224,231,239,0.8)'};
-  color: ${props => props.isUser ? 'white' : '#1e293b'};
-  font-size: 15px;
-  line-height: 1.5;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
-  transition: background 0.2s, box-shadow 0.2s;
-  word-wrap: break-word;
-  word-break: break-word;
+const Bubble = styled.div`
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: ${(p) => (p.$isUser ? 'linear-gradient(135deg, #4f46e5, #2563eb)' : '#f1f5f9')};
+  color: ${(p) => (p.$isUser ? 'white' : '#0f172a')};
   white-space: pre-wrap;
+  line-height: 1.5;
 `;
 
 const Avatar = styled.div`
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: ${props => props.isUser ? 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)' : 'rgba(224,231,239,0.8)'};
   display: flex;
   align-items: center;
   justify-content: center;
-  color: ${props => props.isUser ? 'white' : '#3b82f6'};
-  font-size: 20px;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+  background: ${(p) => (p.$isUser ? '#dbeafe' : '#e0e7ff')};
+  color: #4f46e5;
 `;
 
-const Loader = styled.div`
-  margin: 24px auto;
-  border: 4px solid #e0e7ef;
-  border-top: 4px solid #2563eb;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  animation: spin 1s linear infinite;
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+const ChatInputArea = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+`;
+
+const Input = styled.input`
+  flex: 1;
+  padding: 12px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  &:focus {
+    outline: none;
+    border-color: #4f46e5;
   }
 `;
 
-const FileInfo = styled.div`
-  padding: 12px 16px;
-  background: rgba(224,231,239,0.7);
+const Button = styled.button`
+  padding: 12px 18px;
+  border: none;
   border-radius: 12px;
-  margin-bottom: 16px;
+  background: linear-gradient(135deg, #4f46e5, #2563eb);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const SideCard = styled.div`
+  padding: 16px;
+  border-bottom: 1px solid #f1f5f9;
+`;
+
+const FileBadge = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 10px 12px;
+  background: #eff6ff;
+  border-radius: 10px;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #1d4ed8;
 `;
 
-const FileName = styled.span`
-  font-weight: 600;
-  color: #2563eb;
+const QuizBlock = styled.div`
+  padding: 16px;
 `;
 
-const RemoveButton = styled.button`
-  background: none;
-  border: none;
-  color: #ef4444;
+const OptionBtn = styled.button`
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: white;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  &:hover {
-    background: rgba(239, 68, 68, 0.1);
-  }
+  &.correct { background: #dcfce7; border-color: #22c55e; }
+  &.incorrect { background: #fee2e2; border-color: #ef4444; }
 `;
 
-const NoteChat = () => {
-  const { makeAuthenticatedRequest } = useUserContext();
-  const [file, setFile] = useState(null);
-  const [noteId, setNoteId] = useState(null);
+const NoteChat = ({ note, onNoteUpdate }) => {
+  const { makeAuthenticatedRequest, user } = useUserContext();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [audioLoading, setAudioLoading] = useState(false);
-  const [audioUrl, setAudioUrl] = useState(null);
-  const [audioStatus, setAudioStatus] = useState(null);
+  const [quiz, setQuiz] = useState(null);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [quizScore, setQuizScore] = useState(0);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [quizDone, setQuizDone] = useState(false);
+  const [audioScript, setAudioScript] = useState(null);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
   const chatRef = useRef(null);
 
-  const handleFileChange = async (e) => {
-    const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
-    
-    // Validate file type
-    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
-    if (!allowedTypes.includes(selectedFile.type)) {
-      toast.error('Please upload a PDF or Word document');
-      return;
-    }
-    
-    setUploading(true);
-    setFile(selectedFile);
-    
+  const noteId = note?.id;
+  const hasFile = note?.has_uploaded_file || note?.uploaded_file_name;
+
+  const loadChatHistory = async () => {
+    if (!noteId) return;
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      
-      const response = await makeAuthenticatedRequest('/api/v1/notes/upload', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          // Don't set Content-Type for FormData, let browser set it
+      const res = await makeAuthenticatedRequest(`/notes/${noteId}/chat-history`);
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
+      const formatted = [];
+      data.forEach((log) => {
+        if (log.question) {
+          formatted.push({ id: `${log.id}-q`, isUser: true, text: log.question });
+        }
+        if (log.answer) {
+          formatted.push({ id: `${log.id}-a`, isUser: false, text: log.answer });
         }
       });
-      
-      const data = await response.json();
-      setNoteId(data.note_id);
-      setMessages([]);
-      toast.success('File uploaded successfully!');
-      
-      // Load chat history if available
-      await loadChatHistory(data.note_id);
-      
-    } catch (err) {
-      console.error('File upload error:', err);
-      toast.error(err.message || 'File upload failed');
-      setFile(null);
-    } finally {
-      setUploading(false);
+      setMessages(formatted);
+    } catch {
+      // no history yet
     }
   };
 
-  const loadChatHistory = async (noteId) => {
+  useEffect(() => {
+    setMessages([]);
+    setQuiz(null);
+    setAudioScript(null);
+    if (noteId) loadChatHistory();
+  }, [noteId]);
+
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !noteId) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['pdf', 'doc', 'docx', 'txt'].includes(ext)) {
+      toast.error('Supported formats: PDF, DOC, DOCX, TXT');
+      return;
+    }
+
+    setUploading(true);
     try {
-      const response = await makeAuthenticatedRequest(`/api/v1/notes/${noteId}/chat-history`);
-      const data = await response.json();
-      
-      if (data.messages && Array.isArray(data.messages)) {
-        const formattedMessages = data.messages.map(msg => ({
-          isUser: !msg.is_ai,
-          text: msg.content,
-          timestamp: msg.timestamp
-        }));
-        setMessages(formattedMessages);
-      }
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await makeAuthenticatedRequest(`/notes/${noteId}/upload-file`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      toast.success('Document uploaded successfully');
+      onNoteUpdate?.(data.note || { ...note, has_uploaded_file: true, uploaded_file_name: file.name });
+      await loadChatHistory();
     } catch (err) {
-      console.error('Error loading chat history:', err);
+      toast.error(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
   };
 
   const handleSend = async () => {
     if (!input.trim() || !noteId) return;
-    
-    const userMessage = input.trim();
+    const question = input.trim();
     setInput('');
+    setMessages((m) => [...m, { id: Date.now(), isUser: true, text: question }]);
     setLoading(true);
-    
-    // Add user message immediately
-    setMessages(msgs => [...msgs, { 
-      isUser: true, 
-      text: userMessage,
-      timestamp: new Date().toISOString()
-    }]);
-    
     try {
-      const response = await makeAuthenticatedRequest(`/api/v1/notes/${noteId}/ask`, {
+      const res = await makeAuthenticatedRequest(`/notes/${noteId}/ask`, {
         method: 'POST',
-        body: JSON.stringify({ question: userMessage })
+        body: JSON.stringify({ question }),
       });
-      
-      const data = await response.json();
-      
-      // Add AI response
-      setMessages(msgs => [...msgs, { 
-        isUser: false, 
-        text: data.answer,
-        timestamp: new Date().toISOString()
-      }]);
-      
+      const data = await res.json();
+      setMessages((m) => [...m, { id: Date.now() + 1, isUser: false, text: data.answer }]);
     } catch (err) {
-      console.error('Error sending message:', err);
-      setMessages(msgs => [...msgs, { 
-        isUser: false, 
-        text: 'Sorry, I encountered an error. Please try again.',
-        timestamp: new Date().toISOString()
-      }]);
-      toast.error('Failed to get response');
+      toast.error(err.message || 'Failed to get AI response');
+      setMessages((m) => [...m, { id: Date.now() + 1, isUser: false, text: 'Sorry, I could not answer that right now.' }]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRemoveFile = () => {
-    setFile(null);
-    setNoteId(null);
-    setMessages([]);
-    setInput('');
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+  const handleGenerateQuiz = async () => {
+    if (!noteId || !hasFile) {
+      toast.error('Upload a document first');
+      return;
     }
-  };
-
-  // Scroll to bottom on new message
-  useEffect(() => {
-    if (chatRef.current) {
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  // Audio Overview Generation
-  const handleGenerateAudioOverview = async () => {
-    if (!noteId) return;
-    setAudioLoading(true);
-    setAudioUrl(null);
-    setAudioStatus('Generating script...');
+    setGeneratingQuiz(true);
     try {
-      // Step 1: Generate audio script
-      const genRes = await makeAuthenticatedRequest('/api/v1/audio/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note_id: noteId })
-      });
-      const genData = await genRes.json();
-      if (!genData.id) throw new Error('Failed to generate audio script');
-      setAudioStatus('Synthesizing audio...');
-      // Step 2: Synthesize audio
-      const synthRes = await makeAuthenticatedRequest(`/api/v1/audio/${genData.id}/synthesize`, {
-        method: 'POST'
-      });
-      const synthData = await synthRes.json();
-      if (synthData.audio_url) {
-        setAudioUrl(synthData.audio_url);
-        setAudioStatus('Audio ready!');
-      } else {
-        setAudioStatus('Failed to synthesize audio');
-      }
+      const res = await makeAuthenticatedRequest(`/notes/${noteId}/generate-quiz`, { method: 'POST' });
+      const data = await res.json();
+      setQuiz(data.questions || []);
+      setQuizIndex(0);
+      setQuizScore(0);
+      setQuizDone(false);
+      setSelectedOption(null);
+      toast.success('Quiz generated!');
     } catch (err) {
-      setAudioStatus('Error generating audio overview');
-      setAudioUrl(null);
+      toast.error(err.message || 'Quiz generation failed');
     } finally {
-      setAudioLoading(false);
+      setGeneratingQuiz(false);
+    }
+  };
+
+  const handleQuizAnswer = (idx) => {
+    if (selectedOption !== null || !quiz?.length) return;
+    const current = quiz[quizIndex];
+    const correct = current.correct_answer ?? current.correctAnswer ?? 0;
+    setSelectedOption(idx);
+    if (idx === correct) setQuizScore((s) => s + 1);
+    setTimeout(() => {
+      if (quizIndex + 1 < quiz.length) {
+        setQuizIndex((i) => i + 1);
+        setSelectedOption(null);
+      } else {
+        setQuizDone(true);
+      }
+    }, 900);
+  };
+
+  const handleGenerateAudio = async () => {
+    if (!noteId || !hasFile) {
+      toast.error('Upload a document first');
+      return;
+    }
+    setGeneratingAudio(true);
+    try {
+      const res = await makeAuthenticatedRequest(`/notes/${noteId}/generate-audio`, { method: 'POST' });
+      const data = await res.json();
+      setAudioScript(data);
+      toast.success('Audio script generated');
+    } catch (err) {
+      toast.error(err.message || 'Audio generation failed');
+    } finally {
+      setGeneratingAudio(false);
     }
   };
 
   return (
     <Container>
-      {!noteId && (
-        <UploadArea>
-          <input 
-            type="file" 
-            accept=".pdf,.doc,.docx" 
-            style={{ display: 'none' }} 
-            onChange={handleFileChange}
-            disabled={uploading}
-          />
-          <FaFileUpload size={32} style={{ marginBottom: 12, color: '#2563eb' }} />
-          <span style={{ color: '#2563eb', fontWeight: 600, fontSize: 16 }}>
-            {uploading ? 'Uploading...' : 'Upload PDF or DOCX to chat'}
-          </span>
-          {uploading && <Loader />}
-        </UploadArea>
-      )}
-      
-      {noteId && (
-        <>
-          <FileInfo>
-            <FileName>{file?.name}</FileName>
-            <RemoveButton onClick={handleRemoveFile}>
-              <FaTimes />
-            </RemoveButton>
-          </FileInfo>
-          
-          <ChatArea ref={chatRef}>
-            {messages.map((msg, idx) => (
-              <Message key={idx} isUser={msg.isUser}>
-                <Avatar isUser={msg.isUser}>
-                  {msg.isUser ? <FaUserCircle /> : <FaRobot />}
-                </Avatar>
-                <MessageContent isUser={msg.isUser}>
-                  {msg.text}
-                </MessageContent>
-              </Message>
-            ))}
-            {loading && (
-              <Message isUser={false}>
-                <Avatar isUser={false}>
-                  <FaRobot />
-                </Avatar>
-                <MessageContent isUser={false}>
-                  <Loader />
-                </MessageContent>
-              </Message>
-            )}
-          </ChatArea>
-          
-          <ChatInputArea>
-            <Input
-              type="text"
-              placeholder="Ask a question about the uploaded file..."
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              disabled={loading}
-            />
-            <Button onClick={handleSend} disabled={loading || !input.trim()}>
-              Ask
+      <Grid>
+        <Panel>
+          <PanelHeader>AI Document Chat</PanelHeader>
+          {!hasFile ? (
+            <UploadArea>
+              <input type="file" accept=".pdf,.doc,.docx,.txt" hidden onChange={handleFileUpload} disabled={uploading} />
+              <FaFileUpload size={28} color="#2563eb" />
+              <p style={{ marginTop: 12, fontWeight: 600, color: '#2563eb' }}>
+                {uploading ? 'Uploading...' : 'Upload PDF, DOC, DOCX or TXT'}
+              </p>
+              <p style={{ marginTop: 6, fontSize: '0.85rem', color: '#64748b' }}>
+                AI will analyze your document for Q&A, quizzes, and audio scripts
+              </p>
+            </UploadArea>
+          ) : (
+            <>
+              <FileBadge style={{ margin: '16px 20px 0' }}>
+                <span>{note.uploaded_file_name || 'Document attached'}</span>
+              </FileBadge>
+              <ChatArea ref={chatRef}>
+                {messages.length === 0 && (
+                  <p style={{ color: '#64748b', textAlign: 'center', marginTop: 40 }}>
+                    Ask anything about your uploaded document
+                  </p>
+                )}
+                {messages.map((msg) => (
+                  <Message key={msg.id} $isUser={msg.isUser}>
+                    <Avatar $isUser={msg.isUser}>
+                      {msg.isUser ? <FaUserCircle /> : <FaRobot />}
+                    </Avatar>
+                    <Bubble $isUser={msg.isUser}>{msg.text}</Bubble>
+                  </Message>
+                ))}
+                {loading && (
+                  <Message $isUser={false}>
+                    <Avatar $isUser={false}><FaRobot /></Avatar>
+                    <Bubble $isUser={false}>Thinking...</Bubble>
+                  </Message>
+                )}
+              </ChatArea>
+              <ChatInputArea>
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask about your document..."
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  disabled={loading}
+                />
+                <Button onClick={handleSend} disabled={loading || !input.trim()}>Ask</Button>
+              </ChatInputArea>
+            </>
+          )}
+        </Panel>
+
+        <Panel>
+          <PanelHeader>Learning Tools</PanelHeader>
+          <SideCard>
+            <Button onClick={handleGenerateQuiz} disabled={generatingQuiz || !hasFile} style={{ width: '100%', justifyContent: 'center' }}>
+              <FaQuestionCircle /> {generatingQuiz ? 'Generating...' : 'Generate Quiz'}
             </Button>
-          </ChatInputArea>
-          
-          <div style={{ margin: '16px 0', textAlign: 'center' }}>
-            <Button onClick={handleGenerateAudioOverview} disabled={audioLoading}>
-              {audioLoading ? 'Generating Audio Overview...' : 'Generate Podcast Audio Overview'}
+          </SideCard>
+          <SideCard>
+            <Button onClick={handleGenerateAudio} disabled={generatingAudio || !hasFile} style={{ width: '100%', justifyContent: 'center' }}>
+              <FaVolumeUp /> {generatingAudio ? 'Generating...' : 'Audio Overview Script'}
             </Button>
-            {audioStatus && <div style={{ marginTop: 8, color: '#2563eb', fontWeight: 500 }}>{audioStatus}</div>}
-            {audioUrl && (
-              <audio controls style={{ marginTop: 16, width: '100%' }} src={audioUrl}>
-                Your browser does not support the audio element.
-              </audio>
-            )}
-          </div>
-        </>
-      )}
+          </SideCard>
+
+          {quiz?.length > 0 && (
+            <QuizBlock>
+              {quizDone ? (
+                <p style={{ fontWeight: 700, color: '#4f46e5', textAlign: 'center' }}>
+                  Score: {quizScore} / {quiz.length}
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontWeight: 600, marginBottom: 8 }}>
+                    Q{quizIndex + 1}. {quiz[quizIndex]?.question}
+                  </p>
+                  {(quiz[quizIndex]?.options || []).map((opt, idx) => (
+                    <OptionBtn
+                      key={idx}
+                      className={
+                        selectedOption !== null
+                          ? idx === (quiz[quizIndex].correct_answer ?? quiz[quizIndex].correctAnswer)
+                            ? 'correct'
+                            : idx === selectedOption
+                            ? 'incorrect'
+                            : ''
+                          : ''
+                      }
+                      onClick={() => handleQuizAnswer(idx)}
+                      disabled={selectedOption !== null}
+                    >
+                      {opt}
+                    </OptionBtn>
+                  ))}
+                </>
+              )}
+            </QuizBlock>
+          )}
+
+          {audioScript && (
+            <QuizBlock>
+              <p style={{ fontWeight: 600, marginBottom: 8 }}>Podcast Script</p>
+              <p style={{ fontSize: '0.85rem', color: '#475569', whiteSpace: 'pre-wrap' }}>
+                <strong>Host:</strong> {audioScript.host_script}
+                {'\n\n'}
+                <strong>Expert:</strong> {audioScript.expert_script}
+              </p>
+            </QuizBlock>
+          )}
+        </Panel>
+      </Grid>
     </Container>
   );
 };
 
-export default NoteChat; 
+export default NoteChat;

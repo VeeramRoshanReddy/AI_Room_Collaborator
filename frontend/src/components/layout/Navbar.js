@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FaBars, FaSignOutAlt, FaUser, FaCog } from 'react-icons/fa';
+import { FaBars, FaSignOutAlt } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const NavbarContainer = styled.nav`
@@ -8,15 +8,15 @@ const NavbarContainer = styled.nav`
   top: 0;
   left: 0;
   right: 0;
-  height: 86px;
-  background: ${props => props.theme.colors.surface};
-  border-bottom: 1px solid ${props => props.theme.colors.border};
+  height: 72px;
+  background: ${(p) => p.theme.colors.surface};
+  border-bottom: 1px solid ${(p) => p.theme.colors.border};
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
   z-index: 1000;
-  box-shadow: ${props => props.theme.shadows.small};
+  box-shadow: ${(p) => p.theme.shadows.small};
 `;
 
 const LeftSection = styled.div`
@@ -26,34 +26,33 @@ const LeftSection = styled.div`
 `;
 
 const MenuButton = styled.button`
-  background: none;
+  background: #f1f5f9;
   border: none;
-  font-size: 20px;
-  color: ${props => props.theme.colors.text};
+  font-size: 18px;
+  color: ${(p) => p.theme.colors.text};
   cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  transition: background-color 0.2s;
-  
+  padding: 10px;
+  border-radius: 10px;
   &:hover {
-    background: ${props => props.theme.colors.border};
+    background: #e2e8f0;
   }
 `;
 
 const Logo = styled.div`
-  font-size: 24px;
-  font-weight: 700;
-  color: ${props => props.theme.colors.primary};
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
+  flex-direction: column;
+  gap: 2px;
 `;
 
-const RightSection = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
+const LogoTitle = styled.span`
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: ${(p) => p.theme.colors.primary};
+`;
+
+const LogoTag = styled.span`
+  font-size: 0.75rem;
+  color: ${(p) => p.theme.colors.textLight};
 `;
 
 const UserSection = styled.div`
@@ -64,200 +63,116 @@ const UserSection = styled.div`
 `;
 
 const UserInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  
+  text-align: right;
   @media (max-width: 768px) {
     display: none;
   }
 `;
 
-const UserName = styled.span`
-  font-size: 14px;
+const UserName = styled.div`
+  font-size: 0.9rem;
   font-weight: 600;
-  color: ${props => props.theme.colors.text};
 `;
 
-const UserEmail = styled.span`
-  font-size: 12px;
-  color: ${props => props.theme.colors.textLight};
+const UserEmail = styled.div`
+  font-size: 0.75rem;
+  color: ${(p) => p.theme.colors.textLight};
 `;
 
-const ProfilePicture = styled.img`
+const Avatar = styled.button`
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  cursor: pointer;
-  border: 2px solid ${props => props.theme.colors.border};
-  transition: border-color 0.2s;
-  margin-top: 16px;
-  
-  &:hover {
-    border-color: ${props => props.theme.colors.primary};
-  }
-`;
-
-const DefaultAvatar = styled.div`
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: ${props => props.theme.colors.primary};
+  border: 2px solid ${(p) => p.theme.colors.border};
+  background: linear-gradient(135deg, #4f46e5, #2563eb);
   color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  border: 2px solid ${props => props.theme.colors.border};
-  transition: border-color 0.2s;
-  margin-top: 16px;
-  
-  &:hover {
-    border-color: ${props => props.theme.colors.primary};
-  }
 `;
 
-const DropdownMenu = styled(motion.div)`
+const Dropdown = styled(motion.div)`
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   right: 0;
-  margin-top: 8px;
-  background: ${props => props.theme.colors.surface};
-  border: 1px solid ${props => props.theme.colors.border};
-  border-radius: ${props => props.theme.borderRadius.medium};
-  box-shadow: ${props => props.theme.shadows.medium};
-  min-width: 200px;
-  z-index: 1001;
+  background: white;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: 12px;
+  box-shadow: ${(p) => p.theme.shadows.medium};
+  min-width: 160px;
   overflow: hidden;
+  z-index: 1001;
 `;
 
 const DropdownItem = styled.button`
   width: 100%;
   padding: 12px 16px;
-  background: none;
   border: none;
+  background: none;
   text-align: left;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 12px;
-  color: ${props => props.theme.colors.text};
-  font-size: 14px;
-  transition: background-color 0.2s;
-  
+  gap: 10px;
+  color: #dc2626;
+  font-weight: 500;
   &:hover {
-    background: ${props => props.theme.colors.border};
-  }
-  
-  &:first-child {
-    border-top-left-radius: ${props => props.theme.borderRadius.medium};
-    border-top-right-radius: ${props => props.theme.borderRadius.medium};
-  }
-  
-  &:last-child {
-    border-bottom-left-radius: ${props => props.theme.borderRadius.medium};
-    border-bottom-right-radius: ${props => props.theme.borderRadius.medium};
-  }
-`;
-
-const LogoutButton = styled(DropdownItem)`
-  color: ${props => props.theme.colors.error};
-  
-  &:hover {
-    background: #fee;
+    background: #fef2f2;
   }
 `;
 
 const Overlay = styled(motion.div)`
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  inset: 0;
   z-index: 999;
 `;
 
 const Navbar = ({ user, onSidebarToggle, onLogout }) => {
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const handleProfileClick = () => {
-    setShowDropdown(!showDropdown);
-  };
-
-  const handleOverlayClick = () => {
-    setShowDropdown(false);
-  };
-
-  const handleLogout = () => {
-    setShowDropdown(false);
-    onLogout();
-  };
-
-  const getInitials = (name) => {
-    if (!name) return 'U';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
+  const [open, setOpen] = useState(false);
+  const initials = (user?.name || 'U')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <NavbarContainer>
       <LeftSection>
-        <MenuButton onClick={onSidebarToggle}>
+        <MenuButton onClick={onSidebarToggle} aria-label="Toggle sidebar">
           <FaBars />
         </MenuButton>
         <Logo>
-          <span>Room Connect</span>
-          <span style={{ color: '#06b6d4' }}>Where Collaboration Meets Intelligence.</span>
+          <LogoTitle>StudyBuddy</LogoTitle>
+          <LogoTag>Collaborative learning with AI</LogoTag>
         </Logo>
       </LeftSection>
 
-      <RightSection>
-        <UserSection>
-          <UserInfo>
-            <UserName>{user?.name || 'User'}</UserName>
-            <UserEmail>{user?.email || 'user@example.com'}</UserEmail>
-          </UserInfo>
-          
-          {user?.picture ? (
-            <ProfilePicture
-              src={user.picture}
-              alt={user.name || 'Profile'}
-              onClick={handleProfileClick}
-            />
-          ) : (
-            <DefaultAvatar onClick={handleProfileClick}>
-              {getInitials(user?.name)}
-            </DefaultAvatar>
-          )}
-
-          <AnimatePresence>
-            {showDropdown && (
-              <>
-                <Overlay
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={handleOverlayClick}
-                />
-                <DropdownMenu
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
+      <UserSection>
+        <UserInfo>
+          <UserName>{user?.name || 'User'}</UserName>
+          <UserEmail>{user?.email || ''}</UserEmail>
+        </UserInfo>
+        <Avatar onClick={() => setOpen((o) => !o)}>{initials}</Avatar>
+        <AnimatePresence>
+          {open && (
+            <>
+              <Overlay initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} />
+              <Dropdown initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                <DropdownItem
+                  onClick={() => {
+                    setOpen(false);
+                    onLogout();
+                  }}
                 >
-                  <LogoutButton onClick={handleLogout}>
-                    <FaSignOutAlt size={14} />
-                    Logout
-                  </LogoutButton>
-                </DropdownMenu>
-              </>
-            )}
-          </AnimatePresence>
-        </UserSection>
-      </RightSection>
+                  <FaSignOutAlt /> Logout
+                </DropdownItem>
+              </Dropdown>
+            </>
+          )}
+        </AnimatePresence>
+      </UserSection>
     </NavbarContainer>
   );
 };
 
-export default Navbar; 
+export default Navbar;

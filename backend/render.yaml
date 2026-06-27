@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: airoom-backend
+    name: studybuddy-backend
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -14,26 +14,35 @@ services:
         sync: false
       - key: SECRET_KEY
         sync: false
-      - key: OPENAI_API_KEY
+      - key: ENCRYPTION_KEY
         sync: false
-      - key: PINECONE_API_KEY
+      - key: OPENAI_KEY
         sync: false
-      - key: REDIS_URL
+      - key: VECTOR_DB_URL
+        sync: false
+      - key: VECTOR_DB_API_KEY
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: ELEVENLABS_HOST_VOICE_ID
+        sync: false
+      - key: ELEVENLABS_EXPERT_VOICE_ID
         sync: false
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
         value: false
-      - key: ALLOWED_ORIGINS
-        value: "*"
       - key: API_V1_PREFIX
         value: /api/v1
-      - key: PROJECT_NAME
-        value: AI Room Collaborator
       - key: VERSION
-        value: 1.0.0
-
-  - type: redis
-    name: airoom-redis
-    plan: free
-    ipAllowList: [] 
+        value: 1.0.0 

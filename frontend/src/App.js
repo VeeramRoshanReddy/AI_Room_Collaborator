@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import styled, { ThemeProvider } from 'styled-components';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { UserProvider, useUserContext } from './context/UserContext';
+import { useUserContext } from './context/UserContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import Spinner from './components/common/Spinner';
 import Navbar from './components/layout/Navbar';
 import Sidebar from './components/layout/Sidebar';
 import Login from './components/auth/Login';
@@ -12,44 +13,42 @@ import Home from './components/personalwork/Home';
 import Rooms from './components/personalwork/Rooms';
 import PersonalWork from './components/personalwork/PersonalWork';
 
-// Theme configuration
 const theme = {
   colors: {
-    primary: '#2563eb',
-    secondary: '#1d4ed8',
+    primary: '#4f46e5',
+    secondary: '#2563eb',
     accent: '#06b6d4',
-    background: '#f3f6fd',
-    surface: '#f8fafc',
-    text: '#1e293b',
+    background: '#f1f5f9',
+    surface: '#ffffff',
+    text: '#0f172a',
     textLight: '#64748b',
-    success: '#22c55e',
+    success: '#10b981',
     error: '#ef4444',
     warning: '#f59e0b',
     border: '#e2e8f0',
   },
   shadows: {
-    small: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)',
-    medium: '0 3px 6px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.12)',
-    large: '0 10px 20px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.10)',
+    small: '0 1px 3px rgba(15,23,42,0.08)',
+    medium: '0 8px 24px rgba(15,23,42,0.1)',
+    large: '0 20px 40px rgba(15,23,42,0.12)',
   },
   transitions: {
-    default: '0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    default: '0.25s cubic-bezier(0.4, 0, 0.2, 1)',
   },
   borderRadius: {
-    small: '6px',
-    medium: '12px',
-    large: '18px',
+    small: '8px',
+    medium: '14px',
+    large: '20px',
   },
 };
 
-// Styled components
 const AppContainer = styled.div`
   min-height: 100vh;
   height: 100vh;
   width: 100vw;
-  background: #c0c0c0;
-  color: ${props => props.theme.colors.text};
-  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: ${(p) => p.theme.colors.background};
+  color: ${(p) => p.theme.colors.text};
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
 `;
 
@@ -62,14 +61,13 @@ const AuthenticatedLayout = styled.div`
 const MainContent = styled.main`
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 86px);
-  margin-left: ${props => props.isSidebarOpen ? '160px' : '60px'};
-  margin-top: 86px;
-  transition: margin-left ${props => props.theme.transitions.default};
+  height: calc(100vh - 72px);
+  margin-left: ${(p) => (p.$sidebarOpen ? '220px' : '72px')};
+  margin-top: 72px;
+  transition: margin-left ${(p) => p.theme.transitions.default};
   padding: 24px;
-  background: ${props => props.theme.colors.background};
   overflow-y: auto;
-  
+
   @media (max-width: 768px) {
     margin-left: 0;
     padding: 16px;
@@ -78,109 +76,103 @@ const MainContent = styled.main`
 
 const LoadingContainer = styled.div`
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: 16px;
   height: 100vh;
-  background: ${props => props.theme.colors.background};
-  font-size: 18px;
-  color: ${props => props.theme.colors.text};
+  background: ${(p) => p.theme.colors.background};
+  font-size: 1rem;
+  color: ${(p) => p.theme.colors.textLight};
 `;
 
-// Placeholder components
 const Settings = () => (
-  <div style={{ padding: '20px' }}>
-    <h1>Settings</h1>
-    <p>Manage your settings here.</p>
+  <div style={{ padding: 8 }}>
+    <h1 style={{ marginBottom: 8 }}>Settings</h1>
+    <p style={{ color: '#64748b' }}>Account settings will be available here soon.</p>
   </div>
 );
 
-// Layout component for authenticated routes
 const AuthenticatedApp = ({ children }) => {
-  const { user, handleLogout } = useUserContext();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { user, logout } = useUserContext();
+  const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const onLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <AuthenticatedLayout>
-      <Navbar 
-        user={user} 
-        onSidebarToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
-        onLogout={handleLogout} 
+      <Navbar
+        user={user}
+        onSidebarToggle={() => setSidebarOpen((o) => !o)}
+        onLogout={onLogout}
       />
-      <Sidebar 
-        isOpen={isSidebarOpen} 
-        onToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
-      />
-      <MainContent isSidebarOpen={isSidebarOpen}>
-        {children}
-      </MainContent>
+      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen((o) => !o)} />
+      <MainContent $sidebarOpen={sidebarOpen}>{children}</MainContent>
     </AuthenticatedLayout>
   );
 };
 
-// Main App Component that uses UserContext
 function AppContent() {
   const { loading } = useUserContext();
 
   if (loading) {
     return (
       <LoadingContainer>
-        <div>Loading...</div>
+        <Spinner />
+        Loading your workspace...
       </LoadingContainer>
     );
   }
 
   return (
     <AppContainer>
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
+      <ToastContainer position="top-right" autoClose={3000} theme="colored" />
       <Routes>
-        {/* Public routes */}
         <Route path="/login" element={<Login />} />
-        
-        {/* Protected routes */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <AuthenticatedApp>
-              <Home />
-            </AuthenticatedApp>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/rooms" element={
-          <ProtectedRoute>
-            <AuthenticatedApp>
-              <Rooms />
-            </AuthenticatedApp>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/personalwork" element={
-          <ProtectedRoute>
-            <AuthenticatedApp>
-              <PersonalWork />
-            </AuthenticatedApp>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <AuthenticatedApp>
-              <Settings />
-            </AuthenticatedApp>
-          </ProtectedRoute>
-        } />
-        
-        {/* Default redirects */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedApp>
+                <Home />
+              </AuthenticatedApp>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rooms"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedApp>
+                <Rooms />
+              </AuthenticatedApp>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/personalwork"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedApp>
+                <PersonalWork />
+              </AuthenticatedApp>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedApp>
+                <Settings />
+              </AuthenticatedApp>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
@@ -188,14 +180,11 @@ function AppContent() {
   );
 }
 
-// Root App Component with Providers
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <Router>
-        <UserProvider>
-          <AppContent />
-        </UserProvider>
+        <AppContent />
       </Router>
     </ThemeProvider>
   );

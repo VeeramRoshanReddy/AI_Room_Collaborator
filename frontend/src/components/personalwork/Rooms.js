@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { FaPlus, FaSignInAlt, FaClock, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes, FaLock, FaUnlock, FaEdit, FaCog, FaUsers, FaSignOutAlt } from 'react-icons/fa';
+import { FaPlus, FaSignInAlt, FaChevronRight, FaChevronLeft, FaEllipsisV, FaTrash, FaUser, FaCrown, FaUserShield, FaTimes, FaLock, FaUsers, FaSignOutAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
+import { buildWsUrl, formatTopicDate } from '../../utils/api';
 
 const Container = styled.div`
   display: flex;
@@ -617,7 +618,7 @@ const FormButton = styled.button`
 `;
 
 const Rooms = () => {
-  const { user, session, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
+  const { user, makeAuthenticatedRequest, isAuthenticated } = useUserContext();
   const navigate = useNavigate();
   const [view, setView] = useState('rooms'); // rooms | topics | chat
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -626,6 +627,7 @@ const Rooms = () => {
   const [showJoin, setShowJoin] = useState(false);
   const [rooms, setRooms] = useState([]); // API-driven
   const [loading, setLoading] = useState(true);
+  const [roomLoading, setRoomLoading] = useState(false);
   const [error, setError] = useState(null);
   
   // Chat state
@@ -665,31 +667,80 @@ const Rooms = () => {
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
 
-  // Alphabetical member list
-  const memberList = selectedRoom ? [...selectedRoom.members].sort() : [];
+  const normalizePerson = (p) => {
+    if (!p) return null;
+    if (typeof p === 'string') {
+      return { id: p, name: 'Member', email: p };
+    }
+    return {
+      id: p.id || p.user_id,
+      name: p.name || p.user_name || 'Member',
+      email: p.email || p.user_email || '',
+      picture: p.picture || p.user_picture,
+    };
+  };
 
-  // Helper: check if current user is admin in a room
-  const isAdmin = (room) => room.admins.some(a => a.email === user?.email);
+  // Avatar is a plain placeholder circle (no <img>), so show initials instead
+  const getInitials = (name) =>
+    (name || 'U').trim().split(/\s+/).map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
-  // Helper: get sorted admins and members
-  const getSortedAdmins = (room) => [...room.admins].sort((a, b) => a.name.localeCompare(b.name));
-  const getSortedMembers = (room) => [...room.members].sort((a, b) => a.name.localeCompare(b.name));
+  const isAdmin = (room) => {
+    if (!room || !user) return false;
+    if (room.is_admin) return true;
+    return (room.admins || []).some((a) => {
+      const person = normalizePerson(a);
+      return person.email === user.email || person.id === user.id;
+    });
+  };
+
+  const getSortedAdmins = (room) =>
+    [...(room?.admins || [])].map(normalizePerson).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name));
+
+  const getSortedMembers = (room) =>
+    [...(room?.members || [])]
+      .map(normalizePerson)
+      .filter(Boolean)
+      .filter((m) => !getSortedAdmins(room).some((a) => a.email === m.email))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+  const fetchParticipants = async (roomId) => {
+    const res = await makeAuthenticatedRequest(`/rooms/${roomId}/participants`);
+    const data = await res.json();
+    const admins = [];
+    const members = [];
+    (data || []).forEach((p) => {
+      const person = {
+        id: p.user_id,
+        name: p.user_name,
+        email: p.user_email,
+        picture: p.user_picture,
+      };
+      members.push(person);
+      if (p.is_admin) admins.push(person);
+    });
+    return { admins, members };
+  };
 
   // WebSocket management
   const connectWebSocket = (roomId, topicId) => {
+    // Clear any pending reconnect attempt from a previous connection so it
+    // can't fire after we've already opened a new one.
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
     if (wsRef.current) {
       wsRef.current.close();
     }
 
-    const backendUrl = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com';
-    const token = localStorage.getItem('airoom_jwt_token');
+    const token = localStorage.getItem('studybuddy_jwt_token');
     
     if (!token) {
       toast.error('Authentication token not available');
       return;
     }
 
-    const wsUrl = `${backendUrl.replace(/^http/, 'ws')}/api/chat/ws/${roomId}/${topicId}?token=${encodeURIComponent(token)}`;
+    const wsUrl = buildWsUrl(roomId, topicId, token);
     
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -741,27 +792,41 @@ const Rooms = () => {
         console.log('WebSocket connection established');
         break;
       case 'chat_message':
-        // Handle incoming chat message
-        const newMessage = {
-          id: Date.now(),
-          text: data.data.content,
-          isUser: false,
-          sender: data.data.user_name || 'User',
-          time: new Date().toLocaleTimeString()
-        };
-        setRoomChatMessages(prev => ({
-          ...prev,
-          [selectedTopic.title]: [...(prev[selectedTopic.title] || []), newMessage]
-        }));
+      case 'chat_history':
+        if (data.type === 'chat_history' && Array.isArray(data.messages)) {
+          const history = data.messages.map((msg, idx) => ({
+            id: msg.message_id || idx,
+            text: msg.content,
+            isUser: msg.user_id === user?.id,
+            sender: msg.user_name || (msg.is_ai ? 'AI Assistant' : 'User'),
+            time: msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '',
+          }));
+          setRoomChatMessages((prev) => ({ ...prev, [selectedTopic.title]: history }));
+          break;
+        }
+        {
+          const payload = data.data || data;
+          const newMessage = {
+            id: payload.message_id || Date.now(),
+            text: payload.content,
+            isUser: payload.user_id === user?.id,
+            sender: payload.user_name || (payload.is_ai ? 'AI Assistant' : 'User'),
+            time: payload.timestamp ? new Date(payload.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
+          };
+          setRoomChatMessages((prev) => ({
+            ...prev,
+            [selectedTopic.title]: [...(prev[selectedTopic.title] || []), newMessage],
+          }));
+        }
+        break;
+      case 'ai_typing':
         break;
       case 'user_joined':
-        toast.info(`${data.data.user_name} joined the chat`);
         break;
       case 'user_left':
-        toast.info(`${data.data.user_name} left the chat`);
         break;
       case 'error':
-        toast.error(data.data.message || 'An error occurred');
+        toast.error(data.message || data.data?.message || 'An error occurred');
         break;
       case 'pong':
         // Handle ping/pong for keepalive
@@ -771,11 +836,14 @@ const Rooms = () => {
     }
   };
 
-  const sendWebSocketMessage = (message, type = 'chat') => {
+  const sendWebSocketMessage = (message, type = 'chat_message') => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const msgType = type === 'ai_request' ? 'ai_request' : 'chat_message';
       wsRef.current.send(JSON.stringify({
-        type: type,
-        content: message
+        type: msgType,
+        content: message,
+        user_name: user?.name,
+        user_picture: user?.picture,
       }));
     } else {
       toast.error('Not connected to chat');
@@ -795,10 +863,28 @@ const Rooms = () => {
   }, []);
 
   // Handlers with improved error handling and loading states
-  const handleEnterRoom = (room) => {
+  const handleEnterRoom = async (room) => {
     setSelectedRoom(room);
     setView('topics');
-    fetchTopics(room.id, setSelectedRoom, setLoading, setError);
+    setRoomLoading(true);
+    try {
+      const [{ admins, members }, topicsRes] = await Promise.all([
+        fetchParticipants(room.id),
+        makeAuthenticatedRequest(`/topics/room/${room.id}`),
+      ]);
+      const topics = await topicsRes.json();
+      setSelectedRoom((prev) => ({
+        ...prev,
+        admins,
+        members,
+        topics: topics || [],
+      }));
+    } catch (err) {
+      setError(err.message || 'Failed to load room');
+      toast.error(err.message || 'Failed to load room');
+    } finally {
+      setRoomLoading(false);
+    }
   };
 
   const handleBackToRooms = () => {
@@ -887,9 +973,12 @@ const Rooms = () => {
       setShowCreate(false);
       setNewRoomName('');
       setNewRoomDesc('');
+      if (data.password) {
+        setRevealedPassword(data.password);
+        setShowPasswordModal(true);
+      }
       toast.success('Room created successfully!');
       
-      // Refresh rooms list to ensure persistence
       await fetchRooms(setRooms, setLoading, setError);
       
     } catch (err) {
@@ -961,7 +1050,7 @@ const Rooms = () => {
     
     try {
       // Send via WebSocket
-      sendWebSocketMessage(messageToSend, messageToSend.toLowerCase().includes('@chatbot') ? 'ai_request' : 'chat');
+      sendWebSocketMessage(messageToSend, messageToSend.toLowerCase().includes('@chatbot') ? 'ai_request' : 'chat_message');
       
       // If it's an AI request, add a temporary "thinking" message
       if (messageToSend.toLowerCase().includes('@chatbot')) {
@@ -1101,9 +1190,14 @@ const Rooms = () => {
         throw new Error(errorData.detail || 'Failed to create topic');
       }
       
+      const created = await res.json();
       setShowCreateTopicForm(false);
       setNewTopicTitle('');
       setNewTopicDesc('');
+      setSelectedRoom((prev) => ({
+        ...prev,
+        topics: [...(prev.topics || []).filter((t) => !String(t.id).startsWith('temp_')), created],
+      }));
       toast.success('Topic created successfully!');
       
     } catch (err) {
@@ -1128,49 +1222,30 @@ const Rooms = () => {
       return;
     }
 
-    if (!isAdmin(selectedRoom) && topic.createdBy !== user.name) {
+    if (!isAdmin(selectedRoom) && topic.creator_name !== user?.name && topic.created_by_user_id !== user?.id) {
       setShowAuthError(true);
       return;
     }
 
     try {
-      setLoading(true);
-      const token = localStorage.getItem('airoom_jwt_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/topics/${topic.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+      await makeAuthenticatedRequest(`/topics/${topic.id}`, { method: 'DELETE' });
+      toast.success('Topic deleted successfully');
+      setSelectedRoom((prev) => ({
+        ...prev,
+        topics: prev.topics.filter((t) => t.id !== topic.id),
+      }));
+      setRoomChatMessages((prev) => {
+        const next = { ...prev };
+        delete next[topic.title];
+        return next;
       });
-
-      if (response.ok) {
-        toast.success('Topic deleted successfully');
-        // Remove topic from local state
-        setSelectedRoom(prev => ({
-          ...prev,
-          topics: prev.topics.filter(t => t.title !== topic.title)
-        }));
-        // Clear chat messages for this topic
-        setRoomChatMessages(prev => {
-          const newMessages = { ...prev };
-          delete newMessages[topic.title];
-          return newMessages;
-        });
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.detail || 'Failed to delete topic');
-      }
     } catch (error) {
-      console.error('Error deleting topic:', error);
-      toast.error('Failed to delete topic');
-    } finally {
-      setLoading(false);
+      toast.error(error.message || 'Failed to delete topic');
     }
   };
 
   const handleDeleteChat = async () => {
-    if (!user || !selectedTopic) {
+    if (!user || !selectedTopic || !selectedRoom) {
       toast.error('No topic selected for chat deletion');
       return;
     }
@@ -1181,33 +1256,18 @@ const Rooms = () => {
     }
 
     try {
-      setLoading(true);
-      const token = localStorage.getItem('airoom_jwt_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/chat/${selectedRoom.id}/${selectedTopic.id}`, {
+      await makeAuthenticatedRequest('/chat/delete', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        body: JSON.stringify({ room_id: selectedRoom.id, topic_title: selectedTopic.title }),
       });
-
-      if (response.ok) {
-        toast.success('Chat conversation deleted successfully');
-        // Clear chat messages for this topic
-        setRoomChatMessages(prev => {
-          const newMessages = { ...prev };
-          delete newMessages[selectedTopic.title];
-          return newMessages;
-        });
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.detail || 'Failed to delete chat conversation');
-      }
+      setRoomChatMessages((prev) => {
+        const next = { ...prev };
+        delete next[selectedTopic.title];
+        return next;
+      });
+      toast.success('Chat conversation deleted');
     } catch (error) {
-      console.error('Error deleting chat:', error);
-      toast.error('Failed to delete chat conversation');
-    } finally {
-      setLoading(false);
+      toast.error(error.message || 'Failed to delete chat');
     }
   };
 
@@ -1223,38 +1283,15 @@ const Rooms = () => {
     }
 
     try {
-      setLoading(true);
-      const token = localStorage.getItem('airoom_jwt_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/room/make-admin`, {
+      await makeAuthenticatedRequest(`/rooms/${selectedRoom.id}/promote/${userToPromote.id}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          room_id: selectedRoom.id,
-          user_email: userToPromote.email
-        })
       });
-
-      if (response.ok) {
-        toast.success(`${userToPromote.name} is now an admin`);
-        // Update local state
-        setSelectedRoom(prev => ({
-          ...prev,
-          admins: [...prev.admins, userToPromote],
-          members: prev.members.filter(m => m.email !== userToPromote.email)
-        }));
-        setMemberAction({ show: false, user: null, anchor: null });
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.detail || 'Failed to promote user');
-      }
+      toast.success(`${userToPromote.name} is now an admin`);
+      const { admins, members } = await fetchParticipants(selectedRoom.id);
+      setSelectedRoom((prev) => ({ ...prev, admins, members }));
+      setMemberAction({ show: false, user: null, anchor: null });
     } catch (error) {
-      console.error('Error promoting user:', error);
-      toast.error('Failed to promote user');
-    } finally {
-      setLoading(false);
+      toast.error(error.message || 'Failed to promote user');
     }
   };
 
@@ -1275,38 +1312,15 @@ const Rooms = () => {
     }
 
     try {
-      setLoading(true);
-      const token = localStorage.getItem('airoom_jwt_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/room/remove-user`, {
+      await makeAuthenticatedRequest(`/rooms/${selectedRoom.id}/remove/${userToRemove.id}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          room_id: selectedRoom.id,
-          user_email: userToRemove.email
-        })
       });
-
-      if (response.ok) {
-        toast.success(`${userToRemove.name} has been removed from the room`);
-        // Update local state
-        setSelectedRoom(prev => ({
-          ...prev,
-          admins: prev.admins.filter(a => a.email !== userToRemove.email),
-          members: prev.members.filter(m => m.email !== userToRemove.email)
-        }));
-        setMemberAction({ show: false, user: null, anchor: null });
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.detail || 'Failed to remove user');
-      }
+      toast.success(`${userToRemove.name} has been removed from the room`);
+      const { admins, members } = await fetchParticipants(selectedRoom.id);
+      setSelectedRoom((prev) => ({ ...prev, admins, members }));
+      setMemberAction({ show: false, user: null, anchor: null });
     } catch (error) {
-      console.error('Error removing user:', error);
-      toast.error('Failed to remove user');
-    } finally {
-      setLoading(false);
+      toast.error(error.message || 'Failed to remove user');
     }
   };
 
@@ -1381,11 +1395,11 @@ const Rooms = () => {
 
   // Helper: check if user is a member of a room (robust)
   const isMember = (room) => {
-    if (!room.members || !user) return false;
-    return room.members.some(m =>
-      String(m.id) === String(user.id) ||
-      (m.email && m.email === user.email)
-    );
+    if (!room?.members || !user) return true;
+    return room.members.some((m) => {
+      const person = normalizePerson(m);
+      return String(person.id) === String(user.id) || person.email === user.email;
+    });
   };
 
   // Helper: fetch and show password for admin
@@ -1482,7 +1496,7 @@ const Rooms = () => {
               <MemberSectionTitle>Admins</MemberSectionTitle>
               {getSortedAdmins(selectedRoom).map(admin => (
                 <MemberRow key={admin.email}>
-                  <Avatar src={admin.avatar} alt={admin.name} />
+                  <Avatar>{getInitials(admin.name)}</Avatar>
                   <MemberName>{admin.name}</MemberName>
                   <FaCrown style={{color:'#f59e0b',marginLeft:4}} title="Admin" />
                 </MemberRow>
@@ -1491,7 +1505,7 @@ const Rooms = () => {
               <MemberSectionTitle>Members</MemberSectionTitle>
               {getSortedMembers(selectedRoom).map(member => (
                 <MemberRow key={member.email} onClick={isAdmin(selectedRoom) ? (e) => setMemberAction({ show: true, user: member, anchor: e.currentTarget }) : undefined}>
-                  <Avatar src={member.avatar} alt={member.name} />
+                  <Avatar>{getInitials(member.name)}</Avatar>
                   <MemberName>{member.name}</MemberName>
                 </MemberRow>
               ))}
@@ -1514,7 +1528,9 @@ const Rooms = () => {
         <TwoColumn>
           <MainArea showParticipants={showParticipants}>
             <BackButton onClick={handleBackToRooms}><FaChevronLeft /></BackButton>
-            <SectionTitle style={{textAlign:'center',marginTop:80}}>Topics in {selectedRoom.name}</SectionTitle>
+            <SectionTitle style={{textAlign:'center',marginTop:80}}>
+              {roomLoading ? 'Loading topics...' : `Topics in ${selectedRoom.name}`}
+            </SectionTitle>
             <div style={{position: 'absolute', top: 16, right: 16, display: 'flex', gap: '10px'}}>
               <ActionButton onClick={() => setShowCreateTopicForm(true)}><FaPlus /> Create New Topic</ActionButton>
               <SidebarToggle onClick={() => setShowParticipants(!showParticipants)} title={showParticipants ? "Hide Participants" : "Show Participants"} style={{position: 'relative', top: 'auto', right: 'auto'}}>
@@ -1527,7 +1543,7 @@ const Rooms = () => {
                   <ThreeDotsIcon onClick={(e) => { e.stopPropagation(); setShowTopicMenu(topic.title); }}><FaEllipsisV /></ThreeDotsIcon>
                   {showTopicMenu === topic.title && (
                     <DropdownMenu>
-                      {(isAdmin(selectedRoom) || topic.createdBy === user?.name) && (
+                      {(isAdmin(selectedRoom) || topic.creator_name === user?.name || topic.created_by_user_id === user?.id) && (
                         <DropdownMenuItem className="delete" onClick={() => handleDeleteTopic(topic)}><FaTrash /> Delete Topic</DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => setShowTopicMenu(null)}><FaTimes /> Cancel</DropdownMenuItem>
@@ -1535,7 +1551,7 @@ const Rooms = () => {
                   )}
                   <TopicTitle>{topic.title}</TopicTitle>
                   <TopicMeta>{topic.description}</TopicMeta>
-                  <TopicMeta>Created by {topic.createdBy} on {topic.date}</TopicMeta>
+                  <TopicMeta>Created by {topic.creator_name || 'Member'} on {formatTopicDate(topic.created_at)}</TopicMeta>
                   <TopicActions>
                     <ActionButton onClick={() => handleTopicClick(topic)}><FaSignInAlt /> Enter Topic</ActionButton>
                   </TopicActions>
@@ -1567,7 +1583,7 @@ const Rooms = () => {
               <MemberSectionTitle>Admins</MemberSectionTitle>
               {getSortedAdmins(selectedRoom).map(admin => (
                 <MemberRow key={admin.email}>
-                  <Avatar src={admin.avatar} alt={admin.name} />
+                  <Avatar>{getInitials(admin.name)}</Avatar>
                   <MemberName>{admin.name}</MemberName>
                   <FaCrown style={{color:'#f59e0b',marginLeft:4}} title="Admin" />
                 </MemberRow>
@@ -1576,7 +1592,7 @@ const Rooms = () => {
               <MemberSectionTitle>Members</MemberSectionTitle>
               {getSortedMembers(selectedRoom).map(member => (
                 <MemberRow key={member.email} onClick={isAdmin(selectedRoom) ? (e) => setMemberAction({ show: true, user: member, anchor: e.currentTarget }) : undefined}>
-                  <Avatar src={member.avatar} alt={member.name} />
+                  <Avatar>{getInitials(member.name)}</Avatar>
                   <MemberName>{member.name}</MemberName>
                 </MemberRow>
               ))}

@@ -1,47 +1,38 @@
 import React, { useContext } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import styled from 'styled-components';
 import { UserContext } from '../context/UserContext';
+import Spinner from './common/Spinner';
+
+const LoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  height: 100vh;
+  color: #64748b;
+`;
 
 const ProtectedRoute = ({ children }) => {
-    const { isAuthenticated, loading } = useContext(UserContext);
-    const location = useLocation();
+  const { user, loading } = useContext(UserContext);
+  const isAuthenticated = !!user;
+  const location = useLocation();
 
-  // Show loading while checking authentication
-    if (loading) {
+  if (loading) {
     return (
-        <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        flexDirection: 'column',
-        gap: '10px'
-        }}>
-        <div style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid #f3f3f3',
-            borderTop: '4px solid #4285f4',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-        }} />
+      <LoadingContainer role="status" aria-live="polite">
+        <Spinner />
         <p>Verifying authentication...</p>
-        <style jsx>{`
-            @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-            }
-        `}</style>
-        </div>
+      </LoadingContainer>
     );
-    }
+  }
 
-  // Redirect to login if not authenticated
-    if (!isAuthenticated) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
-    }
+  }
 
-    return children;
+  return children;
 };
 
 export default ProtectedRoute;

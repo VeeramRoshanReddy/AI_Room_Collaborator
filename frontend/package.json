@@ -1,7 +1,7 @@
 {
-  "name": "ai-room-collaborator-frontend",
+  "name": "studybuddy-frontend",
   "version": "1.0.0",
-  "description": "Frontend for AI Room Collaborator - A collaborative learning platform with AI assistance",
+  "description": "Frontend for StudyBuddy - A collaborative learning platform with AI assistance",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
@@ -10,28 +10,14 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.6.7",
     "framer-motion": "^11.18.2",
-    "jwt-decode": "^3.1.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-dropzone": "^14.3.8",
     "react-icons": "^5.5.0",
     "react-router-dom": "^6.30.1",
     "react-scripts": "5.0.1",
     "react-toastify": "^10.0.6",
-    "socket.io-client": "^4.7.4",
     "styled-components": "^6.1.19",
     "web-vitals": "^2.1.4",
-    "react-helmet": "^6.1.0",
-    "react-query": "^3.39.3",
-    "react-hook-form": "^7.48.2",
-    "react-hot-toast": "^2.4.1",
-    "date-fns": "^2.30.0",
-    "react-markdown": "^9.0.1",
-    "react-syntax-highlighter": "^15.5.0",
-    "react-beautiful-dnd": "^13.1.1",
-    "react-intersection-observer": "^9.5.3",
-    "react-virtualized": "^9.22.5",
-    "react-window": "^1.8.8",
     "react-error-boundary": "^4.0.11"
   },
   "devDependencies": {
@@ -89,6 +75,6 @@
     "chat",
     "real-time"
   ],
-  "author": "AI Room Collaborator Team",
+  "author": "StudyBuddy Team",
   "license": "Veeram Roshan Reddy"
 }

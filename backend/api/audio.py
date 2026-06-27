@@ -4,9 +4,10 @@ from typing import List, Optional
 import logging
 from pydantic import BaseModel
 from core.database import get_db, get_mongo_db
+from core.config import settings
 from middleware.auth_middleware import get_current_user
 from models.postgresql.note import Note
-from models.mongodb.ai_response import AudioResponse
+from models.postgresql.user import User as PGUser
 from services.ai_service import ai_service
 from datetime import datetime
 import os
@@ -43,7 +44,7 @@ class AudioStatus(BaseModel):
 @router.post("/generate", response_model=AudioResponse)
 async def generate_audio_overview(
     request: AudioGenerateRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Generate an audio overview from a note's content"""
@@ -51,22 +52,22 @@ async def generate_audio_overview(
         # Check if note exists and user owns it
         note = db.query(Note).filter(
             Note.id == request.note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == current_user.id,
             Note.is_active == True
         ).first()
-        
+
         if not note:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Note not found or access denied"
             )
-        
+
         if not note.has_file_uploaded():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Note must have an uploaded file to generate audio overview"
             )
-        
+
         # Get document content for audio generation
         document_content = note.content or ""
         if not document_content:
@@ -74,44 +75,47 @@ async def generate_audio_overview(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Note must have content to generate audio overview"
             )
-        
+
         # Generate audio script using AI service
         script = await ai_service.generate_audio_overview_script(document_content)
-        
+
         if not script or not script.get("host_script") or not script.get("expert_script"):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to generate audio script"
             )
-        
-        # Store audio response in MongoDB
+
+        # Store as a plain dict first (the AudioResponse model requires id/created_at,
+        # which only exist once Mongo assigns them), then build the typed response.
         mongo_db = get_mongo_db()
-        audio_data = AudioResponse(
-            note_id=request.note_id,
-            user_id=current_user["id"],
-            host_script=script["host_script"],
-            expert_script=script["expert_script"],
-            status="generated"
-        )
-        
-        result = await mongo_db.audio_responses.insert_one(audio_data.dict())
-        audio_data.id = str(result.inserted_id)
-        
+        created_at = datetime.utcnow()
+        audio_doc = {
+            "note_id": request.note_id,
+            "user_id": current_user.id,
+            "host_script": script["host_script"],
+            "expert_script": script["expert_script"],
+            "audio_url": None,
+            "status": "generated",
+            "created_at": created_at,
+        }
+
+        result = await mongo_db.audio_responses.insert_one(audio_doc)
+
         # Update note to mark audio as generated
         note.audio_overview_generated = True
         db.commit()
-        
+
         return AudioResponse(
-            id=audio_data.id,
-            note_id=audio_data.note_id,
-            user_id=audio_data.user_id,
-            host_script=audio_data.host_script,
-            expert_script=audio_data.expert_script,
-            audio_url=audio_data.audio_url,
-            status=audio_data.status,
-            created_at=audio_data.created_at.isoformat()
+            id=str(result.inserted_id),
+            note_id=request.note_id,
+            user_id=current_user.id,
+            host_script=script["host_script"],
+            expert_script=script["expert_script"],
+            audio_url=None,
+            status="generated",
+            created_at=created_at.isoformat()
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -125,7 +129,7 @@ async def generate_audio_overview(
 @router.post("/{audio_id}/synthesize")
 async def synthesize_audio(
     audio_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     mongo_db = Depends(get_mongo_db)
 ):
     """Synthesize audio from generated script using ElevenLabs and stitch as podcast"""
@@ -133,7 +137,7 @@ async def synthesize_audio(
         # Get audio response
         audio = await mongo_db.audio_responses.find_one({
             "_id": audio_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         })
         
         if not audio:
@@ -155,9 +159,8 @@ async def synthesize_audio(
         )
         
         try:
-            # Get voice IDs from env
-            host_voice_id = os.getenv("ELEVENLABS_HOST_VOICE_ID")
-            expert_voice_id = os.getenv("ELEVENLABS_EXPERT_VOICE_ID")
+            host_voice_id = settings.ELEVENLABS_HOST_VOICE_ID
+            expert_voice_id = settings.ELEVENLABS_EXPERT_VOICE_ID
             if not host_voice_id or not expert_voice_id:
                 raise Exception("Voice IDs for host and expert must be set in environment.")
             
@@ -185,14 +188,12 @@ async def synthesize_audio(
             podcast_audio.export(podcast_path, format="mp3")
 
             # Upload to AWS S3
-            aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
-            aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-            aws_bucket = os.getenv("AWS_S3_BUCKET")
-            aws_region = os.getenv("AWS_REGION", "us-east-1")
+            aws_bucket = settings.AWS_S3_BUCKET
+            aws_region = settings.AWS_REGION
             s3_client = boto3.client(
                 's3',
-                aws_access_key_id=aws_access_key,
-                aws_secret_access_key=aws_secret_key,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
                 region_name=aws_region
             )
             s3_key = f"audio/podcast_{audio_id}.mp3"
@@ -235,14 +236,14 @@ async def synthesize_audio(
 @router.get("/{audio_id}/status", response_model=AudioStatus)
 async def get_audio_status(
     audio_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     mongo_db = Depends(get_mongo_db)
 ):
     """Get the status of audio synthesis"""
     try:
         audio = await mongo_db.audio_responses.find_one({
             "_id": audio_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         })
         
         if not audio:
@@ -270,7 +271,7 @@ async def get_audio_status(
 @router.get("/note/{note_id}", response_model=List[AudioResponse])
 async def get_note_audio(
     note_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get all audio overviews for a specific note"""
@@ -278,7 +279,7 @@ async def get_note_audio(
         # Check if note exists and user owns it
         note = db.query(Note).filter(
             Note.id == note_id,
-            Note.user_id == current_user["id"],
+            Note.user_id == current_user.id,
             Note.is_active == True
         ).first()
         
@@ -292,7 +293,7 @@ async def get_note_audio(
         mongo_db = get_mongo_db()
         audio_list = await mongo_db.audio_responses.find({
             "note_id": note_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         }).sort("created_at", -1).to_list(length=50)
         
         return [
@@ -321,14 +322,14 @@ async def get_note_audio(
 @router.get("/{audio_id}", response_model=AudioResponse)
 async def get_audio(
     audio_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     mongo_db = Depends(get_mongo_db)
 ):
     """Get a specific audio overview by ID"""
     try:
         audio = await mongo_db.audio_responses.find_one({
             "_id": audio_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         })
         
         if not audio:
@@ -360,14 +361,14 @@ async def get_audio(
 @router.delete("/{audio_id}")
 async def delete_audio(
     audio_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user: PGUser = Depends(get_current_user),
     mongo_db = Depends(get_mongo_db)
 ):
     """Delete an audio overview"""
     try:
         result = await mongo_db.audio_responses.delete_one({
             "_id": audio_id,
-            "user_id": current_user["id"]
+            "user_id": current_user.id
         })
         
         if result.deleted_count == 0:
