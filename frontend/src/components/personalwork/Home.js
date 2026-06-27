@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaUsers, FaFileAlt, FaComments, FaClock, FaStar } from 'react-icons/fa';
+import { FaUsers, FaFileAlt, FaStar } from 'react-icons/fa';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
@@ -124,61 +124,6 @@ const SectionTitle = styled.h2`
   gap: 8px;
 `;
 
-const RecentActivity = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-`;
-
-const ActivityItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #f8fafc;
-  transition: background 0.2s;
-  
-  &:hover {
-    background: #f1f5f9;
-  }
-`;
-
-const ActivityIcon = styled.div`
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-  color: white;
-  background: ${props => {
-    switch (props.type) {
-      case 'room': return '#667eea';
-      case 'note': return '#f5576c';
-      case 'chat': return '#4facfe';
-      default: return '#667eea';
-    }
-  }};
-`;
-
-const ActivityContent = styled.div`
-  flex: 1;
-`;
-
-const ActivityTitle = styled.div`
-  color: #1e293b;
-  font-weight: 500;
-  font-size: 0.9rem;
-`;
-
-const ActivityTime = styled.div`
-  color: #64748b;
-  font-size: 0.8rem;
-  margin-top: 2px;
-`;
-
 const QuickActions = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -289,6 +234,8 @@ const Home = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    // Intentionally run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleQuickAction = (action) => {
@@ -303,53 +250,6 @@ const Home = () => {
         break;
       default:
         break;
-    }
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-    } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-    }
-  };
-
-  const getActivityIcon = (type) => {
-    switch (type) {
-      case 'room_created':
-      case 'room_joined':
-        return <FaUsers />;
-      case 'note_created':
-      case 'note_updated':
-        return <FaFileAlt />;
-      case 'chat_message':
-        return <FaComments />;
-      default:
-        return <FaClock />;
-    }
-  };
-
-  const getActivityType = (type) => {
-    switch (type) {
-      case 'room_created':
-      case 'room_joined':
-        return 'room';
-      case 'note_created':
-      case 'note_updated':
-        return 'note';
-      case 'chat_message':
-        return 'chat';
-      default:
-        return 'activity';
     }
   };
 

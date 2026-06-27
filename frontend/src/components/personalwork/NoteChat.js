@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from 'styled-components';
-import { FaFileUpload, FaRobot, FaUserCircle, FaTimes, FaQuestionCircle, FaVolumeUp } from 'react-icons/fa';
+import { FaFileUpload, FaRobot, FaUserCircle, FaQuestionCircle, FaVolumeUp } from 'react-icons/fa';
 import { useUserContext } from '../../context/UserContext';
 import { toast } from 'react-toastify';
 
@@ -163,7 +163,7 @@ const OptionBtn = styled.button`
 `;
 
 const NoteChat = ({ note, onNoteUpdate }) => {
-  const { makeAuthenticatedRequest, user } = useUserContext();
+  const { makeAuthenticatedRequest } = useUserContext();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -207,6 +207,9 @@ const NoteChat = ({ note, onNoteUpdate }) => {
     setQuiz(null);
     setAudioScript(null);
     if (noteId) loadChatHistory();
+    // loadChatHistory only closes over noteId (already a dep) and the stable
+    // makeAuthenticatedRequest; re-run only when the selected note changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteId]);
 
   useEffect(() => {

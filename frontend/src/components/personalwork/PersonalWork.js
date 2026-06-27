@@ -209,6 +209,9 @@ const PersonalWork = () => {
 
   useEffect(() => {
     if (isAuthenticated) fetchNotes();
+    // fetchNotes only closes over stable setters/makeAuthenticatedRequest;
+    // re-run only when auth state changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   const handleCreate = async () => {

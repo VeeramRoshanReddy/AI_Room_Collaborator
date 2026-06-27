@@ -84,14 +84,6 @@ const RoomTitle = styled.h3`
   flex: 1;
 `;
 
-const RoomStatus = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.8rem;
-  color: ${props => props.isPrivate ? '#ef4444' : '#10b981'};
-`;
-
 const RoomDescription = styled.p`
   color: #64748b;
   font-size: 0.9rem;
@@ -114,11 +106,6 @@ const MemberCount = styled.div`
   gap: 6px;
   color: #64748b;
   font-size: 0.9rem;
-`;
-
-const RoomActions = styled.div`
-  display: flex;
-  gap: 8px;
 `;
 
 const ActionButton = styled.button`
