@@ -133,7 +133,8 @@ const ActionButton = styled.button`
   display: flex;
   align-items: center;
   gap: 4px;
-  
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+
   &.join {
     background: #10b981;
     color: white;
@@ -615,6 +616,7 @@ const FormButton = styled.button`
   font-size: 1rem;
   margin-top: 8px;
   &:hover { background: #1d4ed8; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
 const Rooms = () => {
@@ -661,7 +663,6 @@ const Rooms = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
 
   // WebSocket state
-  const [websocket, setWebsocket] = useState(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [wsReconnecting, setWsReconnecting] = useState(false);
   const wsRef = useRef(null);
@@ -782,8 +783,6 @@ const Rooms = () => {
       console.error('WebSocket error:', error);
       toast.error('WebSocket connection error');
     };
-
-    setWebsocket(ws);
   };
 
   const handleWebSocketMessage = (data) => {
@@ -1227,6 +1226,7 @@ const Rooms = () => {
       return;
     }
 
+    setDeletingTopic(true);
     try {
       await makeAuthenticatedRequest(`/topics/${topic.id}`, { method: 'DELETE' });
       toast.success('Topic deleted successfully');
@@ -1241,6 +1241,8 @@ const Rooms = () => {
       });
     } catch (error) {
       toast.error(error.message || 'Failed to delete topic');
+    } finally {
+      setDeletingTopic(false);
     }
   };
 
@@ -1340,6 +1342,7 @@ const Rooms = () => {
       const contentType = res.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await res.text();
+        console.error('Non-JSON response from /rooms/my-rooms:', text);
         setError('Server error: Received non-JSON response.');
         toast.error('Server error: Received non-JSON response.');
         return;
@@ -1356,33 +1359,13 @@ const Rooms = () => {
     }
   };
 
-  const fetchTopics = async (roomId, setSelectedRoom, setLoading, setError) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await makeAuthenticatedRequest(`/topics/room/${roomId}`);
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("Failed to fetch topics:", errorText);
-        throw new Error(`Server responded with status ${res.status}`);
-      }
-
-      const data = await res.json();
-      setSelectedRoom(prev => prev ? { ...prev, topics: data || [] } : prev);
-    } catch (err) {
-      const errorMessage = err.message || 'Error fetching topics';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (isAuthenticated) {
       fetchRooms(setRooms, setLoading, setError);
     }
+    // fetchRooms is stable for our purposes (only reads closure setters); only
+    // re-run when auth state changes, not on every render's new fn identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   // Add state for password modal and error popup
@@ -1392,15 +1375,6 @@ const Rooms = () => {
 
   // Add state for which room's menu is open
   const [openRoomMenu, setOpenRoomMenu] = useState(null);
-
-  // Helper: check if user is a member of a room (robust)
-  const isMember = (room) => {
-    if (!room?.members || !user) return true;
-    return room.members.some((m) => {
-      const person = normalizePerson(m);
-      return String(person.id) === String(user.id) || person.email === user.email;
-    });
-  };
 
   // Helper: fetch and show password for admin
   const handleRevealPassword = async (room) => {
@@ -1450,6 +1424,9 @@ const Rooms = () => {
             <BackButton onClick={handleBackToTopics}><FaChevronLeft /></BackButton>
             <ChatHeader>
               <ChatTitle>{selectedTopic.title}</ChatTitle>
+              <span style={{fontSize: '0.8rem', marginLeft: 12, color: wsConnected ? '#10b981' : '#ef4444'}}>
+                {wsConnected ? '● Connected' : wsReconnecting ? '● Reconnecting...' : '● Disconnected'}
+              </span>
               <div style={{display: 'flex', gap: '10px', marginLeft: 'auto'}}>
                 {isAdmin(selectedRoom) && (
                   <DeleteChatButton onClick={() => handleDeleteChat()}><FaTrash /> Delete Conversation</DeleteChatButton>
@@ -1485,9 +1462,12 @@ const Rooms = () => {
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   placeholder="Type a message..."
-                  onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                  onKeyDown={e => e.key === 'Enter' && !sendingMessage && handleSendChat()}
+                  disabled={sendingMessage}
                 />
-                <ActionButton onClick={handleSendChat}>Send</ActionButton>
+                <ActionButton onClick={handleSendChat} disabled={sendingMessage}>
+                  {sendingMessage ? 'Sending...' : 'Send'}
+                </ActionButton>
               </ChatInput>
             </ChatArea>
           </MainArea>
@@ -1544,7 +1524,11 @@ const Rooms = () => {
                   {showTopicMenu === topic.title && (
                     <DropdownMenu>
                       {(isAdmin(selectedRoom) || topic.creator_name === user?.name || topic.created_by_user_id === user?.id) && (
-                        <DropdownMenuItem className="delete" onClick={() => handleDeleteTopic(topic)}><FaTrash /> Delete Topic</DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="delete"
+                          onClick={() => { if (!deletingTopic) handleDeleteTopic(topic); }}
+                          style={{opacity: deletingTopic ? 0.6 : 1, pointerEvents: deletingTopic ? 'none' : 'auto'}}
+                        ><FaTrash /> {deletingTopic ? 'Deleting...' : 'Delete Topic'}</DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => setShowTopicMenu(null)}><FaTimes /> Cancel</DropdownMenuItem>
                     </DropdownMenu>
@@ -1573,7 +1557,9 @@ const Rooms = () => {
                     value={newTopicDesc}
                     onChange={e => setNewTopicDesc(e.target.value)}
                   />
-                  <FormButton onClick={handleCreateTopic}>Create Topic</FormButton>
+                  <FormButton onClick={handleCreateTopic} disabled={creatingTopic}>
+                    {creatingTopic ? 'Creating...' : 'Create Topic'}
+                  </FormButton>
                 </FormBox>
               </FormOverlay>
             )}
@@ -1636,7 +1622,6 @@ const Rooms = () => {
         <RoomsGrid>
           {rooms.map((room) => {
             const userIsAdmin = isAdmin(room);
-            const userIsMember = isMember(room);
             const adminCount = room.admins ? room.admins.length : 0;
             return (
               <RoomCard
@@ -1658,21 +1643,32 @@ const Rooms = () => {
                         {userIsAdmin ? (
                           <>
                             <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleRevealPassword(room); }}><FaLock style={{marginRight:8}}/> Reveal Password</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setOpenRoomMenu(null);
-                              if (userIsAdmin && adminCount === 1) {
-                                setAdminLeavePrompt(true);
-                              } else {
-                                handleLeaveRoom(room.id);
-                              }
-                            }} style={{color:'#ef4444'}}><FaSignOutAlt style={{marginRight:8}}/> Leave Room</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setOpenRoomMenu(null); handleDeleteRoom(room.id); }} style={{color:'#ef4444'}}><FaTrash style={{marginRight:8}}/> Delete Room</DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (leavingRoom) return;
+                                setOpenRoomMenu(null);
+                                if (userIsAdmin && adminCount === 1) {
+                                  setAdminLeavePrompt(true);
+                                } else {
+                                  handleLeaveRoom(room.id);
+                                }
+                              }}
+                              style={{color:'#ef4444', opacity: leavingRoom ? 0.6 : 1, pointerEvents: leavingRoom ? 'none' : 'auto'}}
+                            ><FaSignOutAlt style={{marginRight:8}}/> {leavingRoom ? 'Leaving...' : 'Leave Room'}</DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => { if (deletingRoom) return; setOpenRoomMenu(null); handleDeleteRoom(room.id); }}
+                              style={{color:'#ef4444', opacity: deletingRoom ? 0.6 : 1, pointerEvents: deletingRoom ? 'none' : 'auto'}}
+                            ><FaTrash style={{marginRight:8}}/> {deletingRoom ? 'Deleting...' : 'Delete Room'}</DropdownMenuItem>
                           </>
                         ) : (
-                          <DropdownMenuItem onClick={() => {
-                            setOpenRoomMenu(null);
-                            handleLeaveRoom(room.id);
-                          }} style={{color:'#ef4444'}}><FaSignOutAlt style={{marginRight:8}}/> Leave Room</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              if (leavingRoom) return;
+                              setOpenRoomMenu(null);
+                              handleLeaveRoom(room.id);
+                            }}
+                            style={{color:'#ef4444', opacity: leavingRoom ? 0.6 : 1, pointerEvents: leavingRoom ? 'none' : 'auto'}}
+                          ><FaSignOutAlt style={{marginRight:8}}/> {leavingRoom ? 'Leaving...' : 'Leave Room'}</DropdownMenuItem>
                         )}
                       </DropdownMenu>
                     )}
@@ -1712,7 +1708,9 @@ const Rooms = () => {
               onChange={e => setNewRoomDesc(e.target.value)}
               style={{marginBottom:'12px'}}
             />
-            <FormButton onClick={handleCreateRoom}>Create Room</FormButton>
+            <FormButton onClick={handleCreateRoom} disabled={creatingRoom}>
+              {creatingRoom ? 'Creating...' : 'Create Room'}
+            </FormButton>
           </FormBox>
         </FormOverlay>
       )}
@@ -1730,7 +1728,9 @@ const Rooms = () => {
               value={joinRoomPass}
               onChange={e => setJoinRoomPass(e.target.value)}
             />
-            <FormButton onClick={handleJoinRoom}>Join Room</FormButton>
+            <FormButton onClick={handleJoinRoom} disabled={joiningRoom}>
+              {joiningRoom ? 'Joining...' : 'Join Room'}
+            </FormButton>
           </FormBox>
         </FormOverlay>
       )}
