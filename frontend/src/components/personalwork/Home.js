@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { FaUsers, FaFileAlt, FaStar } from 'react-icons/fa';
 import { useUserContext } from '../../context/UserContext';
-import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import Spinner from '../common/Spinner';
 
