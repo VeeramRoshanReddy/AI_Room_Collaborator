@@ -686,6 +686,7 @@ const Rooms = () => {
         break;
       case 'chat_message':
       case 'chat_history':
+        if (!selectedTopic) break;
         if (data.type === 'chat_history' && Array.isArray(data.messages)) {
           const history = data.messages.map((msg, idx) => ({
             id: msg.message_id || idx,
@@ -725,10 +726,12 @@ const Rooms = () => {
         break;
       case 'error':
         toast.error(data.message || data.data?.message || 'An error occurred');
-        setRoomChatMessages((prev) => ({
-          ...prev,
-          [selectedTopic.title]: (prev[selectedTopic.title] || []).filter((m) => !m.isThinking),
-        }));
+        if (selectedTopic) {
+          setRoomChatMessages((prev) => ({
+            ...prev,
+            [selectedTopic.title]: (prev[selectedTopic.title] || []).filter((m) => !m.isThinking),
+          }));
+        }
         break;
       case 'pong':
         // Handle ping/pong for keepalive
