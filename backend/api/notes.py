@@ -296,7 +296,7 @@ async def upload_file_to_note(
             )
         
         # Validate file size (10MB limit)
-        if file.size > settings.MAX_FILE_SIZE:
+        if file.size is not None and file.size > settings.MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File too large. Maximum size is 10MB"
@@ -308,7 +308,10 @@ async def upload_file_to_note(
         # Upload to S3
         file_id = str(uuid.uuid4())
         file_path = f"notes/{current_user.id}/{file_id}/{file.filename}"
-        await storage_service.upload_bytes(file_content, file_path, content_type=file.content_type)
+        try:
+            await storage_service.upload_bytes(file_content, file_path, content_type=file.content_type)
+        except RuntimeError as e:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
 
         # Update note with file information
         note.uploaded_file_path = file_path
