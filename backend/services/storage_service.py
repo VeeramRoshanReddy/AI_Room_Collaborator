@@ -39,18 +39,30 @@ class StorageService:
         """Upload bytes to S3 under `key`, returning the key for later retrieval."""
         self._check_configured()
         extra_args = {"ContentType": content_type} if content_type else {}
-        self.client.put_object(Bucket=self.bucket, Key=key, Body=file_bytes, **extra_args)
+        try:
+            self.client.put_object(Bucket=self.bucket, Key=key, Body=file_bytes, **extra_args)
+        except (ClientError, NoCredentialsError) as e:
+            logger.error(f"S3 upload failed for key {key}: {e}")
+            raise RuntimeError(f"File storage upload failed: {e}")
         return key
 
     async def download_file(self, key: str) -> bytes:
         """Return the raw bytes stored at `key`."""
         self._check_configured()
-        response = self.client.get_object(Bucket=self.bucket, Key=key)
-        return response["Body"].read()
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+            return response["Body"].read()
+        except (ClientError, NoCredentialsError) as e:
+            logger.error(f"S3 download failed for key {key}: {e}")
+            raise RuntimeError(f"File storage download failed: {e}")
 
     async def delete_file(self, key: str):
         self._check_configured()
-        self.client.delete_object(Bucket=self.bucket, Key=key)
+        try:
+            self.client.delete_object(Bucket=self.bucket, Key=key)
+        except (ClientError, NoCredentialsError) as e:
+            logger.error(f"S3 delete failed for key {key}: {e}")
+            raise RuntimeError(f"File storage delete failed: {e}")
 
     async def get_file_info(self, key: str) -> Optional[dict]:
         """Return basic metadata if the file exists, else None."""

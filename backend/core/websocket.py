@@ -2,6 +2,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict
 import json
 import logging
+import re
 from datetime import datetime
 from core.database import get_mongo_db, SessionLocal
 from models.mongodb.chat_log import ChatLog, ChatMessage
@@ -192,12 +193,13 @@ class ChatWebSocket:
         """Handle AI chatbot requests"""
         try:
             content = message_data.get("content", "").strip()
-            if not content or not content.startswith("@chatbot"):
+            if not content or "@chatbot" not in content.lower():
                 return
-            
-            # Extract the actual question
-            question = content.replace("@chatbot", "").strip()
+
+            # Extract the actual question (mention can appear anywhere, any case)
+            question = re.sub(r"@chatbot", "", content, flags=re.IGNORECASE).strip()
             if not question:
+                await self.send_error("Please include a question after @chatbot.")
                 return
             
             # Create AI message placeholder
@@ -335,7 +337,7 @@ class ChatWebSocket:
                     is_active=True,
                     last_activity=datetime.utcnow()
                 )
-                await self.mongo_db.chat_logs.insert_one(new_chat_log.dict())
+                await self.mongo_db.chat_logs.insert_one(new_chat_log.to_dict())
                 
         except Exception as e:
             logger.error(f"Error saving message to database: {e}")

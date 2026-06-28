@@ -6,9 +6,21 @@ const TOKEN_KEY = 'studybuddy_jwt_token';
 const USER_KEY = 'studybuddy_user_data';
 const API_BASE = process.env.REACT_APP_API_URL || 'https://ai-room-collaborator.onrender.com/api/v1';
 
+const getCachedUser = () => {
+  try {
+    const stored = localStorage.getItem(USER_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(getCachedUser);
+  // Only block initial render when we have a token but no cached user to show
+  // optimistically — this avoids stalling the whole app (login page included)
+  // behind a slow/cold-starting backend on every load.
+  const [loading, setLoading] = useState(() => !!localStorage.getItem(TOKEN_KEY) && !getCachedUser());
   const [error, setError] = useState(null);
 
   const storeAuthData = (token, userData) => {

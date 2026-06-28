@@ -462,6 +462,8 @@ async def generate_quiz(
             file_content = await storage_service.download_file(note.uploaded_file_path)
         except HTTPException:
             raise
+        except RuntimeError as e:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
         except Exception as e:
             logger.error(f"Error accessing uploaded file: {e}")
             raise HTTPException(
@@ -546,6 +548,8 @@ async def generate_audio_overview(
             file_content = await storage_service.download_file(note.uploaded_file_path)
         except HTTPException:
             raise
+        except RuntimeError as e:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
         except Exception as e:
             logger.error(f"Error accessing uploaded file: {e}")
             raise HTTPException(

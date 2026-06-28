@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import styled, { ThemeProvider } from 'styled-components';
 import { ToastContainer } from 'react-toastify';
@@ -118,12 +118,27 @@ const AuthenticatedApp = ({ children }) => {
 
 function AppContent() {
   const { loading } = useUserContext();
+  const [slowStart, setSlowStart] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setSlowStart(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowStart(true), 6000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   if (loading) {
     return (
       <LoadingContainer>
         <Spinner />
         Loading your workspace...
+        {slowStart && (
+          <span style={{ fontSize: '0.85rem', maxWidth: 320, textAlign: 'center' }}>
+            Our free-tier server is waking up after being idle — this can take up to a minute.
+          </span>
+        )}
       </LoadingContainer>
     );
   }

@@ -708,7 +708,12 @@ const Rooms = () => {
           };
           setRoomChatMessages((prev) => ({
             ...prev,
-            [selectedTopic.title]: [...(prev[selectedTopic.title] || []), newMessage],
+            // Drop the "AI is thinking..." placeholder once the real answer arrives,
+            // instead of leaving it stuck above/below the actual response.
+            [selectedTopic.title]: [
+              ...(prev[selectedTopic.title] || []).filter((m) => !(payload.is_ai && m.isThinking)),
+              newMessage,
+            ],
           }));
         }
         break;
@@ -720,6 +725,10 @@ const Rooms = () => {
         break;
       case 'error':
         toast.error(data.message || data.data?.message || 'An error occurred');
+        setRoomChatMessages((prev) => ({
+          ...prev,
+          [selectedTopic.title]: (prev[selectedTopic.title] || []).filter((m) => !m.isThinking),
+        }));
         break;
       case 'pong':
         // Handle ping/pong for keepalive
@@ -948,13 +957,14 @@ const Rooms = () => {
       // If it's an AI request, add a temporary "thinking" message
       if (messageToSend.toLowerCase().includes('@chatbot')) {
         setTimeout(() => {
-          const thinkingMessage = { 
-            id: Date.now() + 1, 
-            text: "AI is thinking...", 
-            isUser: false, 
-            sender: 'AI', 
-            avatar: '/ai_logo.png', 
-            time: new Date().toLocaleTimeString() 
+          const thinkingMessage = {
+            id: Date.now() + 1,
+            text: "AI is thinking...",
+            isUser: false,
+            sender: 'AI',
+            avatar: '/ai_logo.png',
+            time: new Date().toLocaleTimeString(),
+            isThinking: true,
           };
           setRoomChatMessages(prev => ({
             ...prev,
