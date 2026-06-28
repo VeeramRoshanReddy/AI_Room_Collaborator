@@ -750,9 +750,10 @@ const Rooms = () => {
         user_name: user?.name,
         user_picture: user?.picture,
       }));
-    } else {
-      toast.error('Not connected to chat');
+      return true;
     }
+    toast.error('Not connected to chat');
+    return false;
   };
 
   // Cleanup WebSocket on unmount
@@ -955,8 +956,19 @@ const Rooms = () => {
     
     try {
       // Send via WebSocket
-      sendWebSocketMessage(messageToSend, messageToSend.toLowerCase().includes('@chatbot') ? 'ai_request' : 'chat_message');
-      
+      const sent = sendWebSocketMessage(messageToSend, messageToSend.toLowerCase().includes('@chatbot') ? 'ai_request' : 'chat_message');
+
+      if (!sent) {
+        // Not actually connected — roll back the optimistic message instead
+        // of pretending the request went out and is still "thinking".
+        setRoomChatMessages(prev => ({
+          ...prev,
+          [selectedTopic.title]: originalMessages
+        }));
+        setChatInput(messageToSend);
+        return;
+      }
+
       // If it's an AI request, add a temporary "thinking" message
       if (messageToSend.toLowerCase().includes('@chatbot')) {
         setTimeout(() => {
