@@ -6,7 +6,9 @@ export const getWsBaseUrl = () => {
     return process.env.REACT_APP_WS_URL.replace(/\/$/, '');
   }
   const api = API_BASE.replace(/\/api\/v1\/?$/, '');
-  return api.replace(/^http/, 'ws');
+  // Backend mounts the chat socket at /ws/{room_id}/{topic_id} (see
+  // @app.websocket("/ws/{room_id}/{topic_id}") in backend/main.py).
+  return `${api.replace(/^http/, 'ws')}/ws`;
 };
 
 export const buildWsUrl = (roomId, topicId, token) =>
