@@ -296,91 +296,59 @@ const Home = () => {
           </StatHeader>
           <StatNumber>{stats.totalNotes || 0}</StatNumber>
         </StatCard>
-        <StatCard>
-          <StatHeader>
-            <StatIcon type="activity">
-              <FaStar />
-            </StatIcon>
-            <StatContent>
-              <StatTitle>Motivation</StatTitle>
-              <StatValue>Keep up the great work!</StatValue>
-            </StatContent>
-          </StatHeader>
-          <div style={{marginTop: 16}}>
-            <div style={{fontWeight:600, color:'#2563eb', fontSize:'1.1rem'}}>You're making progress!</div>
-            <div style={{background:'#e0e7ef', borderRadius:8, height:10, marginTop:8, width:'100%'}}>
-              <div style={{width: `${Math.min(100, stats.totalRooms * 10)}%`, background:'#2563eb', height:10, borderRadius:8, transition:'width 0.5s'}}></div>
-            </div>
-          </div>
-        </StatCard>
       </StatsGrid>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginTop: 24 }}>
-        {/* Quick Actions Section - now more prominent */}
-        <Section style={{boxShadow:'0 4px 24px rgba(37,99,235,0.07)', border:'2px solid #e0e8f0'}}>
-          <SectionTitle>
-            <FaStar />
-            Quick Actions
-          </SectionTitle>
-          <QuickActions>
-            <ActionCard onClick={() => handleQuickAction('create-room')}>
-              <ActionHeader>
-                <ActionIcon type="create-room">
-                  <FaUsers />
-                </ActionIcon>
-                <ActionTitle>Create Room</ActionTitle>
-              </ActionHeader>
-              <ActionDescription>
-                Start a new study session with your peers
-              </ActionDescription>
-            </ActionCard>
-            <ActionCard onClick={() => handleQuickAction('upload-note')}>
-              <ActionHeader>
-                <ActionIcon type="upload-note">
-                  <FaFileAlt />
-                </ActionIcon>
-                <ActionTitle>Upload Note</ActionTitle>
-              </ActionHeader>
-              <ActionDescription>
-                Add a new document to your collection
-              </ActionDescription>
-            </ActionCard>
-            <ActionCard onClick={() => handleQuickAction('join-room')}>
-              <ActionHeader>
-                <ActionIcon type="join-room">
-                  <FaUsers />
-                </ActionIcon>
-                <ActionTitle>Join Room</ActionTitle>
-              </ActionHeader>
-              <ActionDescription>
-                Find and join existing study rooms
-              </ActionDescription>
-            </ActionCard>
-            <ActionCard onClick={() => handleQuickAction('view-notes')}>
-              <ActionHeader>
-                <ActionIcon type="view-notes">
-                  <FaFileAlt />
-                </ActionIcon>
-                <ActionTitle>View Notes</ActionTitle>
-              </ActionHeader>
-              <ActionDescription>
-                Browse and manage your notes
-              </ActionDescription>
-            </ActionCard>
-          </QuickActions>
-        </Section>
-        {/* Motivation Section */}
-        <Section>
-          <SectionTitle>
-            <FaStar />
-            Motivation
-          </SectionTitle>
-          <div style={{fontSize:'1.1rem', color:'#374151', marginBottom:12}}>
-            "Success is the sum of small efforts, repeated day in and day out."<br/>
-            <span style={{fontSize:'0.95rem', color:'#64748b'}}>— Robert Collier</span>
-          </div>
-          <div style={{marginTop:18, color:'#2563eb', fontWeight:600, fontSize:'1.05rem'}}>Stay consistent and keep collaborating!</div>
-        </Section>
-      </div>
+      <Section style={{boxShadow:'0 4px 24px rgba(37,99,235,0.07)', border:'2px solid #e0e8f0', marginTop: 24}}>
+        <SectionTitle>
+          <FaStar />
+          Quick Actions
+        </SectionTitle>
+        <QuickActions>
+          <ActionCard onClick={() => handleQuickAction('create-room')}>
+            <ActionHeader>
+              <ActionIcon type="create-room">
+                <FaUsers />
+              </ActionIcon>
+              <ActionTitle>Create Room</ActionTitle>
+            </ActionHeader>
+            <ActionDescription>
+              Start a new study session with your peers
+            </ActionDescription>
+          </ActionCard>
+          <ActionCard onClick={() => handleQuickAction('upload-note')}>
+            <ActionHeader>
+              <ActionIcon type="upload-note">
+                <FaFileAlt />
+              </ActionIcon>
+              <ActionTitle>Upload Note</ActionTitle>
+            </ActionHeader>
+            <ActionDescription>
+              Add a new document to your collection
+            </ActionDescription>
+          </ActionCard>
+          <ActionCard onClick={() => handleQuickAction('join-room')}>
+            <ActionHeader>
+              <ActionIcon type="join-room">
+                <FaUsers />
+              </ActionIcon>
+              <ActionTitle>Join Room</ActionTitle>
+            </ActionHeader>
+            <ActionDescription>
+              Find and join existing study rooms
+            </ActionDescription>
+          </ActionCard>
+          <ActionCard onClick={() => handleQuickAction('view-notes')}>
+            <ActionHeader>
+              <ActionIcon type="view-notes">
+                <FaFileAlt />
+              </ActionIcon>
+              <ActionTitle>View Notes</ActionTitle>
+            </ActionHeader>
+            <ActionDescription>
+              Browse and manage your notes
+            </ActionDescription>
+          </ActionCard>
+        </QuickActions>
+      </Section>
     </Container>
   );
 };

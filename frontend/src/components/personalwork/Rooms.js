@@ -147,6 +147,8 @@ const ActionButton = styled.button`
 `;
 
 const Input = styled.input`
+  flex: 1;
+  width: 100%;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
@@ -222,6 +224,8 @@ const MainArea = styled.div`
 `;
 
 const BackButton = styled.button`
+  display: flex;
+  align-self: flex-start;
   background: none;
   border: none;
   color: #2563eb;
@@ -301,6 +305,15 @@ const Avatar = styled.div`
   justify-content: center;
   color: #2563eb;
   font-size: 18px;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
 `;
 
 const SenderName = styled.span`

@@ -340,10 +340,13 @@ async def upload_file_to_note(
 
         db.commit()
         db.refresh(note)
-        
+
+        note_dict = note.to_dict()
+        note_dict["description"] = note_dict.pop("content", None)
+
         return {
             "message": "File uploaded successfully",
-            "note": NoteResponse(**note.to_dict())
+            "note": NoteResponse(**note_dict)
         }
         
     except HTTPException:
@@ -400,10 +403,13 @@ async def remove_file_from_note(
         
         db.commit()
         db.refresh(note)
-        
+
+        note_dict = note.to_dict()
+        note_dict["description"] = note_dict.pop("content", None)
+
         return {
             "message": "File removed successfully",
-            "note": NoteResponse(**note.to_dict())
+            "note": NoteResponse(**note_dict)
         }
         
     except HTTPException:
