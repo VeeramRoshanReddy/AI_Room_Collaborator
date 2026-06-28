@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserContext } from '../../context/UserContext';
 import { FaEnvelope, FaLock, FaUser, FaEye, FaEyeSlash, FaRocket } from 'react-icons/fa';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
+import { API_BASE } from '../../utils/api';
 
 const Page = styled.div`
   min-height: 100vh;
@@ -197,6 +198,24 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    // Render's free tier spins the backend down when idle. Ping it as soon as
+    // the login page loads so the cold start happens while the user is still
+    // typing their credentials, instead of only starting once they submit.
+    const healthUrl = `${API_BASE.replace(/\/api\/v1\/?$/, '')}/health`;
+    fetch(healthUrl).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      setSlow(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlow(true), 6000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const validateEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
@@ -309,6 +328,11 @@ const Login = () => {
             <Submit type="submit" disabled={loading}>
               {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </Submit>
+            {slow && (
+              <p style={{ textAlign: 'center', fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>
+                Our free-tier server is waking up after being idle — this can take up to a minute.
+              </p>
+            )}
           </Form>
         </Card>
       </FormPanel>
